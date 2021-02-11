@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"sync"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -66,11 +67,12 @@ func server() {
 
 		answer, _, _ := sshConn.SendRequest("reverse?", true, nil)
 		if answer {
-			log.Println("It wants the reverse!")
+
 			controllableClients = append(controllableClients, sshConn)
+
 		} else {
 			// Accept all channels
-			go handleChannels(chans)
+			go handleChannels(sshConn, chans)
 		}
 
 		// Discard all global out-of-band Requests
@@ -78,24 +80,25 @@ func server() {
 	}
 }
 
-func handleChannels(chans <-chan ssh.NewChannel) {
+func handleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel) {
 	// Service the incoming Channel channel in go routine
 	for newChannel := range chans {
-		go handleChannel(newChannel)
+		go handleChannel(sshConn, newChannel)
 	}
 }
 
-func handleChannel(newChannel ssh.NewChannel) {
+func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	// Since we're handling a shell, we expect a
 	// channel type of "session". The also describes
 	// "x11", "direct-tcpip" and "forwarded-tcpip"
 	// channel types.
-
-	log.Println("Handling channel request: ", newChannel.ChannelType())
 	if t := newChannel.ChannelType(); t != "session" {
 		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
+		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
 		return
 	}
+
+	defer log.Printf("Client disconnected %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion())
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
@@ -108,45 +111,15 @@ func handleChannel(newChannel ssh.NewChannel) {
 
 	term := terminal.NewTerminal(connection, "> ")
 
-	stop := make(chan string)
+	stopHandlingRequests := make(chan bool)
+
 	var ptyReq ssh.Request
 	var lastWindowChange ssh.Request
 
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
-	go func(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Terminal) {
+	go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stopHandlingRequests)
 
-		for {
-			select {
-			case <-stop:
-				return
-			case req := <-requests:
-				log.Println("Got request: ", req.Type)
-				switch req.Type {
-				case "shell":
-					// We only accept the default shell
-					// (i.e. no command in the Payload)
-					if len(req.Payload) == 0 {
-						req.Reply(true, nil)
-					}
-				case "pty-req":
-					termLen := req.Payload[3]
-					w, h := parseDims(req.Payload[termLen+4:])
-					term.SetSize(int(w), int(h))
-					// Responding true (OK) here will let the client
-					// know we have a pty ready for input
-					req.Reply(true, nil)
-					*ptyr = *req
-				case "window-change":
-					w, h := parseDims(req.Payload)
-					term.SetSize(int(w), int(h))
-					*wc = *req
-				}
-			}
-
-		}
-	}(&ptyReq, &lastWindowChange, term)
-
-	term.Write([]byte("Connected controllable clients: \n"))
+	fmt.Fprintf(term, "Connected controllable clients: \n")
 	for i := range controllableClients {
 
 		term.Write([]byte(
@@ -158,7 +131,7 @@ func handleChannel(newChannel ssh.NewChannel) {
 	}
 
 	i := -1
-
+	var splice ssh.Channel
 	for {
 		line, err := term.ReadLine()
 		if err != nil {
@@ -167,44 +140,107 @@ func handleChannel(newChannel ssh.NewChannel) {
 
 		i, err = strconv.Atoi(line)
 		if err != nil {
-			term.Write([]byte("Please enter a valid number"))
+			fmt.Fprintf(term, "Please enter a valid number")
 			continue
 		}
 
-		break
+		splice, _, err = attachSession(i, ptyReq, lastWindowChange)
+		if err == nil {
+			stopHandlingRequests <- true
 
+			var once sync.Once
+			go func() {
+				io.Copy(connection, splice)
+				once.Do(func() { splice.Close() })
+			}()
+			go func() {
+				io.Copy(splice, connection)
+				once.Do(func() { splice.Close() })
+			}()
+
+			for r := range requests {
+				response, err := sendRequest(*r, splice)
+				if err != nil {
+					fmt.Fprintf(term, "Error sending request: %s %s", r.Type, err)
+					splice.Close()
+					break
+				}
+
+				if r.WantReply {
+					r.Reply(response, nil)
+				}
+			}
+
+			fmt.Fprintf(term, "Session has terminated")
+
+			go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stopHandlingRequests)
+
+		}
+
+		fmt.Fprintf(term, err.Error())
 	}
 
-	splice, newrequests, err := controllableClients[i].OpenChannel("session", nil)
+}
+
+func attachSession(i int, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, r <-chan *ssh.Request, err error) {
+
+	sshConn := controllableClients[i]
+
+	splice, newrequests, err := sshConn.OpenChannel("session", nil)
 	if err != nil {
-		log.Printf("Could not accept channel (%s)", err)
-		return
+		log.Printf("Unable to start remote session on host %s (%s) : %s\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), err)
+		return sc, r, fmt.Errorf("Unable to start remote session on host %s (%s) : %s", sshConn.RemoteAddr(), sshConn.ClientVersion(), err)
 	}
 
-	stop <- "now"
+	//Replay the pty and any the very last window size change in order to correctly size the PTY on the controlled client
+	_, err = sendRequest(ptyReq, splice)
+	if err != nil {
+		return sc, r, fmt.Errorf("Unable to send PTY request: %s", err)
+	}
 
-	sendRequest(ptyReq, splice)
-	sendRequest(lastWindowChange, splice)
-
-	go func() {
-		io.Copy(connection, splice)
-
-	}()
-	go func() {
-		io.Copy(splice, connection)
-
-	}()
+	_, err = sendRequest(lastWindowChange, splice)
+	if err != nil {
+		return sc, r, fmt.Errorf("Unable to send last window change request: %s", err)
+	}
 
 	go ssh.DiscardRequests(newrequests)
 
-	for r := range requests {
-		sendRequest(*r, splice)
-	}
-
-	log.Println("Client disconnected")
-
+	return splice, newrequests, nil
 }
 
 func sendRequest(req ssh.Request, sshChan ssh.Channel) (bool, error) {
 	return sshChan.SendRequest(req.Type, req.WantReply, req.Payload)
+}
+
+func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Terminal, requests <-chan *ssh.Request, cancel <-chan bool) {
+
+	for {
+		select {
+		case <-cancel:
+			return
+		case req := <-requests:
+			log.Println("Got request: ", req.Type)
+			switch req.Type {
+			case "shell":
+				// We only accept the default shell
+				// (i.e. no command in the Payload)
+				if len(req.Payload) == 0 {
+					req.Reply(true, nil)
+				}
+			case "pty-req":
+				termLen := req.Payload[3]
+				w, h := parseDims(req.Payload[termLen+4:])
+				term.SetSize(int(w), int(h))
+				// Responding true (OK) here will let the client
+				// know we have a pty ready for input
+				req.Reply(true, nil)
+				*ptyr = *req
+			case "window-change":
+				w, h := parseDims(req.Payload)
+				term.SetSize(int(w), int(h))
+				*wc = *req
+			}
+		}
+
+	}
 }
