@@ -111,74 +111,88 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 	term := terminal.NewTerminal(connection, "> ")
 
-	stopHandlingRequests := make(chan bool)
+	stop := make(chan bool)
 
 	var ptyReq ssh.Request
 	var lastWindowChange ssh.Request
 
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
-	go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stopHandlingRequests)
+	go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop)
 
 	fmt.Fprintf(term, "Connected controllable clients: \n")
 	for i := range controllableClients {
 
-		term.Write([]byte(
-			fmt.Sprintf("%d. %s:%s\n",
-				i,
-				controllableClients[i].RemoteAddr(),
-				controllableClients[i].ClientVersion(),
-			)))
+		fmt.Fprintf(term, "%d. %s:%s\n",
+			i,
+			controllableClients[i].RemoteAddr(),
+			controllableClients[i].ClientVersion(),
+		)
 	}
 
 	i := -1
 	var splice ssh.Channel
 	for {
+		//This will break if the user does CTRL+C or CTRL+D, not entirely sure why we cant just consume it. But whatever
 		line, err := term.ReadLine()
 		if err != nil {
 			break
 		}
 
 		i, err = strconv.Atoi(line)
-		if err != nil {
-			fmt.Fprintf(term, "Please enter a valid number")
+		if err != nil || i > len(controllableClients) || i < 0 {
+			fmt.Fprintf(term, "Please enter a valid number\n")
 			continue
 		}
 
 		splice, _, err = attachSession(i, ptyReq, lastWindowChange)
+		close := func() { splice.Close(); stop <- true }
 		if err == nil {
-			stopHandlingRequests <- true
+			stop <- true
 
 			var once sync.Once
 			go func() {
 				io.Copy(connection, splice)
-				once.Do(func() { splice.Close() })
+				once.Do(close)
+
 			}()
 			go func() {
 				io.Copy(splice, connection)
-				once.Do(func() { splice.Close() })
+				once.Do(close)
+
 			}()
 
-			for r := range requests {
-				response, err := sendRequest(*r, splice)
-				if err != nil {
-					fmt.Fprintf(term, "Error sending request: %s %s", r.Type, err)
-					splice.Close()
-					break
+		RequestsPasser:
+			for {
+				select {
+				case r := <-requests:
+					response, err := sendRequest(*r, splice)
+					if err != nil {
+						fmt.Fprintf(term, "Error sending request: %s %s\n", r.Type, err)
+						once.Do(func() { splice.Close() })
+						break RequestsPasser
+					}
+
+					if r.WantReply {
+						r.Reply(response, nil)
+					}
+				case <-stop:
+					break RequestsPasser
 				}
 
-				if r.WantReply {
-					r.Reply(response, nil)
-				}
 			}
 
-			fmt.Fprintf(term, "Session has terminated")
+			log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controllableClients[i].RemoteAddr(), controllableClients[i].ClientVersion())
 
-			go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stopHandlingRequests)
+			fmt.Fprintf(term, "Session has terminated\n")
+
+			go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop)
+			continue
 
 		}
 
 		fmt.Fprintf(term, err.Error())
 	}
+	stop <- true
 
 }
 

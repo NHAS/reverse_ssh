@@ -38,8 +38,6 @@ func client() {
 		},
 	)
 
-	log.Printf("%s", privatePem)
-
 	sshPriv, err := ssh.ParsePrivateKey(privatePem)
 	if err != nil {
 		log.Fatal("Parsing the ssh private key failed: ", err)
@@ -130,34 +128,28 @@ func clientHandleNewChannel(newChannel ssh.NewChannel) {
 		once.Do(close)
 	}()
 
-	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
-	go func() {
-
-		for req := range requests {
-			log.Println("Got request: ", req.Type)
-			switch req.Type {
-			case "shell":
-				// We only accept the default shell
-				// (i.e. no command in the Payload)
-				if len(req.Payload) == 0 {
-					req.Reply(true, nil)
-				}
-			case "pty-req":
-				termLen := req.Payload[3]
-				w, h := parseDims(req.Payload[termLen+4:])
-				SetWinsize(bashf.Fd(), w, h)
-				// Responding true (OK) here will let the client
-				// know we have a pty ready for input
+	for req := range requests {
+		log.Println("Got request: ", req.Type)
+		switch req.Type {
+		case "shell":
+			// We only accept the default shell
+			// (i.e. no command in the Payload)
+			if len(req.Payload) == 0 {
 				req.Reply(true, nil)
-			case "window-change":
-				w, h := parseDims(req.Payload)
-				SetWinsize(bashf.Fd(), w, h)
 			}
+		case "pty-req":
+			termLen := req.Payload[3]
+			w, h := parseDims(req.Payload[termLen+4:])
+			SetWinsize(bashf.Fd(), w, h)
+			// Responding true (OK) here will let the client
+			// know we have a pty ready for input
+			req.Reply(true, nil)
+		case "window-change":
+			w, h := parseDims(req.Payload)
+			SetWinsize(bashf.Fd(), w, h)
 		}
+	}
 
-		connection.Close()
-		bash.Process.Kill()
-	}()
 }
 
 // =======================
