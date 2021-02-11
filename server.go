@@ -117,8 +117,10 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	var lastWindowChange ssh.Request
 
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
+	// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect
 	go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop)
 
+	//Send list of controllable remote hosts to human client
 	fmt.Fprintf(term, "Connected controllable clients: \n")
 	for i := range controllableClients {
 
@@ -129,7 +131,6 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		)
 	}
 
-	i := -1
 	var splice ssh.Channel
 	for {
 		//This will break if the user does CTRL+C or CTRL+D, not entirely sure why we cant just consume it. But whatever
@@ -138,21 +139,28 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 			break
 		}
 
-		i, err = strconv.Atoi(line)
+		i, err := strconv.Atoi(line)
 		if err != nil || i > len(controllableClients) || i < 0 {
 			fmt.Fprintf(term, "Please enter a valid number\n")
 			continue
 		}
 
+		//Attempt to connect to remote host and send inital pty request and screen size
+		// If we cant, report and error to the clients terminal
 		splice, _, err = attachSession(i, ptyReq, lastWindowChange)
-		close := func() { splice.Close(); stop <- true }
+		close := func() {
+			splice.Close()
+			stop <- true // Stop the request passer (This is a bit janky, needs to change so we arent using the same channel to stop the default handler and the actual one)
+		}
 		if err == nil {
-			stop <- true
+			stop <- true // Stop the default request handler
 
+			//Setup the pipes for stdin/stdout over the connections
+			//Splice being the remote host being controlled
 			var once sync.Once
 			go func() {
 				io.Copy(connection, splice)
-				once.Do(close)
+				once.Do(close) // Only close the splice connection once
 
 			}()
 			go func() {
@@ -168,7 +176,7 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 					response, err := sendRequest(*r, splice)
 					if err != nil {
 						fmt.Fprintf(term, "Error sending request: %s %s\n", r.Type, err)
-						once.Do(func() { splice.Close() })
+						splice.Close()
 						break RequestsPasser
 					}
 
@@ -185,14 +193,14 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 			fmt.Fprintf(term, "Session has terminated\n")
 
-			go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop)
+			go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop) // Re-enable the default handler if the client isnt connected to a remote host
 			continue
 
 		}
 
 		fmt.Fprintf(term, err.Error())
 	}
-	stop <- true
+	stop <- true // Stops the default handleSSHRequests as the channel gets closed which would cause a nil dereference
 
 }
 

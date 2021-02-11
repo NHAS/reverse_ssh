@@ -26,7 +26,7 @@ func client() {
 		log.Fatal(err)
 	}
 
-	bytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	bytes, err := x509.MarshalPKCS8PrivateKey(priv) // Convert a generated ed25519 key into a PEM block so that the ssh library can ingest it, bit round about tbh
 	if err != nil {
 		log.Fatal("x509 marshling failed: ", err)
 	}
@@ -49,7 +49,7 @@ func client() {
 			ssh.PublicKeys(sshPriv),
 		},
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
+			return nil // Accept any host, also a temp dev shim
 		},
 	}
 
@@ -66,12 +66,12 @@ func client() {
 	}
 	defer sshConn.Close()
 
-	rq := <-reqs
+	rq := <-reqs // To signal to the server we are a remote controllable host, we answer the question of "are you reverse" via OOB requests
 	if rq.Type == "reverse?" {
 		rq.Reply(true, nil)
 	}
 
-	go ssh.DiscardRequests(reqs)
+	go ssh.DiscardRequests(reqs) // Then go on to ignore everything else
 
 	for newChannel := range chans {
 		go clientHandleNewChannel(newChannel)
@@ -79,6 +79,7 @@ func client() {
 
 }
 
+//This basically handles exactly like a SSH server would
 func clientHandleNewChannel(newChannel ssh.NewChannel) {
 
 	log.Println("Handling channel request: ", newChannel.ChannelType())
@@ -100,7 +101,7 @@ func clientHandleNewChannel(newChannel ssh.NewChannel) {
 
 	// Prepare teardown function
 	close := func() {
-		connection.Close()
+		connection.Close() // Not a fan of this
 		_, err := bash.Process.Wait()
 		if err != nil {
 			log.Printf("Failed to exit bash (%s)", err)
