@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/binary"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -12,8 +11,6 @@ import (
 	"net"
 	"os/exec"
 	"sync"
-	"syscall"
-	"unsafe"
 
 	"github.com/kr/pty"
 	"golang.org/x/crypto/ssh"
@@ -73,20 +70,55 @@ func client() {
 
 	go ssh.DiscardRequests(reqs) // Then go on to ignore everything else
 
-	for newChannel := range chans {
-		go clientHandleNewChannel(newChannel)
-	}
+	handleChannels(sshConn, chans, map[string]channelHandler{
+		"session":      clientHandleNewChannel,
+		"direct-tcpip": clientHandleProxyChannel,
+	})
 
 }
 
-//This basically handles exactly like a SSH server would
-func clientHandleNewChannel(newChannel ssh.NewChannel) {
+func clientHandleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
+	a := newChannel.ExtraData()
 
-	log.Println("Handling channel request: ", newChannel.ChannelType())
-	if t := newChannel.ChannelType(); t != "session" {
-		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
+	var drtMsg channelOpenDirectMsg
+	err := ssh.Unmarshal(a, &drtMsg)
+	if err != nil {
+		log.Println(err)
 		return
 	}
+
+	connection, requests, err := newChannel.Accept()
+	defer connection.Close()
+	go func() {
+		for r := range requests {
+			log.Println("Got req: ", r)
+		}
+	}()
+
+	tcpConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer tcpConn.Close()
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+	go func() {
+		io.Copy(connection, tcpConn)
+		wg.Done()
+	}()
+	go func() {
+		io.Copy(tcpConn, connection)
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+//This basically handles exactly like a SSH server would
+func clientHandleNewChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
@@ -152,30 +184,3 @@ func clientHandleNewChannel(newChannel ssh.NewChannel) {
 	}
 
 }
-
-// =======================
-
-// parseDims extracts terminal dimensions (width x height) from the provided buffer.
-func parseDims(b []byte) (uint32, uint32) {
-	w := binary.BigEndian.Uint32(b)
-	h := binary.BigEndian.Uint32(b[4:])
-	return w, h
-}
-
-// ======================
-
-// Winsize stores the Height and Width of a terminal.
-type Winsize struct {
-	Height uint16
-	Width  uint16
-	x      uint16 // unused
-	y      uint16 // unused
-}
-
-// SetWinsize sets the size of the given pty.
-func SetWinsize(fd uintptr, w, h uint32) {
-	ws := &Winsize{Width: uint16(w), Height: uint16(h)}
-	syscall.Syscall(syscall.SYS_IOCTL, fd, uintptr(syscall.TIOCSWINSZ), uintptr(unsafe.Pointer(ws)))
-}
-
-// Borrowed from https://github.com/creack/termios/blob/master/win/win.go

@@ -17,6 +17,13 @@ import (
 
 var controllableClients []ssh.Conn
 
+type target struct {
+	con       ssh.Conn
+	connected bool
+}
+
+var humans map[ssh.Conn]target = make(map[ssh.Conn]target)
+
 var autoCompleteTrie *trie.Trie
 
 func server() {
@@ -51,9 +58,12 @@ func server() {
 	}
 
 	autoCompleteTrie = trie.NewTrie()
-	autoCompleteTrie.Add("exit ")
-	autoCompleteTrie.Add("ls ")
+	autoCompleteTrie.Add("exit")
+	autoCompleteTrie.Add("ls")
 	autoCompleteTrie.Add("connect ")
+	autoCompleteTrie.Add("shell ")
+	autoCompleteTrie.Add("proxy ")
+	autoCompleteTrie.Add("help")
 
 	// Accept all connections
 	log.Print("Listening on 2200...")
@@ -77,8 +87,13 @@ func server() {
 			controllableClients = append(controllableClients, sshConn)
 
 		} else {
+			humans[sshConn] = target{connected: false}
+
 			// Accept all channels
-			go handleChannels(sshConn, chans)
+			go handleChannels(sshConn, chans, map[string]channelHandler{
+				"session":      handleSessionChannel,
+				"direct-tcpip": handleProxyChannel,
+			})
 
 		}
 		// Discard all global out-of-band Requests
@@ -86,32 +101,15 @@ func server() {
 	}
 }
 
-func handleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel) {
-	// Service the incoming Channel channel in go routine
-	for newChannel := range chans {
-		t := newChannel.ChannelType()
-		switch t {
-		case "session":
-			go handleSessionChannel(sshConn, newChannel)
-		case "direct-tcpip":
-			go handleProxyChannel(sshConn, newChannel)
-		default:
-			newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
-			log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
-
-		}
-
-	}
-}
-
-type channelOpenDirectMsg struct {
-	Raddr string
-	Rport uint32
-	Laddr string
-	Lport uint32
-}
-
 func handleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
+
+	if !humans[sshConn].connected {
+		newChannel.Reject(ssh.Prohibited, "no remote location to forward traffic to")
+		return
+	}
+
+	destConn := humans[sshConn].con
+
 	a := newChannel.ExtraData()
 
 	var drtMsg channelOpenDirectMsg
@@ -121,9 +119,7 @@ func handleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		return
 	}
 
-	fmt.Printf("Client wanted to connect to: \n")
-	fmt.Printf("L: %s:%d\n", drtMsg.Laddr, drtMsg.Lport)
-	fmt.Printf("R: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
+	log.Printf("Human client proxying to: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
 
 	connection, requests, err := newChannel.Accept()
 	defer connection.Close()
@@ -133,22 +129,23 @@ func handleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		}
 	}()
 
-	tcpConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport))
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer tcpConn.Close()
+	proxyDest, proxyRequests, err := destConn.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
+	defer proxyDest.Close()
+	go func() {
+		for r := range proxyRequests {
+			log.Println("Prox Got req: ", r)
+		}
+	}()
 
 	var wg sync.WaitGroup
 
 	wg.Add(2)
 	go func() {
-		io.Copy(connection, tcpConn)
+		io.Copy(connection, proxyDest)
 		wg.Done()
 	}()
 	go func() {
-		io.Copy(tcpConn, connection)
+		io.Copy(proxyDest, connection)
 		wg.Done()
 	}()
 
@@ -249,17 +246,20 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 					fmt.Fprintf(term, "Please enter a valid number\n")
 					continue
 				}
-
+				controlClient := controllableClients[i]
 				//Attempt to connect to remote host and send inital pty request and screen size
 				// If we cant, report and error to the clients terminal
-				newSession, err := createSession(i, ptyReq, lastWindowChange)
+				newSession, err := createSession(controlClient, ptyReq, lastWindowChange)
 				if err == nil {
 					stop <- true // Stop the default request handler
+					humans[sshConn] = target{connected: true, con: controlClient}
+
 					err := attachSession(newSession, connection, requests)
 					if err != nil {
 						fmt.Fprintf(term, "Error: %s", err)
 						log.Println(err)
 					}
+					humans[sshConn] = target{connected: false, con: nil}
 					fmt.Fprintf(term, "Session has terminated\n")
 					log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controllableClients[i].RemoteAddr(), controllableClients[i].ClientVersion())
 
@@ -272,11 +272,10 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		}
 	}
 
+	delete(humans, sshConn)
 }
 
-func createSession(i int, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, err error) {
-
-	sshConn := controllableClients[i]
+func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, err error) {
 
 	splice, newrequests, err := sshConn.OpenChannel("session", nil)
 	if err != nil {
@@ -342,10 +341,6 @@ RequestsPasser:
 	return nil
 }
 
-func sendRequest(req ssh.Request, sshChan ssh.Channel) (bool, error) {
-	return sshChan.SendRequest(req.Type, req.WantReply, req.Payload)
-}
-
 func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Terminal, requests <-chan *ssh.Request, cancel <-chan bool) {
 
 	for {
@@ -372,6 +367,7 @@ func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Termin
 			case "window-change":
 				w, h := parseDims(req.Payload)
 				term.SetSize(int(w), int(h))
+
 				*wc = *req
 			}
 		}
