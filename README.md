@@ -33,8 +33,8 @@ You, the human client connect to the reverse shell catcher with ssh, and then se
 
 ## Todo
 
-- Make the selection UI a bit better
-- Handle IO errors better in all parties
+- ~~Make the selection UI a bit better~~
+- ~~Handle IO errors better in all parties~~
+- Remove remote connection host from list when a disconnection is registered
 - Make the client cleanly fork itself from whatever parent it started from, giving it persistence (might be hard in go)
 - direct-tcp port forwarding to select hosts
-- Open to suggestions

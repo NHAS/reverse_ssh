@@ -51,8 +51,9 @@ func server() {
 	}
 
 	autoCompleteTrie = trie.NewTrie()
-	autoCompleteTrie.Add("exit")
-	autoCompleteTrie.Add("connect")
+	autoCompleteTrie.Add("exit ")
+	autoCompleteTrie.Add("ls ")
+	autoCompleteTrie.Add("connect ")
 
 	// Accept all connections
 	log.Print("Listening on 2200...")
@@ -78,8 +79,8 @@ func server() {
 		} else {
 			// Accept all channels
 			go handleChannels(sshConn, chans)
-		}
 
+		}
 		// Discard all global out-of-band Requests
 		go ssh.DiscardRequests(reqs)
 	}
@@ -138,6 +139,9 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
 	// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect
 	go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop)
+	defer func() {
+		stop <- true // Stops the default handleSSHRequests as the channel gets closed which would cause a nil dereference
+	}()
 
 	//Send list of controllable remote hosts to human client
 	fmt.Fprintf(term, "Connected controllable clients: \n")
@@ -150,7 +154,6 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		)
 	}
 
-	var splice ssh.Channel
 	for {
 		//This will break if the user does CTRL+C or CTRL+D apparently we need to reset the whole terminal if a user does this....
 		line, err := term.ReadLine()
@@ -158,105 +161,128 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 			break
 		}
 
-		if strings.Contains(line, "exit") {
-			break
-		}
+		commandParts := strings.Split(line, " ")
 
-		if strings.Contains(line, "connect") {
-			parts := strings.Split(strings.TrimSpace(line), " ")
-			if len(parts) != 2 {
-				fmt.Fprintf(term, "connect <remote machine id>\n")
-				continue
-			}
+		if len(commandParts) > 0 {
 
-			i, err := strconv.Atoi(parts[1])
-			if err != nil || i > len(controllableClients) || i < 0 {
-				fmt.Fprintf(term, "Please enter a valid number\n")
-				continue
-			}
+			switch commandParts[0] {
+			default:
+				fmt.Fprintf(term, "Unknown command: %s\n", commandParts[0])
 
-			//Attempt to connect to remote host and send inital pty request and screen size
-			// If we cant, report and error to the clients terminal
-			splice, _, err = attachSession(i, ptyReq, lastWindowChange)
-			close := func() {
-				splice.Close()
-				stop <- true // Stop the request passer (This is a bit janky, needs to change so we arent using the same channel to stop the default handler and the actual one)
-			}
-			if err == nil {
-				stop <- true // Stop the default request handler
+			case "ls":
+				for i := range controllableClients {
 
-				//Setup the pipes for stdin/stdout over the connections
-				//Splice being the remote host being controlled
-				var once sync.Once
-				go func() {
-					io.Copy(connection, splice)
-					once.Do(close) // Only close the splice connection once
-
-				}()
-				go func() {
-					io.Copy(splice, connection)
-					once.Do(close)
-
-				}()
-
-			RequestsPasser:
-				for {
-					select {
-					case r := <-requests:
-						response, err := sendRequest(*r, splice)
-						if err != nil {
-							fmt.Fprintf(term, "Error sending request: %s %s\n", r.Type, err)
-							splice.Close()
-							break RequestsPasser
-						}
-
-						if r.WantReply {
-							r.Reply(response, nil)
-						}
-					case <-stop:
-						break RequestsPasser
-					}
-
+					fmt.Fprintf(term, "%d. %s:%s\n",
+						i,
+						controllableClients[i].RemoteAddr(),
+						controllableClients[i].ClientVersion(),
+					)
 				}
 
-				log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controllableClients[i].RemoteAddr(), controllableClients[i].ClientVersion())
+			case "exit":
+				return
+			case "connect":
+				if len(commandParts) != 2 {
+					fmt.Fprintf(term, "connect <remote machine id>\n")
+					continue
+				}
 
-				fmt.Fprintf(term, "Session has terminated\n")
+				i, err := strconv.Atoi(commandParts[1])
+				if err != nil || i > len(controllableClients) || i < 0 {
+					fmt.Fprintf(term, "Please enter a valid number\n")
+					continue
+				}
 
-				go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop) // Re-enable the default handler if the client isnt connected to a remote host
-				continue
+				//Attempt to connect to remote host and send inital pty request and screen size
+				// If we cant, report and error to the clients terminal
+				newSession, err := createSession(i, ptyReq, lastWindowChange)
+				if err == nil {
+					stop <- true // Stop the default request handler
+					err := attachSession(newSession, connection, requests)
+					if err != nil {
+						fmt.Fprintf(term, "Error: %s", err)
+						log.Println(err)
+					}
+					fmt.Fprintf(term, "Session has terminated\n")
+					log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controllableClients[i].RemoteAddr(), controllableClients[i].ClientVersion())
 
+					go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop) // Re-enable the default handler if the client isnt connected to a remote host
+				} else {
+
+					fmt.Fprintf(term, "%s\n", err)
+				}
 			}
 		}
 	}
-	stop <- true // Stops the default handleSSHRequests as the channel gets closed which would cause a nil dereference
 
 }
 
-func attachSession(i int, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, r <-chan *ssh.Request, err error) {
+func createSession(i int, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, err error) {
 
 	sshConn := controllableClients[i]
 
 	splice, newrequests, err := sshConn.OpenChannel("session", nil)
 	if err != nil {
 		log.Printf("Unable to start remote session on host %s (%s) : %s\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), err)
-		return sc, r, fmt.Errorf("Unable to start remote session on host %s (%s) : %s", sshConn.RemoteAddr(), sshConn.ClientVersion(), err)
+		return sc, fmt.Errorf("Unable to start remote session on host %s (%s) : %s", sshConn.RemoteAddr(), sshConn.ClientVersion(), err)
 	}
 
 	//Replay the pty and any the very last window size change in order to correctly size the PTY on the controlled client
 	_, err = sendRequest(ptyReq, splice)
 	if err != nil {
-		return sc, r, fmt.Errorf("Unable to send PTY request: %s", err)
+		return sc, fmt.Errorf("Unable to send PTY request: %s", err)
 	}
 
 	_, err = sendRequest(lastWindowChange, splice)
 	if err != nil {
-		return sc, r, fmt.Errorf("Unable to send last window change request: %s", err)
+		return sc, fmt.Errorf("Unable to send last window change request: %s", err)
 	}
 
 	go ssh.DiscardRequests(newrequests)
 
-	return splice, newrequests, nil
+	return splice, nil
+}
+
+func attachSession(newSession, currentClientSession ssh.Channel, currentClientRequests <-chan *ssh.Request) error {
+	finished := make(chan bool)
+	close := func() {
+		newSession.Close()
+		finished <- true // Stop the request passer on IO error
+	}
+
+	//Setup the pipes for stdin/stdout over the connections
+	//Splice being the remote host being controlled
+	var once sync.Once
+	go func() {
+		io.Copy(currentClientSession, newSession) // Potentially be more verbose about errors here
+		once.Do(close)                            // Only close the splice connection once
+
+	}()
+	go func() {
+		io.Copy(newSession, currentClientSession)
+		once.Do(close)
+	}()
+	defer once.Do(close)
+
+RequestsPasser:
+	for {
+		select {
+		case r := <-currentClientRequests:
+			response, err := sendRequest(*r, newSession)
+			if err != nil {
+				break RequestsPasser
+			}
+
+			if r.WantReply {
+				r.Reply(response, nil)
+			}
+		case <-finished:
+			break RequestsPasser
+		}
+
+	}
+
+	return nil
 }
 
 func sendRequest(req ssh.Request, sshChan ssh.Channel) (bool, error) {
