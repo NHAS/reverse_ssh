@@ -89,22 +89,79 @@ func server() {
 func handleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel) {
 	// Service the incoming Channel channel in go routine
 	for newChannel := range chans {
-		go handleChannel(sshConn, newChannel)
+		t := newChannel.ChannelType()
+		switch t {
+		case "session":
+			go handleSessionChannel(sshConn, newChannel)
+		case "direct-tcpip":
+			go handleProxyChannel(sshConn, newChannel)
+		default:
+			newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
+			log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
+
+		}
+
 	}
 }
 
-func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
+type channelOpenDirectMsg struct {
+	Raddr string
+	Rport uint32
+	Laddr string
+	Lport uint32
+}
+
+func handleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
+	a := newChannel.ExtraData()
+
+	var drtMsg channelOpenDirectMsg
+	err := ssh.Unmarshal(a, &drtMsg)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	fmt.Printf("Client wanted to connect to: \n")
+	fmt.Printf("L: %s:%d\n", drtMsg.Laddr, drtMsg.Lport)
+	fmt.Printf("R: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
+
+	connection, requests, err := newChannel.Accept()
+	defer connection.Close()
+	go func() {
+		for r := range requests {
+			log.Println("Got req: ", r)
+		}
+	}()
+
+	tcpConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer tcpConn.Close()
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+	go func() {
+		io.Copy(connection, tcpConn)
+		wg.Done()
+	}()
+	go func() {
+		io.Copy(tcpConn, connection)
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	// Since we're handling a shell, we expect a
 	// channel type of "session". The also describes
 	// "x11", "direct-tcpip" and "forwarded-tcpip"
 	// channel types.
-	if t := newChannel.ChannelType(); t != "session" {
-		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
-		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
-		return
-	}
 
-	defer log.Printf("Client disconnected %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion())
+	defer log.Printf("Human client disconnected %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion())
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
