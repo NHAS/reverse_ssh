@@ -99,6 +99,7 @@ func server() {
 		// Discard all global out-of-band Requests
 		go ssh.DiscardRequests(reqs)
 	}
+
 }
 
 func handleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
