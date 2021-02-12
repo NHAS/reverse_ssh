@@ -7,13 +7,17 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/NHAS/reverse_ssh/trie"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
 var controllableClients []ssh.Conn
+
+var autoCompleteTrie *trie.Trie
 
 func server() {
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH server type has been removed
@@ -25,9 +29,6 @@ func server() {
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 			return nil, nil // Temp shim
 		},
-		// You may also explicitly allow anonymous client authentication, though anon bash
-		// sessions may not be a wise idea
-		// NoClientAuth: true,
 	}
 
 	// You can generate a keypair with 'ssh-keygen -t rsa'
@@ -48,6 +49,10 @@ func server() {
 	if err != nil {
 		log.Fatalf("Failed to listen on 2200 (%s)", err)
 	}
+
+	autoCompleteTrie = trie.NewTrie()
+	autoCompleteTrie.Add("exit")
+	autoCompleteTrie.Add("connect")
 
 	// Accept all connections
 	log.Print("Listening on 2200...")
@@ -110,6 +115,20 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	defer connection.Close()
 
 	term := terminal.NewTerminal(connection, "> ")
+	term.AutoCompleteCallback = func(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
+
+		if key == '\t' {
+			r := autoCompleteTrie.PrefixMatch(strings.TrimSpace(line))
+
+			if len(r) == 1 {
+				return line + r[0], len(line + r[0]), true
+			}
+
+			fmt.Fprintf(term, "%s\n", r)
+			return "", 0, false
+		}
+		return "", 0, false
+	}
 
 	stop := make(chan bool)
 
@@ -133,72 +152,82 @@ func handleChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 	var splice ssh.Channel
 	for {
-		//This will break if the user does CTRL+C or CTRL+D, not entirely sure why we cant just consume it. But whatever
+		//This will break if the user does CTRL+C or CTRL+D apparently we need to reset the whole terminal if a user does this....
 		line, err := term.ReadLine()
 		if err != nil {
 			break
 		}
 
-		i, err := strconv.Atoi(line)
-		if err != nil || i > len(controllableClients) || i < 0 {
-			fmt.Fprintf(term, "Please enter a valid number\n")
-			continue
+		if strings.Contains(line, "exit") {
+			break
 		}
 
-		//Attempt to connect to remote host and send inital pty request and screen size
-		// If we cant, report and error to the clients terminal
-		splice, _, err = attachSession(i, ptyReq, lastWindowChange)
-		close := func() {
-			splice.Close()
-			stop <- true // Stop the request passer (This is a bit janky, needs to change so we arent using the same channel to stop the default handler and the actual one)
-		}
-		if err == nil {
-			stop <- true // Stop the default request handler
+		if strings.Contains(line, "connect") {
+			parts := strings.Split(strings.TrimSpace(line), " ")
+			if len(parts) != 2 {
+				fmt.Fprintf(term, "connect <remote machine id>\n")
+				continue
+			}
 
-			//Setup the pipes for stdin/stdout over the connections
-			//Splice being the remote host being controlled
-			var once sync.Once
-			go func() {
-				io.Copy(connection, splice)
-				once.Do(close) // Only close the splice connection once
+			i, err := strconv.Atoi(parts[1])
+			if err != nil || i > len(controllableClients) || i < 0 {
+				fmt.Fprintf(term, "Please enter a valid number\n")
+				continue
+			}
 
-			}()
-			go func() {
-				io.Copy(splice, connection)
-				once.Do(close)
+			//Attempt to connect to remote host and send inital pty request and screen size
+			// If we cant, report and error to the clients terminal
+			splice, _, err = attachSession(i, ptyReq, lastWindowChange)
+			close := func() {
+				splice.Close()
+				stop <- true // Stop the request passer (This is a bit janky, needs to change so we arent using the same channel to stop the default handler and the actual one)
+			}
+			if err == nil {
+				stop <- true // Stop the default request handler
 
-			}()
+				//Setup the pipes for stdin/stdout over the connections
+				//Splice being the remote host being controlled
+				var once sync.Once
+				go func() {
+					io.Copy(connection, splice)
+					once.Do(close) // Only close the splice connection once
 
-		RequestsPasser:
-			for {
-				select {
-				case r := <-requests:
-					response, err := sendRequest(*r, splice)
-					if err != nil {
-						fmt.Fprintf(term, "Error sending request: %s %s\n", r.Type, err)
-						splice.Close()
+				}()
+				go func() {
+					io.Copy(splice, connection)
+					once.Do(close)
+
+				}()
+
+			RequestsPasser:
+				for {
+					select {
+					case r := <-requests:
+						response, err := sendRequest(*r, splice)
+						if err != nil {
+							fmt.Fprintf(term, "Error sending request: %s %s\n", r.Type, err)
+							splice.Close()
+							break RequestsPasser
+						}
+
+						if r.WantReply {
+							r.Reply(response, nil)
+						}
+					case <-stop:
 						break RequestsPasser
 					}
 
-					if r.WantReply {
-						r.Reply(response, nil)
-					}
-				case <-stop:
-					break RequestsPasser
 				}
 
+				log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controllableClients[i].RemoteAddr(), controllableClients[i].ClientVersion())
+
+				fmt.Fprintf(term, "Session has terminated\n")
+
+				go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop) // Re-enable the default handler if the client isnt connected to a remote host
+				continue
+
 			}
-
-			log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controllableClients[i].RemoteAddr(), controllableClients[i].ClientVersion())
-
-			fmt.Fprintf(term, "Session has terminated\n")
-
-			go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop) // Re-enable the default handler if the client isnt connected to a remote host
-			continue
-
 		}
-
-		fmt.Fprintf(term, err.Error())
 	}
 	stop <- true // Stops the default handleSSHRequests as the channel gets closed which would cause a nil dereference
 
