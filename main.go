@@ -16,25 +16,25 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"time"
+	"strings"
 )
 
 func main() {
+	arg := ""
+
 	if len(os.Args) > 1 {
-		log.Println("Am client, forking to background and disowning parent")
-
-		if len(os.Args) == 2 {
-			cmd := exec.Command(os.Args[0], "--client", "fork")
-			cmd.Start()
-
-			<-time.Tick(time.Second * 20)
-			log.Println("Ending parent")
-			return
-		}
-
-		client()
-		return
+		arg = strings.TrimSpace(os.Args[1])
 	}
 
-	server()
+	switch arg {
+	case "--server":
+		server()
+	case "--client":
+		client()
+	default:
+		cmd := exec.Command(os.Args[0], "--client")
+		cmd.Start()
+		log.Println("Ending parent")
+	}
+
 }
