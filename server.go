@@ -95,6 +95,7 @@ func server() {
 				}
 				log.Printf("SSH client disconnected from %s", s)
 				delete(controllableClients, s) // So so so not threadsafe, need to fix this
+				autoCompleteTrie.Remove(idString)
 			}(idString)
 
 		} else {
@@ -197,7 +198,10 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 				return line + r[0], len(line + r[0]), true
 			}
 
-			fmt.Fprintf(term, "%s\n", r)
+			for _, completion := range r {
+				fmt.Fprintf(term, "%s\n", line+completion)
+			}
+
 			return "", 0, false
 		}
 		return "", 0, false
@@ -257,7 +261,11 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 					continue
 				}
 
-				controlClient := controllableClients[commandParts[1]]
+				controlClient, ok := controllableClients[commandParts[1]]
+				if !ok {
+					fmt.Fprintf(term, "Unknown connection host\n")
+					continue
+				}
 				//Attempt to connect to remote host and send inital pty request and screen size
 				// If we cant, report and error to the clients terminal
 				newSession, err := createSession(controlClient, ptyReq, lastWindowChange)

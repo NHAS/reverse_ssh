@@ -32,3 +32,43 @@ func TestSimpleAdd(t *testing.T) {
 		t.FailNow()
 	}
 }
+
+func TestSimpleRemove(t *testing.T) {
+	nt := NewTrie()
+
+	nt.Add("hello world is jordan")
+	nt.Add("hello frank")
+	nt.Add("Yeet Yeet Yeet")
+	nt.Add("Yeet Yoot")
+	nt.Add("Yapple")
+	nt.Add("apple")
+
+	nt.Remove("ap")
+
+	if len(nt.getAll()) != 6 {
+		t.Log("Removing of non-existant item caused length change")
+		t.FailNow()
+	}
+
+	before := nt.getAll()
+
+	nt.Remove("apple")
+
+	after := nt.getAll()
+
+	for _, n := range before {
+		found := false
+		for _, nn := range after {
+			if nn == n {
+				found = true
+				break
+			}
+		}
+
+		if !found && n != "apple" {
+			t.Logf("Removed wrong item...? '%s'\n", n)
+			t.FailNow()
+		}
+
+	}
+}

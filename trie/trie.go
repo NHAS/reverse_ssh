@@ -24,12 +24,18 @@ func (t *Trie) Add(s string) {
 }
 
 func (t *Trie) getAll() (result []string) {
+
 	if len(t.children) == 0 {
 		return []string{string(t.c)}
 	}
+
+	prefix := string(t.c)
+	if t.root {
+		prefix = ""
+	}
 	for _, c := range t.children {
 		for _, n := range c.getAll() {
-			result = append(result, string(t.c)+n)
+			result = append(result, prefix+n)
 		}
 	}
 
@@ -52,8 +58,21 @@ func (t *Trie) PrefixMatch(prefix string) (result []string) {
 
 }
 
-func (t *Trie) Remove(s string) {
+func (t *Trie) Remove(s string) bool {
+	if len(s) == 0 {
+		return len(t.children) == 0
+	}
 
+	if len(t.children) == 0 {
+		return true
+	}
+
+	if child, ok := t.children[s[0]]; ok && child.Remove(s[1:]) {
+		delete(t.children, s[0])
+		return len(t.children) == 0
+	}
+
+	return false
 }
 
 func NewTrie() *Trie {
