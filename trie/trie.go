@@ -3,75 +3,62 @@ package trie
 type Trie struct {
 	root     bool
 	c        byte
-	children map[byte][]*Trie
-}
-
-func (t *Trie) GetAllUnderneath() (result []string) {
-	if len(t.children) == 0 {
-
-		return []string{string(t.c)}
-	}
-
-	for _, v := range t.children {
-		for i := range v {
-			r := v[i].GetAllUnderneath()
-			for _, ii := range r {
-				result = append(result, string(t.c)+ii)
-			}
-		}
-	}
-
-	return result
-}
-
-func (t *Trie) PrefixMatch(s string) (result []string) {
-
-	if len(s) == 0 {
-		for _, v := range t.children {
-			for x := range v {
-				n := v[x].GetAllUnderneath()
-
-				result = append(result, n...)
-			}
-		}
-		return result
-	}
-
-	for _, v := range t.children[s[0]] {
-
-		n := v.PrefixMatch(s[1:])
-
-		result = append(result, n...)
-	}
-
-	return result
+	children map[byte]*Trie
 }
 
 func (t *Trie) Add(s string) {
 	if len(s) == 0 {
 		return
 	}
-	newChild := &Trie{children: make(map[byte][]*Trie)}
-	if t.root {
 
-		t.children[s[0]] = append(t.children[s[0]], newChild)
-		newChild.Add(s)
+	if child, ok := t.children[s[0]]; ok {
+		child.Add(s[1:])
 		return
 	}
 
-	t.c = s[0]
+	newChild := &Trie{children: make(map[byte]*Trie)}
+	newChild.c = s[0]
+	t.children[s[0]] = newChild
+	newChild.Add(s[1:])
 
-	if len(s) > 1 {
+}
 
-		t.children[s[1]] = append(t.children[s[1]], newChild)
-		newChild.Add(s[1:])
+func (t *Trie) getAll() (result []string) {
+	if len(t.children) == 0 {
+		return []string{string(t.c)}
 	}
+	for _, c := range t.children {
+		for _, n := range c.getAll() {
+			result = append(result, string(t.c)+n)
+		}
+	}
+
+	return result
+}
+
+func (t *Trie) PrefixMatch(prefix string) (result []string) {
+	if len(prefix) == 0 {
+		for _, child := range t.children {
+			result = append(result, child.getAll()...)
+		}
+		return result
+	}
+
+	if child, ok := t.children[prefix[0]]; ok {
+		return child.PrefixMatch(prefix[1:])
+	}
+
+	return []string{} // No matches
+
+}
+
+func (t *Trie) Remove(s string) {
 
 }
 
 func NewTrie() *Trie {
 	t := &Trie{
-		children: make(map[byte][]*Trie),
+		children: make(map[byte]*Trie),
 		root:     true,
 	}
 

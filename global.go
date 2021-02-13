@@ -21,6 +21,7 @@ type channelOpenDirectMsg struct {
 
 func handleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, handlers map[string]channelHandler) {
 	// Service the incoming Channel channel in go routine
+
 	for newChannel := range chans {
 		t := newChannel.ChannelType()
 

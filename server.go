@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -15,14 +14,11 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-var controllableClients []ssh.Conn
+var controllableClients map[string]ssh.Conn = make(map[string]ssh.Conn)
 
-type target struct {
-	con       ssh.Conn
-	connected bool
-}
-
-var humans map[ssh.Conn]target = make(map[ssh.Conn]target)
+//A map of 'controller' ssh connections, to the host they're controlling.
+//Will be nil if they arent connected to anything
+var connections map[ssh.Conn]ssh.Conn = make(map[ssh.Conn]ssh.Conn)
 
 var autoCompleteTrie *trie.Trie
 
@@ -31,10 +27,14 @@ func server() {
 	// in favour of an SSH connection type. A ssh.ServerConn is created by passing an existing
 	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in effect, upgrading the net.Conn
 	// into an ssh.ServerConn
-
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-			return nil, nil // Temp shim
+			return &ssh.Permissions{
+				// Record the public key used for authentication.
+				Extensions: map[string]string{
+					"pubkey-fp": ssh.FingerprintSHA256(key),
+				},
+			}, nil
 		},
 	}
 
@@ -61,9 +61,6 @@ func server() {
 	autoCompleteTrie.Add("exit")
 	autoCompleteTrie.Add("ls")
 	autoCompleteTrie.Add("connect ")
-	autoCompleteTrie.Add("shell ")
-	autoCompleteTrie.Add("proxy ")
-	autoCompleteTrie.Add("help")
 
 	// Accept all connections
 	log.Print("Listening on 2200...")
@@ -84,37 +81,53 @@ func server() {
 		answer, _, _ := sshConn.SendRequest("reverse?", true, nil)
 		if answer {
 
-			controllableClients = append(controllableClients, sshConn)
+			idString := fmt.Sprintf("%s@%s", sshConn.Permissions.Extensions["pubkey-fp"], sshConn.RemoteAddr())
+
+			autoCompleteTrie.Add(idString)
+
+			controllableClients[idString] = sshConn
+
+			go func(s string) {
+				for req := range reqs {
+					if req.WantReply {
+						req.Reply(false, nil)
+					}
+				}
+				log.Printf("SSH client disconnected from %s", s)
+				delete(controllableClients, s) // So so so not threadsafe, need to fix this
+			}(idString)
 
 		} else {
-			humans[sshConn] = target{connected: false}
+			connections[sshConn] = nil
 
-			// Accept all channels
+			// Since we're handling a shell and proxy, so we expect
+			// channel type of "session" or "direct-tcpip".
 			go handleChannels(sshConn, chans, map[string]channelHandler{
 				"session":      handleSessionChannel,
 				"direct-tcpip": handleProxyChannel,
 			})
 
+			// Discard all global out-of-band Requests
+			go ssh.DiscardRequests(reqs)
 		}
-		// Discard all global out-of-band Requests
-		go ssh.DiscardRequests(reqs)
+
 	}
 
 }
 
 func handleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
-	if !humans[sshConn].connected {
+	if connections[sshConn] == nil {
 		newChannel.Reject(ssh.Prohibited, "no remote location to forward traffic to")
 		return
 	}
 
-	destConn := humans[sshConn].con
+	destConn := connections[sshConn]
 
-	a := newChannel.ExtraData()
+	proxyTarget := newChannel.ExtraData()
 
 	var drtMsg channelOpenDirectMsg
-	err := ssh.Unmarshal(a, &drtMsg)
+	err := ssh.Unmarshal(proxyTarget, &drtMsg)
 	if err != nil {
 		log.Println(err)
 		return
@@ -154,10 +167,6 @@ func handleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 }
 
 func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
-	// Since we're handling a shell, we expect a
-	// channel type of "session". The also describes
-	// "x11", "direct-tcpip" and "forwarded-tcpip"
-	// channel types.
 
 	defer log.Printf("Human client disconnected %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion())
 
@@ -174,7 +183,15 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	term.AutoCompleteCallback = func(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
 
 		if key == '\t' {
-			r := autoCompleteTrie.PrefixMatch(strings.TrimSpace(line))
+
+			parts := strings.Split(strings.TrimSpace(line), " ")
+
+			searchString := ""
+			if len(parts) > 0 {
+				searchString = parts[len(parts)-1]
+			}
+
+			r := autoCompleteTrie.PrefixMatch(searchString)
 
 			if len(r) == 1 {
 				return line + r[0], len(line + r[0]), true
@@ -200,12 +217,11 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 	//Send list of controllable remote hosts to human client
 	fmt.Fprintf(term, "Connected controllable clients: \n")
-	for i := range controllableClients {
+	for idStr := range controllableClients {
 
-		fmt.Fprintf(term, "%d. %s:%s\n",
-			i,
-			controllableClients[i].RemoteAddr(),
-			controllableClients[i].ClientVersion(),
+		fmt.Fprintf(term, "%s, client version: %s\n",
+			idStr,
+			controllableClients[idStr].ClientVersion(),
 		)
 	}
 
@@ -225,12 +241,11 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 				fmt.Fprintf(term, "Unknown command: %s\n", commandParts[0])
 
 			case "ls":
-				for i := range controllableClients {
+				for idStr := range controllableClients {
 
-					fmt.Fprintf(term, "%d. %s:%s\n",
-						i,
-						controllableClients[i].RemoteAddr(),
-						controllableClients[i].ClientVersion(),
+					fmt.Fprintf(term, "%s, client version: %s\n",
+						idStr,
+						controllableClients[idStr].ClientVersion(),
 					)
 				}
 
@@ -242,27 +257,25 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 					continue
 				}
 
-				i, err := strconv.Atoi(commandParts[1])
-				if err != nil || i > len(controllableClients) || i < 0 {
-					fmt.Fprintf(term, "Please enter a valid number\n")
-					continue
-				}
-				controlClient := controllableClients[i]
+				controlClient := controllableClients[commandParts[1]]
 				//Attempt to connect to remote host and send inital pty request and screen size
 				// If we cant, report and error to the clients terminal
 				newSession, err := createSession(controlClient, ptyReq, lastWindowChange)
 				if err == nil {
 					stop <- true // Stop the default request handler
-					humans[sshConn] = target{connected: true, con: controlClient}
+
+					connections[sshConn] = controlClient
 
 					err := attachSession(newSession, connection, requests)
 					if err != nil {
 						fmt.Fprintf(term, "Error: %s", err)
 						log.Println(err)
 					}
-					humans[sshConn] = target{connected: false, con: nil}
+
+					connections[sshConn] = nil
+
 					fmt.Fprintf(term, "Session has terminated\n")
-					log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controllableClients[i].RemoteAddr(), controllableClients[i].ClientVersion())
+					log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
 
 					go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop) // Re-enable the default handler if the client isnt connected to a remote host
 				} else {
@@ -273,7 +286,7 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		}
 	}
 
-	delete(humans, sshConn)
+	delete(connections, sshConn)
 }
 
 func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, err error) {
