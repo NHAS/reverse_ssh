@@ -27,7 +27,7 @@ func FingerprintSHA256Hex(pubKey ssh.PublicKey) string {
 	return fingerPrint
 }
 
-func HandleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, handlers map[string]ChannelHandler) error {
+func RegisterChannelCallbacks(sshConn ssh.Conn, chans <-chan ssh.NewChannel, handlers map[string]ChannelHandler) error {
 	// Service the incoming Channel channel in go routine
 
 	for newChannel := range chans {
