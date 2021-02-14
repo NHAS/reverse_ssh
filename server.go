@@ -22,7 +22,7 @@ var connections map[ssh.Conn]ssh.Conn = make(map[ssh.Conn]ssh.Conn)
 
 var autoCompleteTrie *trie.Trie
 
-func server() {
+func server(addr string) {
 
 	//Taken from the server example, authorized keys are required for controllers
 	authorizedKeysBytes, err := ioutil.ReadFile("authorized_keys")
@@ -81,7 +81,7 @@ func server() {
 	config.AddHostKey(private)
 
 	// Once a ServerConfig has been configured, connections can be accepted.
-	listener, err := net.Listen("tcp", "0.0.0.0:2200")
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen on 2200 (%s)", err)
 	}
@@ -92,7 +92,7 @@ func server() {
 	autoCompleteTrie.Add("connect ")
 
 	// Accept all connections
-	log.Print("Listening on 2200...")
+	log.Printf("Listening on %s...\n", addr)
 	for {
 		tcpConn, err := listener.Accept()
 		if err != nil {
