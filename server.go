@@ -213,7 +213,7 @@ func handleSessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 		if key == '\t' {
 
-			parts := strings.Split(strings.TrimSpace(line), " ")
+			parts := strings.Split(line, " ")
 
 			searchString := ""
 			if len(parts) > 0 {
