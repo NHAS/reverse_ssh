@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"crypto/sha256"
@@ -12,9 +12,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type channelHandler func(sshConn ssh.Conn, newChannel ssh.NewChannel)
+type ChannelHandler func(sshConn ssh.Conn, newChannel ssh.NewChannel)
 
-type channelOpenDirectMsg struct {
+type ChannelOpenDirectMsg struct {
 	Raddr string
 	Rport uint32
 	Laddr string
@@ -27,7 +27,7 @@ func FingerprintSHA256Hex(pubKey ssh.PublicKey) string {
 	return fingerPrint
 }
 
-func handleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, handlers map[string]channelHandler) {
+func HandleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, handlers map[string]ChannelHandler) error {
 	// Service the incoming Channel channel in go routine
 
 	for newChannel := range chans {
@@ -41,16 +41,18 @@ func handleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, handlers map[
 		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
 		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
 	}
+
+	return fmt.Errorf("connection terminated")
 }
 
-func sendRequest(req ssh.Request, sshChan ssh.Channel) (bool, error) {
+func SendRequest(req ssh.Request, sshChan ssh.Channel) (bool, error) {
 	return sshChan.SendRequest(req.Type, req.WantReply, req.Payload)
 }
 
 // =======================
 
 // parseDims extracts terminal dimensions (width x height) from the provided buffer.
-func parseDims(b []byte) (uint32, uint32) {
+func ParseDims(b []byte) (uint32, uint32) {
 	w := binary.BigEndian.Uint32(b)
 	h := binary.BigEndian.Uint32(b[4:])
 	return w, h

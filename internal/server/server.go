@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -9,7 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/NHAS/reverse_ssh/trie"
+	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -19,10 +20,9 @@ var controllableClients map[string]ssh.Conn = make(map[string]ssh.Conn)
 //A map of 'controller' ssh connections, to the host they're controlling.
 //Will be nil if they arent connected to anything
 var connections map[ssh.Conn]ssh.Conn = make(map[ssh.Conn]ssh.Conn)
-
 var autoCompleteTrie *trie.Trie
 
-func server(addr string) {
+func Run(addr string) {
 
 	//Taken from the server example, authorized keys are required for controllers
 	authorizedKeysBytes, err := ioutil.ReadFile("authorized_keys")
@@ -56,7 +56,7 @@ func server(addr string) {
 				return &ssh.Permissions{
 					// Record the public key used for authentication.
 					Extensions: map[string]string{
-						"pubkey-fp":    FingerprintSHA256Hex(key),
+						"pubkey-fp":    internal.FingerprintSHA256Hex(key),
 						"controllable": controllable,
 					},
 				}, nil
@@ -76,7 +76,7 @@ func server(addr string) {
 		log.Fatal("Failed to parse private key")
 	}
 
-	log.Println("Server key fingerprint: ", FingerprintSHA256Hex(private.PublicKey()))
+	log.Println("Server key fingerprint: ", internal.FingerprintSHA256Hex(private.PublicKey()))
 
 	config.AddHostKey(private)
 
@@ -131,7 +131,7 @@ func server(addr string) {
 
 			// Since we're handling a shell and proxy, so we expect
 			// channel type of "session" or "direct-tcpip".
-			go handleChannels(sshConn, chans, map[string]channelHandler{
+			go internal.HandleChannels(sshConn, chans, map[string]internal.ChannelHandler{
 				"session":      handleSessionChannel,
 				"direct-tcpip": handleProxyChannel,
 			})
@@ -155,7 +155,7 @@ func handleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 	proxyTarget := newChannel.ExtraData()
 
-	var drtMsg channelOpenDirectMsg
+	var drtMsg internal.ChannelOpenDirectMsg
 	err := ssh.Unmarshal(proxyTarget, &drtMsg)
 	if err != nil {
 		log.Println(err)
@@ -334,12 +334,12 @@ func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc s
 	}
 
 	//Replay the pty and any the very last window size change in order to correctly size the PTY on the controlled client
-	_, err = sendRequest(ptyReq, splice)
+	_, err = internal.SendRequest(ptyReq, splice)
 	if err != nil {
 		return sc, fmt.Errorf("Unable to send PTY request: %s", err)
 	}
 
-	_, err = sendRequest(lastWindowChange, splice)
+	_, err = internal.SendRequest(lastWindowChange, splice)
 	if err != nil {
 		return sc, fmt.Errorf("Unable to send last window change request: %s", err)
 	}
@@ -374,7 +374,7 @@ RequestsPasser:
 	for {
 		select {
 		case r := <-currentClientRequests:
-			response, err := sendRequest(*r, newSession)
+			response, err := internal.SendRequest(*r, newSession)
 			if err != nil {
 				break RequestsPasser
 			}
@@ -406,14 +406,14 @@ func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Termin
 				req.Reply(len(req.Payload) == 0, nil)
 			case "pty-req":
 				termLen := req.Payload[3]
-				w, h := parseDims(req.Payload[termLen+4:])
+				w, h := internal.ParseDims(req.Payload[termLen+4:])
 				term.SetSize(int(w), int(h))
 				// Responding true (OK) here will let the client
 				// know we have a pty ready for input
 				req.Reply(true, nil)
 				*ptyr = *req
 			case "window-change":
-				w, h := parseDims(req.Payload)
+				w, h := internal.ParseDims(req.Payload)
 				term.SetSize(int(w), int(h))
 
 				*wc = *req

