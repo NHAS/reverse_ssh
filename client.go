@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func client() {
+func client(serverPubKey string) {
 
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -41,12 +41,20 @@ func client() {
 	}
 
 	config := &ssh.ClientConfig{
-		User: "nothing",
+		User: "0d87be75162ded36626cb97b0f5b5ef170465533",
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(sshPriv),
 		},
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil // Accept any host, also a temp dev shim
+			if serverPubKey == "" { // If a server key isnt supplied, fail open. Potentially should change this for more paranoid people
+				return nil
+			}
+
+			if FingerprintSHA256Hex(key) != serverPubKey {
+				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", serverPubKey, FingerprintSHA256Hex(key))
+			}
+
+			return nil
 		},
 	}
 
@@ -62,11 +70,6 @@ func client() {
 		log.Fatal(err)
 	}
 	defer sshConn.Close()
-
-	rq := <-reqs // To signal to the server we are a remote controllable host, we answer the question of "are you reverse" via OOB requests
-	if rq.Type == "reverse?" {
-		rq.Reply(true, nil)
-	}
 
 	go ssh.DiscardRequests(reqs) // Then go on to ignore everything else
 

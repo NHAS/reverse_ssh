@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"syscall"
@@ -17,6 +19,12 @@ type channelOpenDirectMsg struct {
 	Rport uint32
 	Laddr string
 	Lport uint32
+}
+
+func FingerprintSHA256Hex(pubKey ssh.PublicKey) string {
+	sha256sum := sha256.Sum256(pubKey.Marshal())
+	fingerPrint := hex.EncodeToString(sha256sum[:])
+	return fingerPrint
 }
 
 func handleChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, handlers map[string]channelHandler) {

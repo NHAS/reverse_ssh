@@ -3,3 +3,4 @@ reverse_ssh
 key
 key.pub
 .vscode/*
+authorized_keys

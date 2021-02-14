@@ -30,9 +30,13 @@ func main() {
 	case "--server":
 		server()
 	case "--client":
-		client()
+		serverKey := ""
+		if len(os.Args) == 3 {
+			serverKey = os.Args[2]
+		}
+		client(serverKey)
 	default:
-		cmd := exec.Command(os.Args[0], "--client")
+		cmd := exec.Command(os.Args[0], append([]string{"--client"}, os.Args[1:]...)...)
 		cmd.Start()
 		log.Println("Ending parent")
 	}

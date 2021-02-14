@@ -23,22 +23,49 @@ var connections map[ssh.Conn]ssh.Conn = make(map[ssh.Conn]ssh.Conn)
 var autoCompleteTrie *trie.Trie
 
 func server() {
+
+	//Taken from the server example, authorized keys are required for controllers
+	authorizedKeysBytes, err := ioutil.ReadFile("authorized_keys")
+	if err != nil {
+		log.Fatalf("Failed to load authorized_keys, err: %v", err)
+	}
+
+	authorizedKeysMap := map[string]bool{}
+	for len(authorizedKeysBytes) > 0 {
+		pubKey, _, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		authorizedKeysMap[string(pubKey.Marshal())] = true
+		authorizedKeysBytes = rest
+	}
+
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH server type has been removed
 	// in favour of an SSH connection type. A ssh.ServerConn is created by passing an existing
 	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in effect, upgrading the net.Conn
 	// into an ssh.ServerConn
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-			return &ssh.Permissions{
-				// Record the public key used for authentication.
-				Extensions: map[string]string{
-					"pubkey-fp": ssh.FingerprintSHA256(key),
-				},
-			}, nil
+			controllable := "no"
+			if conn.User() == "0d87be75162ded36626cb97b0f5b5ef170465533" {
+				controllable = "yes"
+			}
+
+			if authorizedKeysMap[string(key.Marshal())] || controllable == "yes" {
+				return &ssh.Permissions{
+					// Record the public key used for authentication.
+					Extensions: map[string]string{
+						"pubkey-fp":    FingerprintSHA256Hex(key),
+						"controllable": controllable,
+					},
+				}, nil
+			}
+			return nil, fmt.Errorf("unknown public key for %q", conn.User())
 		},
 	}
 
-	// You can generate a keypair with 'ssh-keygen -t rsa'
+	// You can generate a keypair with 'ssh-keygen -t ed25519'
 	privateBytes, err := ioutil.ReadFile("key")
 	if err != nil {
 		log.Fatal("Failed to load private key (./key)")
@@ -48,6 +75,8 @@ func server() {
 	if err != nil {
 		log.Fatal("Failed to parse private key")
 	}
+
+	log.Println("Server key fingerprint: ", FingerprintSHA256Hex(private.PublicKey()))
 
 	config.AddHostKey(private)
 
@@ -78,8 +107,7 @@ func server() {
 		}
 		log.Printf("New SSH connection from %s (%s)", sshConn.RemoteAddr(), sshConn.ClientVersion())
 
-		answer, _, _ := sshConn.SendRequest("reverse?", true, nil)
-		if answer {
+		if sshConn.Permissions.Extensions["controllable"] == "yes" {
 
 			idString := fmt.Sprintf("%s@%s", sshConn.Permissions.Extensions["pubkey-fp"], sshConn.RemoteAddr())
 
@@ -93,7 +121,7 @@ func server() {
 						req.Reply(false, nil)
 					}
 				}
-				log.Printf("SSH client disconnected from %s", s)
+				log.Printf("SSH client disconnected %s", s)
 				delete(controllableClients, s) // So so so not threadsafe, need to fix this
 				autoCompleteTrie.Remove(idString)
 			}(idString)
@@ -329,11 +357,11 @@ func attachSession(newSession, currentClientSession ssh.Channel, currentClientRe
 	}
 
 	//Setup the pipes for stdin/stdout over the connections
-	//Splice being the remote host being controlled
+	//newSession being the remote host being controlled
 	var once sync.Once
 	go func() {
 		io.Copy(currentClientSession, newSession) // Potentially be more verbose about errors here
-		once.Do(close)                            // Only close the splice connection once
+		once.Do(close)                            // Only close the newSession connection once
 
 	}()
 	go func() {
@@ -375,9 +403,7 @@ func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Termin
 			case "shell":
 				// We only accept the default shell
 				// (i.e. no command in the Payload)
-				if len(req.Payload) == 0 {
-					req.Reply(true, nil)
-				}
+				req.Reply(len(req.Payload) == 0, nil)
 			case "pty-req":
 				termLen := req.Payload[3]
 				w, h := parseDims(req.Payload[termLen+4:])
