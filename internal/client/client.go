@@ -77,8 +77,8 @@ func Run(addr, serverPubKey string) {
 		go ssh.DiscardRequests(reqs) // Then go on to ignore everything else
 
 		err = internal.RegisterChannelCallbacks(sshConn, chans, map[string]internal.ChannelHandler{
-			"session":      clientHandleNewChannel,
-			"direct-tcpip": clientHandleProxyChannel,
+			"session":      shellChannel,
+			"direct-tcpip": proxyChannel,
 		})
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)

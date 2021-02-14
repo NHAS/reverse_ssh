@@ -129,8 +129,8 @@ func Run(addr string) {
 			// Since we're handling a shell and proxy, so we expect
 			// channel type of "session" or "direct-tcpip".
 			go internal.RegisterChannelCallbacks(sshConn, chans, map[string]internal.ChannelHandler{
-				"session":      handleSessionChannel,
-				"direct-tcpip": handleProxyChannel,
+				"session":      sessionChannel,
+				"direct-tcpip": proxyChannel,
 			})
 
 			// Discard all global out-of-band Requests
