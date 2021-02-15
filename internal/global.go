@@ -38,7 +38,7 @@ func RegisterChannelCallbacks(sshConn ssh.Conn, chans <-chan ssh.NewChannel, han
 			continue
 		}
 
-		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
+		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
 		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
 	}
 
@@ -51,7 +51,7 @@ func SendRequest(req ssh.Request, sshChan ssh.Channel) (bool, error) {
 
 // =======================
 
-// parseDims extracts terminal dimensions (width x height) from the provided buffer.
+// ParseDims extracts terminal dimensions (width x height) from the provided buffer.
 func ParseDims(b []byte) (uint32, uint32) {
 	w := binary.BigEndian.Uint32(b)
 	h := binary.BigEndian.Uint32(b[4:])

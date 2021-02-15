@@ -5,18 +5,20 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
-var controllableClients map[string]ssh.Conn = make(map[string]ssh.Conn)
+var controllableClients sync.Map
 
 //A map of 'controller' ssh connections, to the host they're controlling.
 //Will be nil if they arent connected to anything
 var connections map[ssh.Conn]ssh.Conn = make(map[ssh.Conn]ssh.Conn)
+
 var autoCompleteTrie *trie.Trie
 
 func Run(addr string) {
@@ -110,7 +112,7 @@ func Run(addr string) {
 
 			autoCompleteTrie.Add(idString)
 
-			controllableClients[idString] = sshConn
+			controllableClients.Store(idString, sshConn)
 
 			go func(s string) {
 				for req := range reqs {
@@ -119,7 +121,7 @@ func Run(addr string) {
 					}
 				}
 				log.Printf("SSH client disconnected %s", s)
-				delete(controllableClients, s) // So so so not threadsafe, need to fix this
+				controllableClients.Delete(s)
 				autoCompleteTrie.Remove(idString)
 			}(idString)
 
@@ -141,13 +143,17 @@ func Run(addr string) {
 
 }
 
-func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Terminal, requests <-chan *ssh.Request, cancel <-chan bool) {
+func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *term.Terminal, requests <-chan *ssh.Request, cancel <-chan bool) {
 
 	for {
 		select {
 		case <-cancel:
 			return
 		case req := <-requests:
+			if req == nil { // Channel has closed, so therefore end this default handler
+				return
+			}
+
 			log.Println("Got request: ", req.Type)
 			switch req.Type {
 			case "shell":
@@ -158,6 +164,7 @@ func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Termin
 				termLen := req.Payload[3]
 				w, h := internal.ParseDims(req.Payload[termLen+4:])
 				term.SetSize(int(w), int(h))
+
 				// Responding true (OK) here will let the client
 				// know we have a pty ready for input
 				req.Reply(true, nil)

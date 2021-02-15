@@ -56,6 +56,7 @@ func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 //This basically handles exactly like a SSH server would
 func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
+	log.Println(newChannel.ExtraData())
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
 	connection, requests, err := newChannel.Accept()

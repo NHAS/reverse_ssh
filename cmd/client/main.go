@@ -21,15 +21,20 @@ func printHelp() {
 func main() {
 
 	flag.Bool("foreground", false, "Dont fork to background on start")
+	flag.Bool("reconnect", true, "Auto reconnect on disconnection")
 	fingerprint := *flag.String("fingerprint", "", "Server public key fingerprint")
 
 	flag.Usage = printHelp
 
 	flag.Parse()
 
-	fg := false
+	var fg, rc bool
+
 	flag.Visit(func(f *flag.Flag) {
-		if f.Name == "foreground" {
+		switch f.Name {
+		case "reconnect":
+			rc = true
+		case "foreground":
 			fg = true
 		}
 	})
@@ -41,7 +46,7 @@ func main() {
 	}
 
 	if fg {
-		client.Run(flag.Args()[0], fingerprint)
+		client.Run(flag.Args()[0], fingerprint, rc)
 	}
 
 	cmd := exec.Command(os.Args[0], append([]string{"--foreground"}, os.Args[1:]...)...)

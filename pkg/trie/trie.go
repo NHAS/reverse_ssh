@@ -1,12 +1,22 @@
 package trie
 
+import (
+	"sync"
+)
+
 type Trie struct {
 	root     bool
 	c        byte
 	children map[byte]*Trie
+	mut      sync.RWMutex
 }
 
 func (t *Trie) Add(s string) {
+	if t.root {
+		t.mut.Lock()
+		defer t.mut.Unlock()
+	}
+
 	if len(s) == 0 {
 		return
 	}
@@ -43,6 +53,11 @@ func (t *Trie) getAll() (result []string) {
 }
 
 func (t *Trie) PrefixMatch(prefix string) (result []string) {
+	if t.root {
+		t.mut.RLock()
+		defer t.mut.RUnlock()
+	}
+
 	if len(prefix) == 0 {
 		for _, child := range t.children {
 			result = append(result, child.getAll()...)
@@ -59,6 +74,11 @@ func (t *Trie) PrefixMatch(prefix string) (result []string) {
 }
 
 func (t *Trie) Remove(s string) bool {
+	if t.root {
+		t.mut.Lock()
+		defer t.mut.Unlock()
+	}
+
 	if len(s) == 0 {
 		return len(t.children) == 0
 	}

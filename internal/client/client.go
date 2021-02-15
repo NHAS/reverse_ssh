@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func Run(addr, serverPubKey string) {
+func Run(addr, serverPubKey string, reconnect bool) {
 
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -56,7 +56,8 @@ func Run(addr, serverPubKey string) {
 		},
 	}
 
-	for {
+	once := true
+	for ; once || reconnect; once = false {
 		log.Println("Connecting to ", addr)
 		conn, err := net.DialTimeout("tcp", addr, config.Timeout)
 		if err != nil {

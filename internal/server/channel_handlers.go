@@ -111,24 +111,22 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
 	// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect
 	go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop)
-	defer func() {
-		stop <- true // Stops the default handleSSHRequests as the channel gets closed which would cause a nil dereference
-	}()
 
 	//Send list of controllable remote hosts to human client
 	fmt.Fprintf(term, "Connected controllable clients: \n")
-	for idStr := range controllableClients {
-
+	controllableClients.Range(func(idStr interface{}, value interface{}) bool {
 		fmt.Fprintf(term, "%s, client version: %s\n",
 			idStr,
-			controllableClients[idStr].ClientVersion(),
+			value.(ssh.Conn).ClientVersion(),
 		)
-	}
+		return true
+	})
 
 	for {
 		//This will break if the user does CTRL+C or CTRL+D apparently we need to reset the whole terminal if a user does this....
 		line, err := term.ReadLine()
 		if err != nil {
+			log.Println("Breaking")
 			break
 		}
 
@@ -141,13 +139,13 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 				fmt.Fprintf(term, "Unknown command: %s\n", commandParts[0])
 
 			case "ls":
-				for idStr := range controllableClients {
-
+				controllableClients.Range(func(idStr interface{}, value interface{}) bool {
 					fmt.Fprintf(term, "%s, client version: %s\n",
 						idStr,
-						controllableClients[idStr].ClientVersion(),
+						value.(ssh.Conn).ClientVersion(),
 					)
-				}
+					return true
+				})
 
 			case "exit":
 				return
@@ -157,11 +155,13 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 					continue
 				}
 
-				controlClient, ok := controllableClients[commandParts[1]]
+				c, ok := controllableClients.Load(commandParts[1])
 				if !ok {
 					fmt.Fprintf(term, "Unknown connection host\n")
 					continue
 				}
+
+				controlClient := c.(ssh.Conn)
 				//Attempt to connect to remote host and send inital pty request and screen size
 				// If we cant, report and error to the clients terminal
 				newSession, err := createSession(controlClient, ptyReq, lastWindowChange)
