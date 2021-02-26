@@ -82,7 +82,7 @@ func Run(addr string) {
 	// Once a ServerConfig has been configured, connections can be accepted.
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("Failed to listen on 2200 (%s)", err)
+		log.Fatalf("Failed to listen on %s (%s)", addr, err)
 	}
 
 	autoCompleteTrie = trie.NewTrie()
