@@ -5,12 +5,14 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/kr/pty"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
@@ -65,13 +67,36 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		return
 	}
 
-	// Fire up bash for this session
-	bash := exec.Command("bash")
+	path := ""
+	if len(shells) == 0 {
+		term := terminal.NewTerminal(connection, "> ")
+		fmt.Fprintln(term, "Unable to determine shell to execute")
+		for {
+			line, err := term.ReadLine()
+			if err != nil {
+				log.Println("Unable to handle input")
+				return
+			}
+
+			if stats, err := os.Stat(line); !os.IsExist(err) || stats.IsDir() {
+				fmt.Fprintln(term, "Unsuitable selection: ", err)
+				continue
+			}
+			path = line
+			break
+
+		}
+	} else {
+		path = shells[0]
+	}
+
+	// Fire up a shell for this session
+	shell := exec.Command(path)
 
 	// Prepare teardown function
 	close := func() {
 		connection.Close() // Not a fan of this
-		_, err := bash.Process.Wait()
+		_, err := shell.Process.Wait()
 		if err != nil {
 			log.Printf("Failed to exit bash (%s)", err)
 		}
@@ -80,7 +105,7 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 	// Allocate a terminal for this channel
 	log.Print("Creating pty...")
-	bashf, err := pty.Start(bash)
+	shellf, err := pty.Start(shell)
 	if err != nil {
 		log.Printf("Could not start pty (%s)", err)
 		close()
@@ -90,11 +115,11 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	//pipe session to bash and visa-versa
 	var once sync.Once
 	go func() {
-		io.Copy(connection, bashf)
+		io.Copy(connection, shellf)
 		once.Do(close)
 	}()
 	go func() {
-		io.Copy(bashf, connection)
+		io.Copy(shellf, connection)
 		once.Do(close)
 	}()
 
@@ -110,13 +135,13 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		case "pty-req":
 			termLen := req.Payload[3]
 			w, h := internal.ParseDims(req.Payload[termLen+4:])
-			internal.SetWinsize(bashf.Fd(), w, h)
+			internal.SetWinsize(shellf.Fd(), w, h)
 			// Responding true (OK) here will let the client
 			// know we have a pty ready for input
 			req.Reply(true, nil)
 		case "window-change":
 			w, h := internal.ParseDims(req.Payload)
-			internal.SetWinsize(bashf.Fd(), w, h)
+			internal.SetWinsize(shellf.Fd(), w, h)
 		}
 	}
 

