@@ -191,7 +191,7 @@ func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *term.Terminal, 
 
 				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
 				pty, _ := internal.ParsePtyReq(req.Payload)
-				term.SetSize(int(pty.Width), int(pty.Height))
+				term.SetSize(int(pty.Columns), int(pty.Rows))
 
 				*ptyr = *req
 				req.Reply(true, nil)
