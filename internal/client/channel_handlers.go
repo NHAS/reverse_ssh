@@ -72,7 +72,6 @@ PtyListner:
 		switch req.Type {
 		case "pty-req":
 			ptyreq, _ = internal.ParsePtyReq(req.Payload)
-			log.Printf("Pty: %+v", ptyreq)
 
 			req.Reply(true, nil)
 			break PtyListner
