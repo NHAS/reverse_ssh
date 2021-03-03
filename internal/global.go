@@ -1,9 +1,13 @@
 package internal
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"syscall"
@@ -19,6 +23,27 @@ type ChannelOpenDirectMsg struct {
 	Rport uint32
 	Laddr string
 	Lport uint32
+}
+
+func GeneratePrivateKey() ([]byte, error) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err := x509.MarshalPKCS8PrivateKey(priv) // Convert a generated ed25519 key into a PEM block so that the ssh library can ingest it, bit round about tbh
+	if err != nil {
+		return nil, err
+	}
+
+	privatePem := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PRIVATE KEY",
+			Bytes: bytes,
+		},
+	)
+
+	return privatePem, nil
 }
 
 func FingerprintSHA256Hex(pubKey ssh.PublicKey) string {

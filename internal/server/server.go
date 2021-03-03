@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -21,7 +23,7 @@ var connections map[ssh.Conn]ssh.Conn = make(map[ssh.Conn]ssh.Conn)
 
 var autoCompleteTrie *trie.Trie
 
-func Run(addr string) {
+func Run(addr, privateKeyPath string) {
 
 	//Taken from the server example, authorized keys are required for controllers
 	authorizedKeysBytes, err := ioutil.ReadFile("authorized_keys")
@@ -64,15 +66,39 @@ func Run(addr string) {
 		},
 	}
 
+	if privateKeyPath == "" {
+		//If we have already created a private key (or there is one in the current directory) dont overwrite/create another one
+		privateKeyPath = "id_ed25519"
+		if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
+
+			privateKeyPem, err := internal.GeneratePrivateKey()
+			if err != nil {
+				log.Fatalf("Unable to generate private key, and no private key specified: %s", err)
+			}
+
+			err = ioutil.WriteFile(privateKeyPath, privateKeyPem, 0600)
+			if err != nil {
+				log.Fatalf("Unable to write private key to disk: %s", err)
+			}
+
+			log.Println("Auto generated new private key")
+		}
+
+	}
+
+	s, _ := filepath.Abs(privateKeyPath)
+
+	log.Printf("Loading private key from: %s (%s)\n", privateKeyPath, s)
+
 	// You can generate a keypair with 'ssh-keygen -t ed25519'
-	privateBytes, err := ioutil.ReadFile("key")
+	privateBytes, err := ioutil.ReadFile(privateKeyPath)
 	if err != nil {
-		log.Fatal("Failed to load private key (./key)")
+		log.Fatalf("Failed to load private key (%s): %s", privateKeyPath, err)
 	}
 
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		log.Fatal("Failed to parse private key")
+		log.Fatalf("Failed to parse private key: %s", err)
 	}
 
 	log.Println("Server key fingerprint: ", internal.FingerprintSHA256Hex(private.PublicKey()))

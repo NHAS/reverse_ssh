@@ -1,37 +1,36 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
-	"strings"
+	"path/filepath"
 
 	"github.com/NHAS/reverse_ssh/internal/server"
 )
 
 func printHelp() {
-	fmt.Println("Reverse SSH server")
-	fmt.Println(os.Args[0], "listen addr")
+
+	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--key] address")
+	fmt.Println("\t\taddress\tThe network address the server will listen on")
+	fmt.Println("\t\t--key\tPath to the ssh private key the server will use")
+
 }
 
 func main() {
-	arg := ""
 
-	if len(os.Args) > 1 {
-		arg = strings.TrimSpace(os.Args[1])
-	}
+	privkey_path := flag.String("key", "", "Path to SSH private key, if omitted will generate a key on first use")
 
-	if len(os.Args) != 2 {
+	flag.Usage = printHelp
+
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
 		fmt.Println("Missing listening address")
 		printHelp()
 		return
 	}
 
-	switch arg {
-	case "-h", "-help", "--help":
-		printHelp()
-	default:
-		server.Run(os.Args[1])
-
-	}
+	server.Run(flag.Args()[0], *privkey_path)
 
 }

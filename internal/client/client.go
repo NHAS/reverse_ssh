@@ -2,10 +2,6 @@ package client
 
 import (
 	"bufio"
-	"crypto/ed25519"
-	"crypto/rand"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"log"
 	"net"
@@ -26,7 +22,8 @@ func loadShells() (shells []string) {
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := scanner.Text()
-			if len(line) > 0 && line[0] == '#' {
+
+			if len(line) > 0 && line[0] == '#' || strings.TrimSpace(line) == "" {
 				continue
 			}
 			shells = append(shells, strings.TrimSpace(line))
@@ -37,14 +34,22 @@ func loadShells() (shells []string) {
 			"/bin/sh",
 			"C:\\Windows\\System32\\cmd.exe",
 			"/bin/zsh",
+			"/bin/ash",
 		}
 	}
 
 	output := []string{}
+	log.Println("Detected Shells: ")
 	for _, s := range shells {
-		if stats, err := os.Stat(s); os.IsExist(err) && !stats.IsDir() {
-			output = append(output, s)
+
+		if stats, err := os.Stat(s); err != nil && (os.IsNotExist(err) || !stats.IsDir()) {
+
+			fmt.Printf("Rejecting Shell: '%s' Reason: %v\n", s, err)
+			continue
+
 		}
+		output = append(output, s)
+		fmt.Println("\t\t", s)
 	}
 	return output
 
@@ -52,26 +57,14 @@ func loadShells() (shells []string) {
 
 func Run(addr, serverPubKey string, reconnect bool) {
 
-	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	pemBlock, err := internal.GeneratePrivateKey()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Generating private key: ", err)
 	}
 
-	bytes, err := x509.MarshalPKCS8PrivateKey(priv) // Convert a generated ed25519 key into a PEM block so that the ssh library can ingest it, bit round about tbh
+	sshPriv, err := ssh.ParsePrivateKey(pemBlock)
 	if err != nil {
-		log.Fatal("x509 marshling failed: ", err)
-	}
-
-	privatePem := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "PRIVATE KEY",
-			Bytes: bytes,
-		},
-	)
-
-	sshPriv, err := ssh.ParsePrivateKey(privatePem)
-	if err != nil {
-		log.Fatal("Parsing the ssh private key failed: ", err)
+		log.Fatal("Parsing the generated ssh private key failed: ", err)
 	}
 
 	shells = loadShells()
