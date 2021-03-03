@@ -47,6 +47,7 @@ func main() {
 
 	if fg {
 		client.Run(flag.Args()[0], fingerprint, rc)
+		return
 	}
 
 	cmd := exec.Command(os.Args[0], append([]string{"--foreground"}, os.Args[1:]...)...)

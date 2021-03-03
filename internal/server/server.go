@@ -188,13 +188,12 @@ func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *term.Terminal, 
 				// (i.e. no command in the Payload)
 				req.Reply(len(req.Payload) == 0, nil)
 			case "pty-req":
-				termLen := req.Payload[3]
-				w, h := internal.ParseDims(req.Payload[termLen+4:])
-				term.SetSize(int(w), int(h))
 
-				// Responding true (OK) here will let the client
-				// know we have a pty ready for input
-				req.Reply(true, nil)
+				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
+				pty, _ := internal.ParsePtyReq(req.Payload)
+				log.Printf("Pty: %+v", pty)
+				term.SetSize(int(pty.Width), int(pty.Height))
+
 				*ptyr = *req
 			case "window-change":
 				w, h := internal.ParseDims(req.Payload)

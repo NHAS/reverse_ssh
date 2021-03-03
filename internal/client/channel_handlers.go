@@ -58,13 +58,25 @@ func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 //This basically handles exactly like a SSH server would
 func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
-	log.Println(newChannel.ExtraData())
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
 		log.Printf("Could not accept channel (%s)", err)
 		return
+	}
+
+	var ptyreq internal.PtyReq
+PtyListner:
+	for req := range requests {
+		switch req.Type {
+		case "pty-req":
+			ptyreq, _ = internal.ParsePtyReq(req.Payload)
+			log.Printf("Pty: %+v", ptyreq)
+
+			req.Reply(true, nil)
+			break PtyListner
+		}
 	}
 
 	path := ""
@@ -92,7 +104,8 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 	// Fire up a shell for this session
 	shell := exec.Command(path)
-
+	shell.Env = os.Environ()
+	shell.Env = append(shell.Env, "TERM="+ptyreq.Term)
 	// Prepare teardown function
 	close := func() {
 		connection.Close() // Not a fan of this
@@ -123,6 +136,8 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		once.Do(close)
 	}()
 
+	internal.SetWinsize(shellf.Fd(), ptyreq.Columns, ptyreq.Rows)
+
 	for req := range requests {
 		log.Println("Got request: ", req.Type)
 		switch req.Type {
@@ -132,13 +147,7 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 			if len(req.Payload) == 0 {
 				req.Reply(true, nil)
 			}
-		case "pty-req":
-			termLen := req.Payload[3]
-			w, h := internal.ParseDims(req.Payload[termLen+4:])
-			internal.SetWinsize(shellf.Fd(), w, h)
-			// Responding true (OK) here will let the client
-			// know we have a pty ready for input
-			req.Reply(true, nil)
+
 		case "window-change":
 			w, h := internal.ParseDims(req.Payload)
 			internal.SetWinsize(shellf.Fd(), w, h)

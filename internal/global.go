@@ -74,7 +74,19 @@ func SendRequest(req ssh.Request, sshChan ssh.Channel) (bool, error) {
 	return sshChan.SendRequest(req.Type, req.WantReply, req.Payload)
 }
 
+type PtyReq struct {
+	Term          string
+	Columns, Rows uint32
+	Width, Height uint32
+}
+
 // =======================
+
+func ParsePtyReq(req []byte) (out PtyReq, err error) {
+
+	err = ssh.Unmarshal(req, &out)
+	return out, err
+}
 
 // ParseDims extracts terminal dimensions (width x height) from the provided buffer.
 func ParseDims(b []byte) (uint32, uint32) {
