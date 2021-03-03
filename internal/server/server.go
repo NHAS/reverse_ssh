@@ -115,6 +115,7 @@ func Run(addr, privateKeyPath string) {
 	autoCompleteTrie.Add("exit")
 	autoCompleteTrie.Add("ls")
 	autoCompleteTrie.Add("connect ")
+	autoCompleteTrie.Add("help")
 
 	// Accept all connections
 	log.Printf("Listening on %s...\n", addr)

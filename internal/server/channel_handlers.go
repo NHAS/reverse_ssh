@@ -147,6 +147,13 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 					return true
 				})
 
+			case "help":
+				r := autoCompleteTrie.PrefixMatch("")
+				fmt.Fprintln(term, "Commands: ")
+				for _, completion := range r {
+					fmt.Fprintf(term, "%s\n", completion)
+				}
+
 			case "exit":
 				return
 			case "connect":
