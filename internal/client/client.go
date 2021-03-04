@@ -36,6 +36,7 @@ func loadShells() (shells []string) {
 			"/bin/zsh",
 			"/bin/ash",
 		}
+
 	}
 
 	output := []string{}
@@ -51,6 +52,7 @@ func loadShells() (shells []string) {
 		output = append(output, s)
 		fmt.Println("\t\t", s)
 	}
+
 	return output
 
 }

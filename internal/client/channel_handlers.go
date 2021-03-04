@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/kr/pty"
+	"github.com/creack/pty"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -108,10 +108,13 @@ PtyListner:
 	// Prepare teardown function
 	close := func() {
 		connection.Close() // Not a fan of this
-		_, err := shell.Process.Wait()
-		if err != nil {
-			log.Printf("Failed to exit bash (%s)", err)
+		if shell.Process != nil {
+			_, err := shell.Process.Wait()
+			if err != nil {
+				log.Printf("Failed to exit bash (%s)", err)
+			}
 		}
+
 		log.Printf("Session closed")
 	}
 
