@@ -8,9 +8,6 @@ debug:
 release:
 	mkdir -p bin
 	go build -ldflags="-s -w" -o bin ./...
-	upx ./bin/client
-	upx ./bin/server
-
 
 run: 
 	./bin/client $(ADDR)

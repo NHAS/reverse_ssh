@@ -67,14 +67,14 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	}
 
 	var ptyreq internal.PtyReq
-PtyListner:
+PtyListener:
 	for req := range requests {
 		switch req.Type {
 		case "pty-req":
 			ptyreq, _ = internal.ParsePtyReq(req.Payload)
 
 			req.Reply(true, nil)
-			break PtyListner
+			break PtyListener
 		}
 	}
 
