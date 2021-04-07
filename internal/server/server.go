@@ -86,7 +86,10 @@ func Run(addr, privateKeyPath string) {
 
 	}
 
-	s, _ := filepath.Abs(privateKeyPath)
+	s, err := filepath.Abs(privateKeyPath)
+	if err != nil {
+		log.Fatalf("Unable to make absolute path from private key path [%s]: %s", privateKeyPath, err)
+	}
 
 	log.Printf("Loading private key from: %s (%s)\n", privateKeyPath, s)
 

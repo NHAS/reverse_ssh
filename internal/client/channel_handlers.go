@@ -111,11 +111,11 @@ PtyListener:
 		if shell.Process != nil {
 			_, err := shell.Process.Wait()
 			if err != nil {
-				log.Printf("Failed to exit bash (%s)", err)
+				log.Printf("Failed to exit bash (%s)\n", err)
 			}
 		}
 
-		log.Printf("Session closed")
+		log.Printf("Session closed\n")
 	}
 
 	// Allocate a terminal for this channel
@@ -138,7 +138,10 @@ PtyListener:
 		once.Do(close)
 	}()
 
-	pty.Setsize(shellf, &pty.Winsize{Cols: uint16(ptyreq.Columns), Rows: uint16(ptyreq.Rows)})
+	err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(ptyreq.Columns), Rows: uint16(ptyreq.Rows)})
+	if err != nil {
+		log.Printf("Unable to set terminal size (maybe windows?): %s\n", err)
+	}
 
 	//	internal.SetWinsize(shellf.Fd(), ptyreq.Columns, ptyreq.Rows)
 
@@ -154,7 +157,10 @@ PtyListener:
 
 		case "window-change":
 			w, h := internal.ParseDims(req.Payload)
-			pty.Setsize(shellf, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
+			err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
+			if err != nil {
+				log.Printf("Unable to set terminal size: %s\n", err)
+			}
 		}
 	}
 

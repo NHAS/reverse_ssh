@@ -73,6 +73,10 @@ So you you wanted to connect to the client given in the example:
 Will auto complete the entry for you and on enter will connect you to your reverse shell. 
 
 
+## Limitations
+
+Currently doesnt work on windows due to PTY issues. If someone wants, I can always add in a simple shell that just executes & returns stdin/stdout. But not currently needed for my use cases.
+
 ## Todo
 
 - ~~Make the selection UI a bit better~~
@@ -83,4 +87,4 @@ Will auto complete the entry for you and on enter will connect you to your rever
 - ~~Client reconnect on loss of connection~~
 - ~~Add authentication bits and bobs~~
 - Ensure threadsafety of key structures
-- Fix the passing of enviroment variables such as TERM
+- ~~Fix the passing of enviroment variables such as TERM~~
