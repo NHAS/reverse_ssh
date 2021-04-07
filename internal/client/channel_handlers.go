@@ -143,17 +143,13 @@ PtyListener:
 		log.Printf("Unable to set terminal size (maybe windows?): %s\n", err)
 	}
 
-	//	internal.SetWinsize(shellf.Fd(), ptyreq.Columns, ptyreq.Rows)
-
 	for req := range requests {
 		log.Println("Got request: ", req.Type)
 		switch req.Type {
 		case "shell":
 			// We only accept the default shell
 			// (i.e. no command in the Payload)
-			if len(req.Payload) == 0 {
-				req.Reply(true, nil)
-			}
+			req.Reply(len(req.Payload) == 0, nil)
 
 		case "window-change":
 			w, h := internal.ParseDims(req.Payload)

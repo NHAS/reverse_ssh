@@ -29,7 +29,8 @@ func GeneratePrivateKey() ([]byte, error) {
 		return nil, err
 	}
 
-	bytes, err := x509.MarshalPKCS8PrivateKey(priv) // Convert a generated ed25519 key into a PEM block so that the ssh library can ingest it, bit round about tbh
+	// Convert a generated ed25519 key into a PEM block so that the ssh library can ingest it, bit round about tbh
+	bytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		return nil, err
 	}

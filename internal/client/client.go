@@ -90,7 +90,7 @@ func Run(addr, serverPubKey string, reconnect bool) {
 	}
 
 	once := true
-	for ; once || reconnect; once = false {
+	for ; once || reconnect; once = false { // My take on a golang do {} while loop :P
 		log.Println("Connecting to ", addr)
 		conn, err := net.DialTimeout("tcp", addr, config.Timeout)
 		if err != nil {
