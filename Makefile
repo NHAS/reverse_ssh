@@ -10,9 +10,9 @@ release:
 	go build -ldflags="-s -w" -o bin ./...
 
 run: 
-	./bin/client $(ADDR)
-	./bin/client $(ADDR)
-	./bin/client $(ADDR)
+	./bin/client --reconnect $(ADDR)
+	./bin/client --reconnect $(ADDR)
+	./bin/client --reconnect $(ADDR)
 	cd bin; ./server $(ADDR)
 	
 

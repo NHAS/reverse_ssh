@@ -138,7 +138,9 @@ PtyListener:
 		once.Do(close)
 	}()
 
-	internal.SetWinsize(shellf.Fd(), ptyreq.Columns, ptyreq.Rows)
+	pty.Setsize(shellf, &pty.Winsize{Cols: uint16(ptyreq.Columns), Rows: uint16(ptyreq.Rows)})
+
+	//	internal.SetWinsize(shellf.Fd(), ptyreq.Columns, ptyreq.Rows)
 
 	for req := range requests {
 		log.Println("Got request: ", req.Type)
@@ -152,7 +154,7 @@ PtyListener:
 
 		case "window-change":
 			w, h := internal.ParseDims(req.Payload)
-			internal.SetWinsize(shellf.Fd(), w, h)
+			pty.Setsize(shellf, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
 		}
 	}
 

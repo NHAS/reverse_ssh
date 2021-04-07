@@ -16,6 +16,7 @@ func printHelp() {
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--foreground] [--fingerprint] destination")
 	fmt.Println("\t\t--foreground\tCauses the client to run without forking to background")
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
+	fmt.Println("\t\t--reconnect\tReconnect on connection failure")
 }
 
 func main() {
