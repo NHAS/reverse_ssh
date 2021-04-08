@@ -77,6 +77,7 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	defer connection.Close()
 
 	term := terminal.NewTerminal(connection, "> ")
+
 	term.AutoCompleteCallback = func(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
 
 		if key == '\t' {
@@ -177,7 +178,7 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 					connections[sshConn] = controlClient
 
-					err := attachSession(newSession, connection, requests)
+					err := attachSession(term, newSession, connection, requests)
 					if err != nil {
 						fmt.Fprintf(term, "Error: %s", err)
 						log.Println(err)
@@ -185,7 +186,7 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 					connections[sshConn] = nil
 
-					fmt.Fprintf(term, "Session has terminated\n")
+					fmt.Fprintf(term, "Session has terminated. Press any key to continue\n")
 					log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
 
 					go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop) // Re-enable the default handler if the client isnt connected to a remote host

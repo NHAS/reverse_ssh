@@ -8,6 +8,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, err error) {
@@ -34,8 +35,9 @@ func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc s
 	return splice, nil
 }
 
-func attachSession(newSession, currentClientSession ssh.Channel, currentClientRequests <-chan *ssh.Request) error {
+func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh.Channel, currentClientRequests <-chan *ssh.Request) error {
 	finished := make(chan bool)
+
 	close := func() {
 		newSession.Close()
 		finished <- true // Stop the request passer on IO error
@@ -50,8 +52,10 @@ func attachSession(newSession, currentClientSession ssh.Channel, currentClientRe
 
 	}()
 	go func() {
+
 		io.Copy(newSession, currentClientSession)
 		once.Do(close)
+
 	}()
 	defer once.Do(close)
 

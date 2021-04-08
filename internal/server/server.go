@@ -93,7 +93,6 @@ func Run(addr, privateKeyPath string) {
 
 	log.Printf("Loading private key from: %s (%s)\n", privateKeyPath, s)
 
-	// You can generate a keypair with 'ssh-keygen -t ed25519'
 	privateBytes, err := ioutil.ReadFile(privateKeyPath)
 	if err != nil {
 		log.Fatalf("Failed to load private key (%s): %s", privateKeyPath, err)

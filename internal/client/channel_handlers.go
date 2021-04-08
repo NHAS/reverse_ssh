@@ -105,7 +105,9 @@ PtyListener:
 	shell := exec.Command(path)
 	shell.Env = os.Environ()
 	shell.Env = append(shell.Env, "TERM="+ptyreq.Term)
+
 	// Prepare teardown function
+
 	close := func() {
 		connection.Close() // Not a fan of this
 		if shell.Process != nil {
@@ -137,6 +139,7 @@ PtyListener:
 		io.Copy(shellf, connection)
 		once.Do(close)
 	}()
+	defer once.Do(close)
 
 	err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(ptyreq.Columns), Rows: uint16(ptyreq.Rows)})
 	if err != nil {
