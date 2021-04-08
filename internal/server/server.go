@@ -21,7 +21,7 @@ var controllableClients sync.Map
 //Will be nil if they arent connected to anything
 var connections map[ssh.Conn]ssh.Conn = make(map[ssh.Conn]ssh.Conn)
 
-var autoCompleteTrie *trie.Trie
+var autoCompleteCommands, autoCompleteClients *trie.Trie
 
 func Run(addr, privateKeyPath string) {
 
@@ -113,11 +113,13 @@ func Run(addr, privateKeyPath string) {
 		log.Fatalf("Failed to listen on %s (%s)", addr, err)
 	}
 
-	autoCompleteTrie = trie.NewTrie()
-	autoCompleteTrie.Add("exit")
-	autoCompleteTrie.Add("ls")
-	autoCompleteTrie.Add("connect ")
-	autoCompleteTrie.Add("help")
+	autoCompleteClients = trie.NewTrie()
+
+	autoCompleteCommands = trie.NewTrie()
+	autoCompleteCommands.Add("exit")
+	autoCompleteCommands.Add("ls")
+	autoCompleteCommands.Add("connect ")
+	autoCompleteCommands.Add("help")
 
 	// Accept all connections
 	log.Printf("Listening on %s...\n", addr)
@@ -139,7 +141,7 @@ func Run(addr, privateKeyPath string) {
 
 			idString := fmt.Sprintf("%s@%s", sshConn.Permissions.Extensions["pubkey-fp"], sshConn.RemoteAddr())
 
-			autoCompleteTrie.Add(idString)
+			autoCompleteClients.Add(idString)
 
 			controllableClients.Store(idString, sshConn)
 
@@ -151,7 +153,7 @@ func Run(addr, privateKeyPath string) {
 				}
 				log.Printf("SSH client disconnected %s", s)
 				controllableClients.Delete(s)
-				autoCompleteTrie.Remove(idString)
+				autoCompleteClients.Remove(idString)
 			}(idString)
 
 		} else {

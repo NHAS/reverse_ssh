@@ -89,7 +89,13 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 				searchString = parts[len(parts)-1]
 			}
 
-			r := autoCompleteTrie.PrefixMatch(searchString)
+			var r []string
+			if len(parts) == 1 {
+				r = autoCompleteCommands.PrefixMatch(searchString)
+			}
+			if len(parts) > 1 {
+				r = autoCompleteClients.PrefixMatch(searchString)
+			}
 
 			if len(r) == 1 {
 				return line + r[0], len(line + r[0]), true
@@ -149,7 +155,7 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 				})
 
 			case "help":
-				r := autoCompleteTrie.PrefixMatch("")
+				r := autoCompleteCommands.PrefixMatch("")
 				fmt.Fprintln(term, "Commands: ")
 				for _, completion := range r {
 					fmt.Fprintf(term, "%s\n", completion)
