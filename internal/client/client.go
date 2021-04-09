@@ -32,7 +32,6 @@ func loadShells() (shells []string) {
 		shells = []string{
 			"/bin/bash",
 			"/bin/sh",
-			"C:\\Windows\\System32\\cmd.exe",
 			"/bin/zsh",
 			"/bin/ash",
 		}
