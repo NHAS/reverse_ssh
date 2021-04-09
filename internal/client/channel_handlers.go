@@ -10,9 +10,9 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/creack/pty"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
