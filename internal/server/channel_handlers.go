@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
@@ -133,7 +133,7 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		//This will break if the user does CTRL+C or CTRL+D apparently we need to reset the whole terminal if a user does this....
 		line, err := term.ReadLine()
 		if err != nil {
-			log.Println("Breaking")
+			//This can no longer happen on ctrl+c
 			break
 		}
 
@@ -192,7 +192,7 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 					connections[sshConn] = nil
 
-					fmt.Fprintf(term, "Session has terminated. Press any key to continue\n")
+					fmt.Fprintf(term, "Session has terminated.\n")
 					log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
 
 					go handleSSHRequests(&ptyReq, &lastWindowChange, term, requests, stop) // Re-enable the default handler if the client isnt connected to a remote host

@@ -10,9 +10,9 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/term"
 )
 
 var controllableClients sync.Map
@@ -174,7 +174,7 @@ func Run(addr, privateKeyPath string) {
 
 }
 
-func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *term.Terminal, requests <-chan *ssh.Request, cancel <-chan bool) {
+func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Terminal, requests <-chan *ssh.Request, cancel <-chan bool) {
 
 	for {
 		select {
