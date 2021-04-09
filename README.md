@@ -75,7 +75,8 @@ Will auto complete the entry for you and on enter will connect you to your rever
 
 ## Limitations
 
-Currently doesnt work on windows due to PTY issues. If someone wants, I can always add in a simple shell that just executes & returns stdin/stdout. But not currently needed for my use cases.
+This doesnt work entirely correctly for windows programs, due to limitations of the windows platform. But you can still run commands. 
+ALthough they might not end properly, or be ctrl+c-able
 
 ## Todo
 
