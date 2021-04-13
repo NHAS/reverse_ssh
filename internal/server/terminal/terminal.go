@@ -159,9 +159,10 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 		if len(parts) == 1 {
 			r = term.functionsAutoComplete.PrefixMatch(searchString)
 		}
-		//if len(parts) > 1 {
-		//	r = autoCompleteClients.PrefixMatch(searchString)
-		//}
+
+		if len(parts) > 1 {
+			r = term.values.PrefixMatch(searchString)
+		}
 
 		if len(r) == 1 {
 			return line + r[0] + " ", len(line+r[0]) + 1, true
