@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
@@ -64,7 +65,9 @@ func (dw *TerminalWriter) Write(p []byte) (n int, err error) {
 	n, err = dw.writer.Write(p)
 	if err != nil {
 		if dw.enableWriteTermLine {
-			dw.term.SetLine(string(p))
+			//Need to actually do a utf16 decode here
+			r, _ := utf8.DecodeRune(p)
+			dw.term.SetLine(r)
 		}
 		return
 	}

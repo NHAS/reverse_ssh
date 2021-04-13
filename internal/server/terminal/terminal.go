@@ -454,21 +454,14 @@ func (t *Terminal) setLine(newLine []rune, newPos int) {
 	t.pos = newPos
 }
 
-func (t *Terminal) SetLine(line string) {
+func (t *Terminal) SetLine(character rune) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	t.moveCursorToPos(0)
-	t.writeLine([]rune(line))
-	for i := len(line); i < len(t.line); i++ {
-		t.writeLine(space)
-	}
-	t.moveCursorToPos(len(line))
+	t.handleKey(character)
+
 	t.c.Write(t.outBuf)
 	t.outBuf = t.outBuf[:0]
-
-	t.line = []rune(line)
-	t.pos = len(line)
 }
 
 func (t *Terminal) advanceCursor(places int) {
@@ -896,12 +889,14 @@ func (t *Terminal) readLine() (line string, err error) {
 			}
 			line, lineOk = t.handleKey(key)
 		}
+
 		if len(rest) > 0 {
 			n := copy(t.inBuf[:], rest)
 			t.remainder = t.inBuf[:n]
 		} else {
 			t.remainder = nil
 		}
+
 		t.c.Write(t.outBuf)
 		t.outBuf = t.outBuf[:0]
 		if lineOk {
