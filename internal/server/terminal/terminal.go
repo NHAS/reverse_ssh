@@ -6,12 +6,21 @@ package terminal
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
+
+var ErrTrample = errors.New("Function already registered")
+
+type TerminalFunctionCallback func(args ...string) error
 
 // EscapeCodes contains escape sequences that can be written to the terminal in
 // order to achieve different styles of text.
@@ -44,7 +53,7 @@ type Terminal struct {
 	// bytes, as an index into |line|). If it returns ok=false, the key
 	// press is processed normally. Otherwise it returns a replacement line
 	// and the new cursor position.
-	AutoCompleteCallback func(line string, pos int, key rune) (newLine string, newPos int, ok bool)
+	AutoCompleteCallback func(term *Terminal, line string, pos int, key rune) (newLine string, newPos int, ok bool)
 
 	// Escape contains a pointer to the escape codes for this terminal.
 	// It's always a valid pointer, although the escape codes themselves
@@ -94,6 +103,11 @@ type Terminal struct {
 	// the incomplete, initial line. That value is stored in
 	// historyPending.
 	historyPending string
+
+	functions             map[string]TerminalFunctionCallback
+	functionsAutoComplete *trie.Trie
+
+	values *trie.Trie
 }
 
 // NewTerminal runs a VT100 terminal on the given ReadWriter. If the ReadWriter is
@@ -110,6 +124,56 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 		echo:         true,
 		historyIndex: -1,
 	}
+}
+
+func NewAdvancedTerminal(c io.ReadWriter, vals *trie.Trie, prompt string) *Terminal {
+	t := &Terminal{
+		Escape:                &vt100EscapeCodes,
+		c:                     c,
+		prompt:                []rune(prompt),
+		termWidth:             80,
+		termHeight:            24,
+		echo:                  true,
+		historyIndex:          -1,
+		AutoCompleteCallback:  defaultAutoComplete,
+		functionsAutoComplete: trie.NewTrie(),
+		values:                vals,
+		functions:             make(map[string]TerminalFunctionCallback),
+	}
+
+	return t
+}
+
+func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLine string, newPos int, ok bool) {
+
+	if key == '\t' {
+
+		parts := strings.Split(line, " ")
+
+		searchString := ""
+		if len(parts) > 0 {
+			searchString = parts[len(parts)-1]
+		}
+
+		var r []string
+		if len(parts) == 1 {
+			r = term.functionsAutoComplete.PrefixMatch(searchString)
+		}
+		//if len(parts) > 1 {
+		//	r = autoCompleteClients.PrefixMatch(searchString)
+		//}
+
+		if len(r) == 1 {
+			return line + r[0] + " ", len(line+r[0]) + 1, true
+		}
+
+		for _, completion := range r {
+			fmt.Fprintf(term, "%s\n", line+completion)
+		}
+
+		return "", 0, false
+	}
+	return "", 0, false
 }
 
 const (
@@ -226,6 +290,57 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 	}
 
 	return utf8.RuneError, b
+}
+
+func (t *Terminal) AddFunction(name string, function TerminalFunctionCallback) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if _, ok := t.functions[name]; ok {
+		return ErrTrample
+	}
+
+	t.functionsAutoComplete.Add(name)
+
+	t.functions[name] = function
+
+	return nil
+}
+
+func (t *Terminal) GetFunctions() (out []string) {
+	for k := range t.functions {
+		out = append(out, k)
+	}
+	return
+}
+
+func (t *Terminal) Run() error {
+	for {
+		//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
+		line, err := t.ReadLine()
+		if err != nil {
+			return err
+		}
+
+		commandParts := strings.Split(line, " ")
+
+		if len(commandParts) > 0 {
+			f, ok := t.functions[commandParts[0]]
+			if !ok {
+				fmt.Fprintf(t, "Unknown command: %s\n", commandParts[0])
+				continue
+			}
+
+			err = f(commandParts[1:]...)
+			if err != nil {
+				if err == io.EOF {
+					return err
+				}
+
+				fmt.Fprintf(t, "%s\n", err)
+			}
+		}
+	}
 }
 
 // queue appends data to the end of t.outBuf
@@ -584,7 +699,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 			suffix := string(t.line[t.pos:])
 
 			t.lock.Unlock()
-			newLine, newPos, completeOk := t.AutoCompleteCallback(prefix+suffix, len(prefix), key)
+			newLine, newPos, completeOk := t.AutoCompleteCallback(t, prefix+suffix, len(prefix), key)
 			t.lock.Lock()
 
 			if completeOk {

@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
@@ -115,12 +114,6 @@ func Run(addr, privateKeyPath string) {
 
 	autoCompleteClients = trie.NewTrie()
 
-	autoCompleteCommands = trie.NewTrie()
-	autoCompleteCommands.Add("exit")
-	autoCompleteCommands.Add("ls")
-	autoCompleteCommands.Add("connect ")
-	autoCompleteCommands.Add("help")
-
 	// Accept all connections
 	log.Printf("Listening on %s...\n", addr)
 	for {
@@ -159,7 +152,7 @@ func Run(addr, privateKeyPath string) {
 		} else {
 			connections[sshConn] = nil
 
-			// Since we're handling a shell and proxy, so we expect
+			// Since we're handling a shell and dynamic forward, so we expect
 			// channel type of "session" or "direct-tcpip".
 			go internal.RegisterChannelCallbacks(sshConn, chans, map[string]internal.ChannelHandler{
 				"session":      sessionChannel,
@@ -172,40 +165,4 @@ func Run(addr, privateKeyPath string) {
 
 	}
 
-}
-
-func handleSSHRequests(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Terminal, requests <-chan *ssh.Request, cancel <-chan bool) {
-
-	for {
-		select {
-		case <-cancel:
-			return
-		case req := <-requests:
-			if req == nil { // Channel has closed, so therefore end this default handler
-				return
-			}
-
-			log.Println("Got request: ", req.Type)
-			switch req.Type {
-			case "shell":
-				// We only accept the default shell
-				// (i.e. no command in the Payload)
-				req.Reply(len(req.Payload) == 0, nil)
-			case "pty-req":
-
-				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
-				ptyReqData, _ := internal.ParsePtyReq(req.Payload)
-				term.SetSize(int(ptyReqData.Columns), int(ptyReqData.Rows))
-
-				*ptyr = *req
-				req.Reply(true, nil)
-			case "window-change":
-				w, h := internal.ParseDims(req.Payload)
-				term.SetSize(int(w), int(h))
-
-				*wc = *req
-			}
-		}
-
-	}
 }

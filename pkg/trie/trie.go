@@ -4,6 +4,9 @@ import (
 	"sync"
 )
 
+/**
+This trie structure is only threadsafe if the root node is queried (due to golang not having and easy re-entrant lock for me to just use)
+**/
 type Trie struct {
 	root     bool
 	c        byte
@@ -34,6 +37,10 @@ func (t *Trie) Add(s string) {
 }
 
 func (t *Trie) getAll() (result []string) {
+	if t.root {
+		t.mut.RLock()
+		defer t.mut.RUnlock()
+	}
 
 	if len(t.children) == 0 {
 		return []string{string(t.c)}
