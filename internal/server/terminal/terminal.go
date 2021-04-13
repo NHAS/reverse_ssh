@@ -323,7 +323,7 @@ func (t *Terminal) Run() error {
 			return err
 		}
 
-		commandParts := strings.Split(line, " ")
+		commandParts := strings.Split(strings.TrimSpace(line), " ")
 
 		if len(commandParts) > 0 {
 			f, ok := t.functions[commandParts[0]]
@@ -877,7 +877,8 @@ func (t *Terminal) readLine() (line string, err error) {
 					}
 				}
 				if key == keyCtrlC {
-					return "", nil
+
+					return "", io.EOF
 				}
 				if key == keyPasteStart {
 					t.pasteActive = true
