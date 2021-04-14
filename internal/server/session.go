@@ -42,6 +42,9 @@ func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc s
 // I didnt like this, had to modify the terminal library to let us write user input, and then use a writer interface to copy the input data to both the io.Copy
 // And the terminal, so that the io.Copy thread will end, and that we get the input on the terminal side.
 // Damn you unstoppable blocking reads!
+
+//Frankly I hate this fix. But I cant think of a better way of solving this
+// Other than bringing this structure into the terminal and having the terminal expose a "Raw" mode hmm
 type TerminalWriter struct {
 	sync.Mutex
 
@@ -88,7 +91,7 @@ func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh
 
 	close := func() {
 		newSession.Close()
-		sm.Enable()
+		sm.Enable()      // This sucks... a lot. But cant think of a better way to do this
 		finished <- true // Stop the request passer on IO error
 	}
 

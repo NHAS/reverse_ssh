@@ -46,15 +46,25 @@ func Connect(term *terminal.Terminal, ptyReq, lastWindowChange *ssh.Request, ssh
 
 	return func(args ...string) error {
 		if len(args) != 1 {
-			return fmt.Errorf("connect <remote machine id>\n")
+			return fmt.Errorf("connect <remote machine id>")
 		}
 
 		c, ok := controllableClients.Load(args[0])
 		if !ok {
-			return fmt.Errorf("Unknown connection host\n")
+			return fmt.Errorf("Unknown connection host")
 		}
 
 		controlClient := c.(ssh.Conn)
+
+		defer func() {
+			connections[sshConn] = nil
+
+			log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
+
+			defaultHandle.Start(ptyReq, lastWindowChange, term, requests) // Re-enable the default handler if the client isnt connected to a remote host
+
+		}()
+
 		//Attempt to connect to remote host and send inital pty request and screen size
 		// If we cant, report and error to the clients terminal
 		newSession, err := createSession(controlClient, *ptyReq, *lastWindowChange)
@@ -68,18 +78,12 @@ func Connect(term *terminal.Terminal, ptyReq, lastWindowChange *ssh.Request, ssh
 
 		err = attachSession(term, newSession, connection, requests)
 		if err != nil {
-			fmt.Fprintf(term, "Error: %s", err)
-			log.Println(err)
+
+			log.Println("Client tried to attach session and failed: ", err)
+			return err
 		}
 
-		connections[sshConn] = nil
-
-		fmt.Fprintf(term, "Session has terminated.\n")
-		log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
-
-		defaultHandle.Start(ptyReq, lastWindowChange, term, requests) // Re-enable the default handler if the client isnt connected to a remote host
-
-		return nil
+		return fmt.Errorf("Session has terminated.") // Not really an error. But we can get the terminal to print out stuff
 	}
 }
 
