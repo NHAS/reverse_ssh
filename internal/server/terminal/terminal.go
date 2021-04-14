@@ -454,12 +454,12 @@ func (t *Terminal) setLine(newLine []rune, newPos int) {
 	t.pos = newPos
 }
 
-func (t *Terminal) SetLine(character rune) {
+func (t *Terminal) SetLine(characters []byte) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	t.handleKey(character)
-
+	r, _ := bytesToKey(characters, false)
+	t.handleKey(r)
 	t.c.Write(t.outBuf)
 	t.outBuf = t.outBuf[:0]
 }
