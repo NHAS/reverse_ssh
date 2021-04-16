@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -133,21 +132,18 @@ func sessionChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 }
 
 type defaultSSHHandler struct {
-	cancel context.CancelFunc
-	ctx    context.Context
+	cancel chan bool
 }
 
-func newDefaultHandler() defaultSSHHandler {
-	c, cancelFunc := context.WithCancel(context.Background())
+func newDefaultHandler() *defaultSSHHandler {
 
-	return defaultSSHHandler{
-		cancel: cancelFunc,
-		ctx:    c,
+	return &defaultSSHHandler{
+		cancel: make(chan bool),
 	}
 }
 
 func (dh *defaultSSHHandler) Stop() {
-	dh.cancel()
+	dh.cancel <- true
 }
 
 func (dh *defaultSSHHandler) Start(ptyr *ssh.Request, wc *ssh.Request, term *terminal.Terminal, requests <-chan *ssh.Request) {
@@ -155,7 +151,8 @@ func (dh *defaultSSHHandler) Start(ptyr *ssh.Request, wc *ssh.Request, term *ter
 	go func() {
 		for {
 			select {
-			case <-dh.ctx.Done():
+			case <-dh.cancel:
+
 				return
 			case req := <-requests:
 				if req == nil { // Channel has closed, so therefore end this default handler

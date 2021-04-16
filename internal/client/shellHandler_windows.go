@@ -23,11 +23,11 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	}
 	defer connection.Close()
 
-	r := bufio.NewReader(connection)
 	go func() {
 		defer connection.Close()
-
+		r := bufio.NewReader(connection)
 		for {
+			fmt.Fprintf(connection, "\n> ")
 			order, err := r.ReadString('\n')
 			if nil != err {
 				return
@@ -40,7 +40,7 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 				out = []byte(fmt.Sprintf("Unable to execute command. Reason: %s", err))
 			}
 
-			_, err = connection.Write(out)
+			fmt.Fprintf(connection, "%s", out)
 			if err != nil {
 				log.Println("Unable to write: ", err)
 				return
@@ -57,7 +57,10 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 			req.Reply(len(req.Payload) == 0, nil)
 
 		case "window-change":
-			req.Reply(false, nil)
+			req.Reply(true, nil)
+
+		case "pty-req":
+			req.Reply(true, nil)
 		}
 	}
 

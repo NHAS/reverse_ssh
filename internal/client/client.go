@@ -2,7 +2,9 @@ package client
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -56,7 +58,72 @@ func loadShells() (shells []string) {
 
 }
 
-func Run(addr, serverPubKey string, reconnect bool) {
+func WriteHTTPReq(lines []string, conn net.Conn) error {
+	lines = append(lines, "") // Add an empty line for completing the HTTP request
+	for _, line := range lines {
+
+		n, err := conn.Write([]byte(line + "\r\n"))
+		if err != nil {
+			return err
+		}
+
+		if len(line+"\r\n") < n {
+			return io.ErrShortWrite
+		}
+	}
+	return nil
+}
+
+func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err error) {
+
+	if len(proxy) != 0 {
+		log.Println("Setting HTTP proxy address as: ", proxy)
+
+		proxyCon, err := net.DialTimeout("tcp", proxy, timeout)
+		if err != nil {
+			return conn, err
+		}
+
+		req := []string{
+			fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
+			fmt.Sprintf("Host: %s", addr),
+		}
+
+		err = WriteHTTPReq(req, proxyCon)
+		if err != nil {
+			return conn, fmt.Errorf("Unable to connect proxy %s", proxy)
+		}
+
+		var responseStatus []byte
+		for {
+			b := make([]byte, 1)
+			_, err := proxyCon.Read(b)
+			if err != nil {
+				return conn, fmt.Errorf("Reading from proxy failed")
+			}
+			responseStatus = append(responseStatus, b...)
+
+			if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
+				break
+			}
+		}
+
+		if !bytes.Contains(bytes.ToLower(responseStatus), []byte("200 connection established")) {
+			parts := bytes.Split(responseStatus, []byte("\r\n"))
+			if len(parts) > 1 {
+				return proxyCon, fmt.Errorf("Failed to proxy: '%s'", parts[0])
+			}
+		}
+
+		log.Println("Proxy accepted CONNECT request, connection set up!")
+
+		return proxyCon, nil
+	}
+
+	return net.DialTimeout("tcp", addr, timeout)
+}
+
+func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 
 	pemBlock, err := internal.GeneratePrivateKey()
 	if err != nil {
@@ -91,7 +158,7 @@ func Run(addr, serverPubKey string, reconnect bool) {
 	once := true
 	for ; once || reconnect; once = false { // My take on a golang do {} while loop :P
 		log.Println("Connecting to ", addr)
-		conn, err := net.DialTimeout("tcp", addr, config.Timeout)
+		conn, err := Connect(addr, proxyAddr, config.Timeout)
 		if err != nil {
 			log.Printf("Unable to connect TCP: %s\n", err)
 			<-time.After(10 * time.Second)

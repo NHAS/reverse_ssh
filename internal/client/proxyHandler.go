@@ -22,12 +22,12 @@ func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	}
 
 	connection, requests, err := newChannel.Accept()
+	if err != nil {
+		log.Println("Unable to accept new channel", err)
+		return
+	}
 	defer connection.Close()
-	go func() {
-		for r := range requests {
-			log.Println("Got req: ", r)
-		}
-	}()
+	go ssh.DiscardRequests(requests)
 
 	tcpConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport))
 	if err != nil {
