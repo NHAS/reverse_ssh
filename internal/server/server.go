@@ -122,6 +122,7 @@ func Run(addr, privateKeyPath string) {
 			log.Printf("Failed to accept incoming connection (%s)", err)
 			continue
 		}
+
 		// Before use, a handshake must be performed on the incoming net.Conn.
 		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
 		if err != nil {

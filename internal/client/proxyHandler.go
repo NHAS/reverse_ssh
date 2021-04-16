@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"golang.org/x/crypto/ssh"
@@ -26,7 +25,6 @@ func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		log.Println("Unable to accept new channel", err)
 		return
 	}
-	defer connection.Close()
 	go ssh.DiscardRequests(requests)
 
 	tcpConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport))
@@ -34,19 +32,17 @@ func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 		log.Println(err)
 		return
 	}
-	defer tcpConn.Close()
 
-	var wg sync.WaitGroup
-
-	wg.Add(2)
 	go func() {
+		defer tcpConn.Close()
+		defer connection.Close()
+
 		io.Copy(connection, tcpConn)
-		wg.Done()
+
 	}()
 	go func() {
+		defer tcpConn.Close()
+		defer connection.Close()
 		io.Copy(tcpConn, connection)
-		wg.Done()
 	}()
-
-	wg.Wait()
 }
