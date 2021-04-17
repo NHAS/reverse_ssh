@@ -87,5 +87,5 @@ ALthough they might not end properly, or be ctrl+c-able
 - ~~direct-tcp port forwarding to select hosts~~
 - ~~Client reconnect on loss of connection~~
 - ~~Add authentication bits and bobs~~
-- Ensure threadsafety of key structures
+- ~~Ensure threadsafety of key structures~~
 - ~~Fix the passing of enviroment variables such as TERM~~

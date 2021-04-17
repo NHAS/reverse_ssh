@@ -43,6 +43,7 @@ func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 	go func() {
 		defer tcpConn.Close()
 		defer connection.Close()
+
 		io.Copy(tcpConn, connection)
 	}()
 }
