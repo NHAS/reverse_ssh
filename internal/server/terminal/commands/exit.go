@@ -1,7 +1,11 @@
 package commands
 
-import "io"
+import (
+	"io"
 
-func Exit(args ...string) error {
+	"github.com/NHAS/reverse_ssh/internal/server/terminal"
+)
+
+func Exit(term *terminal.Terminal, args ...string) error {
 	return io.EOF
 }

@@ -10,7 +10,7 @@ func RCFile(term *terminal.Terminal) (terminal.TerminalFunctionCallback, map[str
 
 	rcfiles := make(map[string][]string)      // Map of rc label -> rc file lines
 	enabledHosts := make(map[string][]string) // Map of host id string -> rc file lines
-	return func(args ...string) error {
+	return func(term *terminal.Terminal, args ...string) error {
 		if len(args) != 1 {
 			helpText := "rc load <label> <rc file path>\n"
 			helpText += "rc enable <label> <host>\n"

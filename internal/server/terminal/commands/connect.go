@@ -15,10 +15,9 @@ import (
 func Connect(
 	user *users.User,
 	defaultHandle *internal.DefaultSSHHandler,
-	controllableClients *sync.Map,
-	term *terminal.Terminal) terminal.TerminalFunctionCallback {
+	controllableClients *sync.Map) terminal.TerminalFunctionCallback {
 
-	return func(args ...string) error {
+	return func(term *terminal.Terminal, args ...string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("connect <remote machine id>")
 		}

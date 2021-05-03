@@ -20,7 +20,7 @@ import (
 
 var ErrTrample = errors.New("Function already registered")
 
-type TerminalFunctionCallback func(args ...string) error
+type TerminalFunctionCallback func(term *Terminal, args ...string) error
 
 // EscapeCodes contains escape sequences that can be written to the terminal in
 // order to achieve different styles of text.
@@ -332,7 +332,7 @@ func (t *Terminal) Run() error {
 				continue
 			}
 
-			err = f(commandParts[1:]...)
+			err = f(t, commandParts[1:]...)
 			if err != nil {
 				if err == io.EOF {
 					return err
