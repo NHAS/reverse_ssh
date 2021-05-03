@@ -8,16 +8,26 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func List(controllableClients *sync.Map) terminal.TerminalFunctionCallback {
-	return func(term *terminal.Terminal, args ...string) error {
-		controllableClients.Range(func(idStr interface{}, value interface{}) bool {
-			fmt.Fprintf(term, "%s, client version: %s\n",
-				idStr,
-				value.(ssh.Conn).ClientVersion(),
-			)
-			return true
-		})
+type list struct {
+	controllableClients *sync.Map
+}
 
-		return nil
-	}
+func (l *list) Run(term *terminal.Terminal, args ...string) error {
+	l.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
+		fmt.Fprintf(term, "%s, client version: %s\n",
+			idStr,
+			value.(ssh.Conn).ClientVersion(),
+		)
+		return true
+	})
+
+	return nil
+}
+
+func (l *list) Expect(section int) string {
+	return ""
+}
+
+func List(controllableClients *sync.Map) *list {
+	return &list{}
 }

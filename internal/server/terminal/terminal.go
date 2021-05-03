@@ -104,10 +104,10 @@ type Terminal struct {
 	// historyPending.
 	historyPending string
 
-	functions             map[string]TerminalFunctionCallback
+	functions             map[string]Base
 	functionsAutoComplete *trie.Trie
 
-	values *trie.Trie
+	autoCompleteValues map[string]*trie.Trie
 }
 
 // NewTerminal runs a VT100 terminal on the given ReadWriter. If the ReadWriter is
@@ -126,7 +126,7 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 	}
 }
 
-func NewAdvancedTerminal(c io.ReadWriter, vals *trie.Trie, prompt string) *Terminal {
+func NewAdvancedTerminal(c io.ReadWriter, prompt string) *Terminal {
 	t := &Terminal{
 		Escape:                &vt100EscapeCodes,
 		c:                     c,
@@ -137,11 +137,24 @@ func NewAdvancedTerminal(c io.ReadWriter, vals *trie.Trie, prompt string) *Termi
 		historyIndex:          -1,
 		AutoCompleteCallback:  defaultAutoComplete,
 		functionsAutoComplete: trie.NewTrie(),
-		values:                vals,
-		functions:             make(map[string]TerminalFunctionCallback),
+		functions:             make(map[string]Base),
+		autoCompleteValues:    make(map[string]*trie.Trie),
 	}
 
 	return t
+}
+
+func (t *Terminal) AddValueAutoComplete(placement string, trie *trie.Trie) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if _, ok := t.autoCompleteValues[placement]; ok {
+		return errors.New("Trampling function value, ignoring")
+	}
+
+	t.autoCompleteValues[placement] = trie
+
+	return nil
 }
 
 func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLine string, newPos int, ok bool) {
@@ -161,7 +174,12 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 		}
 
 		if len(parts) > 1 {
-			r = term.values.PrefixMatch(searchString)
+			if function, ok := term.functions[parts[0]]; ok {
+
+				if trie, ok := term.autoCompleteValues[function.Expect(len(parts)-1)]; ok {
+					r = trie.PrefixMatch(searchString)
+				}
+			}
 		}
 
 		if len(r) == 1 {
@@ -293,7 +311,7 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 	return utf8.RuneError, b
 }
 
-func (t *Terminal) AddCommand(name string, function TerminalFunctionCallback) error {
+func (t *Terminal) AddCommand(name string, command Base) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -303,7 +321,7 @@ func (t *Terminal) AddCommand(name string, function TerminalFunctionCallback) er
 
 	t.functionsAutoComplete.Add(name)
 
-	t.functions[name] = function
+	t.functions[name] = command
 
 	return nil
 }
@@ -332,7 +350,7 @@ func (t *Terminal) Run() error {
 				continue
 			}
 
-			err = f(t, commandParts[1:]...)
+			err = f.Run(t, commandParts[1:]...)
 			if err != nil {
 				if err == io.EOF {
 					return err

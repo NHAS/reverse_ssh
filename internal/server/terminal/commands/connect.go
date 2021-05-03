@@ -12,52 +12,67 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type connect struct {
+	user                *users.User
+	defaultHandle       *internal.DefaultSSHHandler
+	controllableClients *sync.Map
+}
+
+func (c *connect) Run(term *terminal.Terminal, args ...string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("connect <remote machine id>")
+	}
+
+	cc, ok := c.controllableClients.Load(args[0])
+	if !ok {
+		return fmt.Errorf("Unknown connection host")
+	}
+
+	controlClient := cc.(ssh.Conn)
+
+	defer func() {
+		c.user.ProxyConnection = nil
+
+		log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", c.user.ServerConnection.RemoteAddr(), c.user.ServerConnection.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
+
+		c.defaultHandle.Start() // Re-enable the default handler if the client isnt connected to a remote host
+
+	}()
+
+	//Attempt to connect to remote host and send inital pty request and screen size
+	// If we cant, report and error to the clients terminal
+	newSession, err := createSession(controlClient, c.user.PtyReq, c.user.LastWindowChange)
+	if err != nil {
+		return err
+	}
+
+	c.defaultHandle.Stop()
+
+	c.user.ProxyConnection = controlClient
+
+	err = attachSession(term, newSession, c.user.ShellConnection, c.user.ShellRequests)
+	if err != nil {
+
+		log.Println("Client tried to attach session and failed: ", err)
+		return err
+	}
+
+	return fmt.Errorf("Session has terminated.") // Not really an error. But we can get the terminal to print out stuff
+
+}
+
+func (c *connect) Expect(section int) string {
+	return syntaxParse("connect <remote_id>", section)
+}
+
 func Connect(
 	user *users.User,
 	defaultHandle *internal.DefaultSSHHandler,
-	controllableClients *sync.Map) terminal.TerminalFunctionCallback {
-
-	return func(term *terminal.Terminal, args ...string) error {
-		if len(args) != 1 {
-			return fmt.Errorf("connect <remote machine id>")
-		}
-
-		c, ok := controllableClients.Load(args[0])
-		if !ok {
-			return fmt.Errorf("Unknown connection host")
-		}
-
-		controlClient := c.(ssh.Conn)
-
-		defer func() {
-			user.ProxyConnection = nil
-
-			log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", user.ServerConnection.RemoteAddr(), user.ServerConnection.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
-
-			defaultHandle.Start() // Re-enable the default handler if the client isnt connected to a remote host
-
-		}()
-
-		//Attempt to connect to remote host and send inital pty request and screen size
-		// If we cant, report and error to the clients terminal
-
-		newSession, err := createSession(controlClient, user.PtyReq, user.LastWindowChange)
-		if err != nil {
-			return err
-		}
-
-		defaultHandle.Stop()
-
-		user.ProxyConnection = controlClient
-
-		err = attachSession(term, newSession, user.ShellConnection, user.ShellRequests)
-		if err != nil {
-
-			log.Println("Client tried to attach session and failed: ", err)
-			return err
-		}
-
-		return fmt.Errorf("Session has terminated.") // Not really an error. But we can get the terminal to print out stuff
+	controllableClients *sync.Map) *connect {
+	return &connect{
+		user:                user,
+		defaultHandle:       defaultHandle,
+		controllableClients: controllableClients,
 	}
 }
 
@@ -94,7 +109,7 @@ func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc s
 
 //Frankly I hate this fix. But I cant think of a better way of solving this
 // Other than bringing this structure into the terminal and having the terminal expose a "Raw" mode hmm
-type TerminalWriter struct {
+type terminalWriter struct {
 	sync.Mutex
 
 	writer              io.Writer
@@ -102,14 +117,14 @@ type TerminalWriter struct {
 	enableWriteTermLine bool
 }
 
-func (dw *TerminalWriter) Enable() {
+func (dw *terminalWriter) Enable() {
 	dw.Lock()
 	defer dw.Unlock()
 
 	dw.enableWriteTermLine = true
 }
 
-func (dw *TerminalWriter) Write(p []byte) (n int, err error) {
+func (dw *terminalWriter) Write(p []byte) (n int, err error) {
 	dw.Lock()
 	defer dw.Unlock()
 
@@ -128,9 +143,9 @@ func (dw *TerminalWriter) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func newTermMultiWriter(writer io.Writer, term *terminal.Terminal) *TerminalWriter {
+func newTermMultiWriter(writer io.Writer, term *terminal.Terminal) *terminalWriter {
 
-	return &TerminalWriter{writer: writer, term: term}
+	return &terminalWriter{writer: writer, term: term}
 }
 
 func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh.Channel, currentClientRequests <-chan *ssh.Request) error {

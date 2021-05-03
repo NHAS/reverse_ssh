@@ -28,13 +28,15 @@ func sessionChannel(user *users.User, newChannel ssh.NewChannel) {
 	user.ShellConnection = connection
 	user.ShellRequests = requests
 
-	term := terminal.NewAdvancedTerminal(connection, autoCompleteClients, "> ")
+	term := terminal.NewAdvancedTerminal(connection, "> ")
+
+	term.AddValueAutoComplete("<remote_id>", autoCompleteClients)
 
 	defaultHandle := internal.NewDefaultHandler(user, term)
 
 	term.AddCommand("ls", commands.List(&controllableClients))
-	term.AddCommand("help", commands.Help)
-	term.AddCommand("exit", commands.Exit)
+	term.AddCommand("help", commands.Help())
+	term.AddCommand("exit", commands.Exit())
 	term.AddCommand("connect", commands.Connect(user, defaultHandle, &controllableClients))
 
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
