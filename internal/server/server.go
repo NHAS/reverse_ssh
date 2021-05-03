@@ -10,16 +10,12 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
 
 var controllableClients sync.Map
-
-//A map of 'controller' ssh connections, to the host they're controlling.
-//Will be nil if they arent connected to anything
-var connections map[ssh.Conn]ssh.Conn = make(map[ssh.Conn]ssh.Conn)
-
 var autoCompleteCommands, autoCompleteClients *trie.Trie
 
 func Run(addr, privateKeyPath string) {
@@ -133,7 +129,7 @@ func Run(addr, privateKeyPath string) {
 
 		if sshConn.Permissions.Extensions["controllable"] == "yes" {
 
-			idString := fmt.Sprintf("%s@%s", sshConn.Permissions.Extensions["pubkey-fp"], sshConn.RemoteAddr())
+			idString := createIdString(sshConn)
 
 			autoCompleteClients.Add(idString)
 
@@ -151,11 +147,17 @@ func Run(addr, privateKeyPath string) {
 			}(idString)
 
 		} else {
-			connections[sshConn] = nil
+
+			user, err := users.AddUser(createIdString(sshConn), sshConn)
+			if err != nil {
+				sshConn.Close()
+				log.Println(err)
+				continue
+			}
 
 			// Since we're handling a shell and dynamic forward, so we expect
 			// channel type of "session" or "direct-tcpip".
-			go internal.RegisterChannelCallbacks(sshConn, chans, map[string]internal.ChannelHandler{
+			go internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{
 				"session":      sessionChannel,
 				"direct-tcpip": proxyChannel,
 			})
@@ -166,4 +168,8 @@ func Run(addr, privateKeyPath string) {
 
 	}
 
+}
+
+func createIdString(sshServerConn *ssh.ServerConn) string {
+	return fmt.Sprintf("%s@%s", sshServerConn.Permissions.Extensions["pubkey-fp"], sshServerConn.RemoteAddr())
 }

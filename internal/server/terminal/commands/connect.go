@@ -1,4 +1,4 @@
-package server
+package commands
 
 import (
 	"fmt"
@@ -8,9 +8,59 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"golang.org/x/crypto/ssh"
 )
+
+func Connect(
+	user *users.User,
+	defaultHandle *internal.DefaultSSHHandler,
+	controllableClients *sync.Map,
+	term *terminal.Terminal) terminal.TerminalFunctionCallback {
+
+	return func(args ...string) error {
+		if len(args) != 1 {
+			return fmt.Errorf("connect <remote machine id>")
+		}
+
+		c, ok := controllableClients.Load(args[0])
+		if !ok {
+			return fmt.Errorf("Unknown connection host")
+		}
+
+		controlClient := c.(ssh.Conn)
+
+		defer func() {
+			user.ProxyConnection = nil
+
+			log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", user.ServerConnection.RemoteAddr(), user.ServerConnection.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
+
+			defaultHandle.Start() // Re-enable the default handler if the client isnt connected to a remote host
+
+		}()
+
+		//Attempt to connect to remote host and send inital pty request and screen size
+		// If we cant, report and error to the clients terminal
+
+		newSession, err := createSession(controlClient, user.PtyReq, user.LastWindowChange)
+		if err != nil {
+			return err
+		}
+
+		defaultHandle.Stop()
+
+		user.ProxyConnection = controlClient
+
+		err = attachSession(term, newSession, user.ShellConnection, user.ShellRequests)
+		if err != nil {
+
+			log.Println("Client tried to attach session and failed: ", err)
+			return err
+		}
+
+		return fmt.Errorf("Session has terminated.") // Not really an error. But we can get the terminal to print out stuff
+	}
+}
 
 func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, err error) {
 
@@ -79,7 +129,7 @@ func (dw *TerminalWriter) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func NewTermMultiWriter(writer io.Writer, term *terminal.Terminal) *TerminalWriter {
+func newTermMultiWriter(writer io.Writer, term *terminal.Terminal) *TerminalWriter {
 
 	return &TerminalWriter{writer: writer, term: term}
 }
@@ -87,7 +137,7 @@ func NewTermMultiWriter(writer io.Writer, term *terminal.Terminal) *TerminalWrit
 func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh.Channel, currentClientRequests <-chan *ssh.Request) error {
 
 	finished := make(chan bool)
-	sm := NewTermMultiWriter(newSession, term)
+	sm := newTermMultiWriter(newSession, term)
 
 	close := func() {
 		newSession.Close()

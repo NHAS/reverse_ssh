@@ -7,10 +7,11 @@ import (
 	"net"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"golang.org/x/crypto/ssh"
 )
 
-func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
+func proxyChannel(user *users.User, newChannel ssh.NewChannel) {
 	a := newChannel.ExtraData()
 
 	var drtMsg internal.ChannelOpenDirectMsg

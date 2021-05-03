@@ -12,12 +12,13 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/creack/pty"
 	"golang.org/x/crypto/ssh"
 )
 
 //This basically handles exactly like a SSH server would
-func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
+func shellChannel(user *users.User, newChannel ssh.NewChannel) {
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
@@ -113,7 +114,7 @@ PtyListener:
 		case "shell":
 			// We only accept the default shell
 			// (i.e. no command in the Payload)
-			req.Reply(len(req.Payload) == 0, nil)
+			req.Reply(true, []byte(path))
 
 		case "window-change":
 			w, h := internal.ParseDims(req.Payload)

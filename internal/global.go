@@ -11,10 +11,9 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"golang.org/x/crypto/ssh"
 )
-
-type ChannelHandler func(sshConn ssh.Conn, newChannel ssh.NewChannel)
 
 type ChannelOpenDirectMsg struct {
 	Raddr string
@@ -51,24 +50,6 @@ func FingerprintSHA256Hex(pubKey ssh.PublicKey) string {
 	return fingerPrint
 }
 
-func RegisterChannelCallbacks(sshConn ssh.Conn, chans <-chan ssh.NewChannel, handlers map[string]ChannelHandler) error {
-	// Service the incoming Channel channel in go routine
-
-	for newChannel := range chans {
-		t := newChannel.ChannelType()
-
-		if callBack, ok := handlers[t]; ok {
-			go callBack(sshConn, newChannel)
-			continue
-		}
-
-		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
-		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
-	}
-
-	return fmt.Errorf("connection terminated")
-}
-
 func SendRequest(req ssh.Request, sshChan ssh.Channel) (bool, error) {
 	return sshChan.SendRequest(req.Type, req.WantReply, req.Payload)
 }
@@ -95,3 +76,24 @@ func ParseDims(b []byte) (uint32, uint32) {
 }
 
 // ======================
+
+type ChannelHandler func(user *users.User, newChannel ssh.NewChannel)
+
+func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, handlers map[string]ChannelHandler) error {
+	// Service the incoming Channel channel in go routine
+	for newChannel := range chans {
+		t := newChannel.ChannelType()
+
+		if callBack, ok := handlers[t]; ok {
+			go callBack(user, newChannel)
+			continue
+		}
+
+		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
+		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", user.ServerConnection.RemoteAddr(), user.ServerConnection.ClientVersion(), t)
+	}
+
+	users.RemoveUser(user.IdString)
+
+	return fmt.Errorf("connection terminated")
+}

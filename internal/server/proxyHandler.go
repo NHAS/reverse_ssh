@@ -5,17 +5,16 @@ import (
 	"log"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"golang.org/x/crypto/ssh"
 )
 
-func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
+func proxyChannel(user *users.User, newChannel ssh.NewChannel) {
 
-	if connections[sshConn] == nil {
+	if user.ProxyConnection == nil {
 		newChannel.Reject(ssh.Prohibited, "no remote location to forward traffic to")
 		return
 	}
-
-	destConn := connections[sshConn]
 
 	proxyTarget := newChannel.ExtraData()
 
@@ -34,7 +33,7 @@ func proxyChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
 
 	go ssh.DiscardRequests(requests)
 
-	proxyDest, proxyRequests, err := destConn.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
+	proxyDest, proxyRequests, err := user.ProxyConnection.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
 	if err != nil {
 		newChannel.Reject(ssh.ConnectionFailed, err.Error())
 		return

@@ -293,7 +293,7 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 	return utf8.RuneError, b
 }
 
-func (t *Terminal) AddFunction(name string, function TerminalFunctionCallback) error {
+func (t *Terminal) AddCommand(name string, function TerminalFunctionCallback) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 

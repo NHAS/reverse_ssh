@@ -13,7 +13,7 @@ import (
 )
 
 //The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
-func shellChannel(sshConn ssh.Conn, newChannel ssh.NewChannel) {
+func shellChannel(user *users.User, newChannel ssh.NewChannel) {
 
 	// At this point, we have the opportunity to reject the client's.
 	// request for another logical connection
