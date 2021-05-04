@@ -51,7 +51,7 @@ func (s *scripting) Run(term *terminal.Terminal, args ...string) error {
 
 		currentRCFiles, ok := s.hostmapping[args[2]]
 		if !ok {
-			return fmt.Errorf("Host not found")
+			currentRCFiles = []string{}
 		}
 
 		index := -1
