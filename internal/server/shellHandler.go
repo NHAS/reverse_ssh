@@ -30,7 +30,7 @@ func sessionChannel(user *users.User, newChannel ssh.NewChannel) {
 
 	term := terminal.NewAdvancedTerminal(connection, "> ")
 
-	term.AddValueAutoComplete("<remote_id>", autoCompleteClients)
+	term.AddValueAutoComplete(commands.RemoteId, autoCompleteClients)
 
 	defaultHandle := internal.NewDefaultHandler(user, term)
 
@@ -41,6 +41,7 @@ func sessionChannel(user *users.User, newChannel ssh.NewChannel) {
 	term.AddCommand("exit", commands.Exit())
 	term.AddCommand("connect", commands.Connect(user, defaultHandle, &controllableClients))
 	term.AddCommand("rc", rc)
+	term.AddCommand("proxy", commands.Proxy(user, &controllableClients))
 
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
 	// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect

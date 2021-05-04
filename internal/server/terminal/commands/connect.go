@@ -20,7 +20,7 @@ type connect struct {
 
 func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("connect <remote machine id>")
+		return fmt.Errorf("connect <remote_id>")
 	}
 
 	cc, ok := c.controllableClients.Load(args[0])
@@ -31,7 +31,6 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 	controlClient := cc.(ssh.Conn)
 
 	defer func() {
-		c.user.ProxyConnection = nil
 
 		log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", c.user.ServerConnection.RemoteAddr(), c.user.ServerConnection.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
 
@@ -48,8 +47,6 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 
 	c.defaultHandle.Stop()
 
-	c.user.ProxyConnection = controlClient
-
 	err = attachSession(term, newSession, c.user.ShellConnection, c.user.ShellRequests)
 	if err != nil {
 
@@ -62,12 +59,9 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 }
 
 func (c *connect) Expect(sections []string) []string {
-	for _, v := range sections {
-		log.Printf("'%s'\n", v)
-	}
 
 	if len(sections) == 1 {
-		return []string{"<remote_id>"}
+		return []string{RemoteId}
 	}
 
 	return nil

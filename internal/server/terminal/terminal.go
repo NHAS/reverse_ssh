@@ -176,6 +176,10 @@ func collapse(s string, char byte) string {
 		sb.WriteByte(byte(v))
 	}
 
+	if run {
+		sb.WriteByte(char)
+	}
+
 	return sb.String()
 }
 
@@ -201,6 +205,7 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 		}
 
 		if len(parts) > 1 {
+
 			if function, ok := term.functions[parts[0]]; ok {
 
 				expected := function.Expect(parts[1:])

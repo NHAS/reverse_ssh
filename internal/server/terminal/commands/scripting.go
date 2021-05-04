@@ -53,10 +53,7 @@ func (s *scripting) Expect(sections []string) []string {
 }
 
 func RC() *scripting {
-	mt := trie.NewTrie()
-	mt.Add("load")
-	mt.Add("enable")
-	mt.Add("disable")
+	mt := trie.NewTrie("load", "enable", "disable")
 
 	return &scripting{
 		modeAutoComplete: mt,

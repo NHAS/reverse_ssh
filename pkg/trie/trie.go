@@ -102,10 +102,14 @@ func (t *Trie) Remove(s string) bool {
 	return false
 }
 
-func NewTrie() *Trie {
+func NewTrie(values ...string) *Trie {
 	t := &Trie{
 		children: make(map[byte]*Trie),
 		root:     true,
+	}
+
+	for _, v := range values {
+		t.Add(v)
 	}
 
 	return t
