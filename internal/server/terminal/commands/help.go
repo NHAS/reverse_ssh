@@ -18,8 +18,8 @@ func (h *help) Run(term *terminal.Terminal, args ...string) error {
 	return nil
 }
 
-func (h *help) Expect(section int) string {
-	return ""
+func (h *help) Expect(sections []string) []string {
+	return nil
 }
 
 func Help() *help {

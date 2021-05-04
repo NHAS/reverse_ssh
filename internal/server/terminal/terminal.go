@@ -176,8 +176,18 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 		if len(parts) > 1 {
 			if function, ok := term.functions[parts[0]]; ok {
 
-				if trie, ok := term.autoCompleteValues[function.Expect(len(parts)-1)]; ok {
-					r = trie.PrefixMatch(searchString)
+				expected := function.Expect(parts[1:])
+
+				if expected != nil {
+
+					r = expected
+
+					if len(expected) == 1 && len(expected[0]) > 1 && expected[0][0] == '<' && expected[0][len(expected[0])-1] == '>' {
+						if trie, ok := term.autoCompleteValues[expected[0]]; ok {
+							r = trie.PrefixMatch(searchString)
+						}
+					}
+
 				}
 			}
 		}

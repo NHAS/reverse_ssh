@@ -24,10 +24,10 @@ func (l *list) Run(term *terminal.Terminal, args ...string) error {
 	return nil
 }
 
-func (l *list) Expect(section int) string {
-	return ""
+func (l *list) Expect(sections []string) []string {
+	return nil
 }
 
 func List(controllableClients *sync.Map) *list {
-	return &list{}
+	return &list{controllableClients: controllableClients}
 }

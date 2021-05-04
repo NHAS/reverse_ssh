@@ -13,8 +13,8 @@ func (e *exit) Run(term *terminal.Terminal, args ...string) error {
 	return io.EOF
 }
 
-func (e *exit) Expect(section int) string {
-	return ""
+func (e *exit) Expect(sections []string) []string {
+	return nil
 }
 
 func Exit() *exit {

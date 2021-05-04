@@ -61,8 +61,16 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 
 }
 
-func (c *connect) Expect(section int) string {
-	return syntaxParse("connect <remote_id>", section)
+func (c *connect) Expect(sections []string) []string {
+	for _, v := range sections {
+		log.Printf("'%s'\n", v)
+	}
+
+	if len(sections) == 1 {
+		return []string{"<remote_id>"}
+	}
+
+	return nil
 }
 
 func Connect(

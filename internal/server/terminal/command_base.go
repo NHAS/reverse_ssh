@@ -1,6 +1,6 @@
 package terminal
 
 type Base interface {
-	Expect(section int) string
+	Expect(sections []string) []string
 	Run(term *Terminal, args ...string) error
 }
