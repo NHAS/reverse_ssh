@@ -13,21 +13,30 @@ import (
 type proxy struct {
 	user                *users.User
 	controllableClients *sync.Map
-
-	modeAutoComplete *trie.Trie
+	currentlyConnected  string
+	modeAutoComplete    *trie.Trie
 }
 
 func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 
 	if len(args) < 1 {
 		helpText := "proxy disconnect\n"
+		helpText += "proxy status\n"
 		helpText += "proxy connect <remote_id>"
 		return fmt.Errorf(helpText)
 	}
 
 	switch args[0] {
+	case "status":
+		if p.currentlyConnected == "" {
+			return fmt.Errorf("Disconnected")
+		}
+
+		fmt.Fprintf(term, "Connected: %s", p.currentlyConnected)
+
 	case "disconnect":
 		p.user.ProxyConnection = nil
+		p.currentlyConnected = ""
 	case "connect":
 		if len(args) != 2 {
 			return fmt.Errorf("Not enough arguments to connect to a proxy host.\nproxy connect <remote_id>")
@@ -41,6 +50,7 @@ func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 		controlClient := cc.(ssh.Conn)
 
 		p.user.ProxyConnection = controlClient
+		p.currentlyConnected = args[1]
 	default:
 		return fmt.Errorf("Invalid subcommand %s", args[0])
 	}
@@ -65,6 +75,6 @@ func Proxy(user *users.User, controllableClients *sync.Map) *proxy {
 	return &proxy{
 		user:                user,
 		controllableClients: controllableClients,
-		modeAutoComplete:    trie.NewTrie("disconnect", "connect"),
+		modeAutoComplete:    trie.NewTrie("disconnect", "connect", "status"),
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"golang.org/x/crypto/ssh"
@@ -96,4 +97,9 @@ func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, han
 	users.RemoveUser(user.IdString)
 
 	return fmt.Errorf("connection terminated")
+}
+
+func FileExists(path string) bool {
+	s, err := os.Stat(path)
+	return err == nil && s.Mode().IsRegular()
 }
