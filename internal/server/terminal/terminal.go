@@ -157,9 +157,36 @@ func (t *Terminal) AddValueAutoComplete(placement string, trie *trie.Trie) error
 	return nil
 }
 
+func collapse(s string, char byte) string {
+	var sb strings.Builder
+	sb.Grow(len(s))
+
+	run := false
+	for _, v := range s {
+		if byte(v) == char {
+			run = true
+			continue
+		}
+
+		if run {
+			sb.WriteByte(char)
+			run = false
+		}
+
+		sb.WriteByte(byte(v))
+	}
+
+	return sb.String()
+}
+
 func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLine string, newPos int, ok bool) {
 
 	if key == '\t' {
+
+		line = collapse(line, ' ')
+		if len(line) > 0 && line[0] == ' ' {
+			line = line[1:]
+		}
 
 		parts := strings.Split(line, " ")
 
