@@ -8,7 +8,6 @@ import (
 )
 
 var lock sync.RWMutex
-
 var allUsers = make(map[string]*User)
 
 var ErrNilServerConnection = errors.New("The server connection was nil for the client")
@@ -25,6 +24,8 @@ type User struct {
 	ProxyConnection ssh.Conn
 
 	PtyReq, LastWindowChange ssh.Request
+
+	EnabledRcfiles map[string][]string
 }
 
 func AddUser(idStr string, ServerConnection ssh.Conn) (us *User, err error) {
@@ -36,7 +37,11 @@ func AddUser(idStr string, ServerConnection ssh.Conn) (us *User, err error) {
 		return
 	}
 
-	us = &User{IdString: idStr, ServerConnection: ServerConnection}
+	us = &User{
+		IdString:         idStr,
+		ServerConnection: ServerConnection,
+		EnabledRcfiles:   make(map[string][]string),
+	}
 
 	allUsers[idStr] = us
 
