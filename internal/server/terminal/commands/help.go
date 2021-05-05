@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
@@ -18,8 +19,24 @@ func (h *help) Run(term *terminal.Terminal, args ...string) error {
 		if err != nil {
 			return err
 		}
-		for funcName, helpF := range term.GetHelpList() {
-			t.AddValues(funcName, helpF(true))
+
+		keys := []string{}
+		for funcName, _ := range term.GetHelpList() {
+			keys = append(keys, funcName)
+		}
+
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			hf, err := term.GetHelp(k)
+			if err != nil {
+				return err
+			}
+
+			err = t.AddValues(k, hf(true))
+			if err != nil {
+				return err
+			}
 		}
 
 		t.Fprint(term)
