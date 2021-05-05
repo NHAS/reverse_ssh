@@ -179,7 +179,7 @@ func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh
 	for _, path := range rcfiles {
 		file, err := os.Open(path)
 		if err != nil {
-			fmt.Fprintf(term, "Unable to open rc file: %s", path)
+			fmt.Fprintf(term, "Unable to open rc file: %s\n", path)
 			continue
 		}
 		defer file.Close()
@@ -188,8 +188,7 @@ func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh
 		for scanner.Scan() {
 			_, err := newSession.Write([]byte(scanner.Text() + "\n"))
 			if err != nil {
-				fmt.Fprintf(term, "Error writing rc file lines: %s", err)
-				return err
+				return fmt.Errorf("Unable to read lines from rc file %s : %s", path, err)
 			}
 		}
 	}
