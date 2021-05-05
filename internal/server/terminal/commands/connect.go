@@ -10,6 +10,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"golang.org/x/crypto/ssh"
 )
@@ -22,7 +23,7 @@ type connect struct {
 
 func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("connect <remote_id>")
+		return fmt.Errorf(c.Help(false))
 	}
 
 	cc, ok := c.controllableClients.Load(args[0])
@@ -63,10 +64,20 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 func (c *connect) Expect(sections []string) []string {
 
 	if len(sections) == 1 {
-		return []string{RemoteId}
+		return []string{constants.RemoteId}
 	}
 
 	return nil
+}
+
+func (c *connect) Help(brief bool) string {
+	if brief {
+		return "Start shell on remote controllable host."
+	}
+
+	return makeHelpText(
+		"connect <remote_id>",
+	)
 }
 
 func Connect(

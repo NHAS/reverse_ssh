@@ -155,6 +155,8 @@ func Run(addr, privateKeyPath string) {
 				continue
 			}
 
+			
+
 			// Since we're handling a shell and dynamic forward, so we expect
 			// channel type of "session" or "direct-tcpip".
 			go internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{

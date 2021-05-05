@@ -6,6 +6,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
@@ -71,10 +72,7 @@ func (s *scripting) disable(remoteid, rcfile string) error {
 
 func (s *scripting) Run(term *terminal.Terminal, args ...string) error {
 	if len(args) < 1 {
-		helpText := "rc enable <remote_id> <rc file path>\n"
-		helpText += "rc disable <remote_id> <rc file path>\n"
-		helpText += "rc ls [remote_id]\n"
-		return fmt.Errorf(helpText)
+		return fmt.Errorf(s.Help(false))
 	}
 
 	switch args[0] {
@@ -133,7 +131,7 @@ func (s *scripting) Expect(sections []string) []string {
 	switch sections[0] {
 	case "enable", "disable":
 		if len(sections) == 2 {
-			return []string{RemoteId}
+			return []string{constants.RemoteId}
 		}
 
 		if len(sections) == 3 {
@@ -144,11 +142,23 @@ func (s *scripting) Expect(sections []string) []string {
 		}
 
 	case "ls":
-		return []string{RemoteId}
+		return []string{constants.RemoteId}
 
 	}
 
 	return nil
+}
+
+func (s *scripting) Help(brief bool) string {
+	if brief {
+		return "Set scripts to run on connection to remote host."
+	}
+
+	return makeHelpText(
+		"rc enable <remote_id> <rc file path>",
+		"rc disable <remote_id> <rc file path>",
+		"rc ls [remote_id]",
+	)
 }
 
 func RC(user *users.User, controllableClients *sync.Map) *scripting {

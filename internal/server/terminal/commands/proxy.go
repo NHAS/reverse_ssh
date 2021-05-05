@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
@@ -20,10 +21,7 @@ type proxy struct {
 func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 
 	if len(args) < 1 {
-		helpText := "proxy disconnect\n"
-		helpText += "proxy status\n"
-		helpText += "proxy connect <remote_id>"
-		return fmt.Errorf(helpText)
+		return fmt.Errorf(p.Help(false))
 	}
 
 	switch args[0] {
@@ -32,7 +30,7 @@ func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 			return fmt.Errorf("Disconnected")
 		}
 
-		fmt.Fprintf(term, "Connected: %s", p.currentlyConnected)
+		fmt.Fprintf(term, "Connected to %s", p.currentlyConnected)
 
 	case "disconnect":
 		p.user.ProxyConnection = nil
@@ -51,6 +49,8 @@ func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 
 		p.user.ProxyConnection = controlClient
 		p.currentlyConnected = args[1]
+
+		fmt.Fprintf(term, "Connected: %s", p.currentlyConnected)
 	default:
 		return fmt.Errorf("Invalid subcommand %s", args[0])
 	}
@@ -65,10 +65,22 @@ func (p *proxy) Expect(sections []string) []string {
 
 	switch sections[0] {
 	case "connect":
-		return []string{RemoteId}
+		return []string{constants.RemoteId}
 	default:
 		return nil
 	}
+}
+
+func (p *proxy) Help(brief bool) string {
+	if brief {
+		return "Set or stop proxy connection to controlled remote host."
+	}
+
+	return makeHelpText(
+		"proxy disconnect",
+		"proxy status",
+		"proxy connect <remote_id>",
+	)
 }
 
 func Proxy(user *users.User, controllableClients *sync.Map) *proxy {

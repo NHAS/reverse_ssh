@@ -28,6 +28,16 @@ func (l *list) Expect(sections []string) []string {
 	return nil
 }
 
+func (l *list) Help(brief bool) string {
+	if brief {
+		return "List connected controllable hosts."
+	}
+
+	return makeHelpText(
+		"ls",
+	)
+}
+
 func List(controllableClients *sync.Map) *list {
 	return &list{controllableClients: controllableClients}
 }

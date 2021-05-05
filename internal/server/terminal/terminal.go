@@ -15,6 +15,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
 
@@ -214,10 +215,16 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 					r = expected
 
-					if len(expected) == 1 && len(expected[0]) > 1 && expected[0][0] == '<' && expected[0][len(expected[0])-1] == '>' {
-						if trie, ok := term.autoCompleteValues[expected[0]]; ok {
-							r = trie.PrefixMatch(searchString)
+					if len(expected) == 1 && len(expected[0]) > 1 {
+
+						if expected[0] == constants.Functions {
+							r = term.functionsAutoComplete.PrefixMatch(searchString)
+						} else if expected[0][0] == '<' && expected[0][len(expected[0])-1] == '>' {
+							if trie, ok := term.autoCompleteValues[expected[0]]; ok {
+								r = trie.PrefixMatch(searchString)
+							}
 						}
+
 					}
 
 				}
@@ -368,10 +375,24 @@ func (t *Terminal) AddCommand(name string, command Base) error {
 	return nil
 }
 
-func (t *Terminal) GetFunctions() (out []string) {
-	for k := range t.functions {
-		out = append(out, k)
+func (t *Terminal) GetHelpList() (out map[string]func(t bool) string) {
+
+	out = make(map[string]func(t bool) string)
+
+	for v, k := range t.functions {
+		out[v] = k.Help
 	}
+
+	return
+}
+
+func (t *Terminal) GetHelp(functionName string) (hf func(t bool) string, err error) {
+	f, ok := t.functions[functionName]
+	if !ok {
+		return hf, errors.New("No function by that name")
+	}
+	hf = f.Help
+
 	return
 }
 

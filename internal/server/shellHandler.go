@@ -8,6 +8,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"golang.org/x/crypto/ssh"
 )
@@ -30,7 +31,7 @@ func sessionChannel(user *users.User, newChannel ssh.NewChannel) {
 
 	term := terminal.NewAdvancedTerminal(connection, "> ")
 
-	term.AddValueAutoComplete(commands.RemoteId, autoCompleteClients)
+	term.AddValueAutoComplete(constants.RemoteId, autoCompleteClients)
 
 	defaultHandle := internal.NewDefaultHandler(user, term)
 
