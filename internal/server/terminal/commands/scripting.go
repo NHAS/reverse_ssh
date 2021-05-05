@@ -16,11 +16,64 @@ type scripting struct {
 	controllableClients *sync.Map
 }
 
+func (s *scripting) enable(term *terminal.Terminal, remoteid, rcfile string) error {
+	if !internal.FileExists(rcfile) {
+		return fmt.Errorf("File %s does not exist", rcfile)
+	}
+
+	currentHostRCFiles, ok := s.user.EnabledRcfiles[remoteid]
+	if !ok {
+		currentHostRCFiles = []string{}
+	}
+
+	for _, v := range currentHostRCFiles {
+		if v == rcfile {
+			fmt.Fprintf(term, "%s is already enabled for %s\n", rcfile, remoteid)
+			return nil // Already exists so just exit!
+		}
+	}
+
+	s.user.EnabledRcfiles[remoteid] = append(currentHostRCFiles, rcfile)
+
+	fmt.Fprintf(term, "Host %s rc files\n", remoteid)
+	for _, v := range s.user.EnabledRcfiles[remoteid] {
+		fmt.Fprintf(term, "\t%s\n", v)
+	}
+
+	return nil
+}
+
+func (s *scripting) disable(remoteid, rcfile string) error {
+	currentHostRCFiles, ok := s.user.EnabledRcfiles[remoteid]
+	if !ok {
+
+		return fmt.Errorf("Host %s has no rc files\n", remoteid)
+	}
+
+	index := -1
+	for i := 0; i < len(currentHostRCFiles); i++ {
+		if currentHostRCFiles[i] == rcfile {
+			index = i
+			break
+		}
+	}
+
+	if index != -1 {
+		currentHostRCFiles[index] = currentHostRCFiles[len(currentHostRCFiles)-1]
+		s.user.EnabledRcfiles[remoteid] = currentHostRCFiles[:len(currentHostRCFiles)-1]
+
+		return fmt.Errorf("Disabled %s for %s\n", rcfile, remoteid)
+	}
+
+	return fmt.Errorf("%s did not have %s enabled\n", remoteid, rcfile)
+
+}
+
 func (s *scripting) Run(term *terminal.Terminal, args ...string) error {
 	if len(args) < 1 {
 		helpText := "rc enable <remote_id> <rc file path>\n"
 		helpText += "rc disable <remote_id> <rc file path>\n"
-		helpText += "rc ls <remote_id>\n"
+		helpText += "rc ls [remote_id]\n"
 		return fmt.Errorf(helpText)
 	}
 
@@ -35,40 +88,12 @@ func (s *scripting) Run(term *terminal.Terminal, args ...string) error {
 			return fmt.Errorf("Unknown remote id")
 		}
 
-		currentHostRCFiles, ok := s.user.EnabledRcfiles[args[1]]
-		if !ok {
-			currentHostRCFiles = []string{}
-		}
-
-		index := -1
-		for i := 0; i < len(currentHostRCFiles); i++ {
-			if currentHostRCFiles[i] == args[2] {
-				index = i
-				break
-			}
-		}
-
-		if args[0] == "enable" && index == -1 {
-			if !internal.FileExists(args[2]) {
-				return fmt.Errorf("File %s does not exist", args[2])
-			}
-
-			s.user.EnabledRcfiles[args[1]] = append(currentHostRCFiles, args[2])
-
-			fmt.Fprintf(term, "Host %s rc files\n", args[1])
-			for _, v := range s.user.EnabledRcfiles[args[1]] {
-				fmt.Fprintf(term, "\t%s\n", v)
-			}
+		if args[0] == "enable" {
+			return s.enable(term, args[1], args[2])
 		}
 
 		if args[0] == "disable" {
-			if index != -1 {
-				currentHostRCFiles[index] = currentHostRCFiles[len(currentHostRCFiles)-1]
-				s.user.EnabledRcfiles[args[1]] = currentHostRCFiles[:len(currentHostRCFiles)-1]
-				fmt.Fprintf(term, "Disabled %s for %s\n", args[2], args[1])
-				return nil
-			}
-			fmt.Fprintf(term, "%s did not have %s enabled\n", args[1], args[2])
+			return s.disable(args[1], args[2])
 		}
 
 	case "ls":
