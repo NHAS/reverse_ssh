@@ -21,7 +21,7 @@ func (h *help) Run(term *terminal.Terminal, args ...string) error {
 		}
 
 		keys := []string{}
-		for funcName, _ := range term.GetHelpList() {
+		for funcName := range term.GetHelpList() {
 			keys = append(keys, funcName)
 		}
 

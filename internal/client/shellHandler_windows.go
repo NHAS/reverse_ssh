@@ -24,7 +24,7 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel) {
 	}
 	defer connection.Close()
 
-	term := terminal.NewTerminal(connection, ">")
+	term := terminal.NewTerminal(connection, "windows >")
 	go func() {
 		defer connection.Close()
 

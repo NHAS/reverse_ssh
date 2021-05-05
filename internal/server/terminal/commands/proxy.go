@@ -30,11 +30,14 @@ func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 			return fmt.Errorf("Disconnected")
 		}
 
-		fmt.Fprintf(term, "Connected to %s", p.currentlyConnected)
+		fmt.Fprintf(term, "Connected to %s\n", p.currentlyConnected)
 
 	case "disconnect":
+		fmt.Fprintf(term, "Disconnected from %s\n", p.currentlyConnected)
+
 		p.user.ProxyConnection = nil
 		p.currentlyConnected = ""
+
 	case "connect":
 		if len(args) != 2 {
 			return fmt.Errorf("Not enough arguments to connect to a proxy host.\nproxy connect <remote_id>")
@@ -50,7 +53,7 @@ func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 		p.user.ProxyConnection = controlClient
 		p.currentlyConnected = args[1]
 
-		fmt.Fprintf(term, "Connected: %s", p.currentlyConnected)
+		fmt.Fprintf(term, "Connected: %s\n", p.currentlyConnected)
 	default:
 		return fmt.Errorf("Invalid subcommand %s", args[0])
 	}

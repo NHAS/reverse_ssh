@@ -53,9 +53,8 @@ func RemoveUser(idStr string) {
 	defer lock.Unlock()
 
 	if us, ok := allUsers[idStr]; ok {
-		if us.ProxyConnection != nil {
-			us.ProxyConnection.Close()
-		}
+		// Do not close down the proxy connection, as this is the remote controlled hosts connection to here.
+		// This would terminate other users connecting to the controllable host
 
 		if us.ServerConnection != nil {
 			us.ServerConnection.Close()
