@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -47,7 +49,7 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 
 	c.defaultHandle.Stop()
 
-	err = attachSession(term, newSession, c.user.ShellConnection, c.user.ShellRequests)
+	err = attachSession(term, newSession, c.user.ShellConnection, c.user.ShellRequests, c.user.EnabledRcfiles[args[0]])
 	if err != nil {
 
 		log.Println("Client tried to attach session and failed: ", err)
@@ -150,7 +152,7 @@ func newTermMultiWriter(writer io.Writer, term *terminal.Terminal) *terminalWrit
 	return &terminalWriter{writer: writer, term: term}
 }
 
-func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh.Channel, currentClientRequests <-chan *ssh.Request) error {
+func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh.Channel, currentClientRequests <-chan *ssh.Request, rcfiles []string) error {
 
 	finished := make(chan bool)
 	sm := newTermMultiWriter(newSession, term)
@@ -162,20 +164,42 @@ func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh
 	}
 
 	//Setup the pipes for stdin/stdout over the connections
-	//newSession being the remote host being controlled
+
+	//Start copying output before we start copying user input, so we can get the responses to the rc files lines
 	var once sync.Once
+	defer once.Do(close)
+
+	go func() {
+		//dst <- src
+		io.Copy(sm, currentClientSession)
+		once.Do(close)
+
+	}()
+
+	for _, path := range rcfiles {
+		file, err := os.Open(path)
+		if err != nil {
+			fmt.Fprintf(term, "Unable to open rc file: %s", path)
+			continue
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			_, err := newSession.Write([]byte(scanner.Text() + "\n"))
+			if err != nil {
+				fmt.Fprintf(term, "Error writing rc file lines: %s", err)
+				return err
+			}
+		}
+	}
+
+	//newSession being the remote host being controlled
 	go func() {
 		io.Copy(currentClientSession, newSession) // Potentially be more verbose about errors here
 		once.Do(close)                            // Only close the newSession connection once
 
 	}()
-	go func() {
-
-		io.Copy(sm, currentClientSession)
-		once.Do(close)
-
-	}()
-	defer once.Do(close)
 
 RequestsPasser:
 	for {

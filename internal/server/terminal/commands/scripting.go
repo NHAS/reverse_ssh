@@ -55,7 +55,7 @@ func (s *scripting) Run(term *terminal.Terminal, args ...string) error {
 
 			s.user.EnabledRcfiles[args[1]] = append(currentHostRCFiles, args[2])
 
-			fmt.Fprintf(term, "Host %s rc files\n", args[2])
+			fmt.Fprintf(term, "Host %s rc files\n", args[1])
 			for _, v := range s.user.EnabledRcfiles[args[1]] {
 				fmt.Fprintf(term, "\t%s\n", v)
 			}
