@@ -39,7 +39,7 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel) {
 			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				out = []byte(fmt.Sprintf("Unable to execute command. Reason: %s", err))
+				out = []byte(fmt.Sprintf("Unable to execute command. Reason: %s\n", err))
 			}
 
 			_, err = fmt.Fprintf(connection, "%s", out)
