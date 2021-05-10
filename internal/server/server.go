@@ -182,7 +182,10 @@ func Run(addr, privateKeyPath string) {
 				controllableClients.Delete(s)
 				autoCompleteClients.Remove(idString)
 			}(idString)
+
 		case "proxy":
+			// Proxy is a special case, we dont want the client to have access to control elements, but want a port to be able to be opened.
+			// I would have liked to wrap this into the callbacks register, however this has different requirements to the channel handlers.
 			go internal.DiscardChannels(sshConn, chans)
 			go handlers.RemoteForward(sshConn, reqs)
 

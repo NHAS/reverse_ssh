@@ -36,7 +36,7 @@ func RemoteForward(sshConn ssh.Conn, reqs <-chan *ssh.Request) {
 					return
 				}
 
-				l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", rf.BindAddr, rf.BindPort))
+				l, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", rf.BindPort))
 				if err != nil {
 					log.Println(err)
 					r.Reply(false, []byte("Unable to open remote forward"))
