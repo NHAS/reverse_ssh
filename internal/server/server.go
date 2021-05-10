@@ -18,23 +18,37 @@ import (
 var controllableClients sync.Map
 var autoCompleteCommands, autoCompleteClients *trie.Trie
 
-func Run(addr, privateKeyPath string) {
-
-	//Taken from the server example, authorized keys are required for controllers
-	authorizedKeysBytes, err := ioutil.ReadFile("authorized_keys")
+func ReadPubKeys(path string) (m map[string]bool, err error) {
+	authorizedKeysBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatalf("Failed to load authorized_keys, err: %v", err)
+		return m, fmt.Errorf("Failed to load %s, err: %v", path, err)
 	}
 
-	authorizedKeysMap := map[string]bool{}
+	m = map[string]bool{}
 	for len(authorizedKeysBytes) > 0 {
 		pubKey, _, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
 		if err != nil {
-			log.Fatal(err)
+			return m, err
 		}
 
-		authorizedKeysMap[string(pubKey.Marshal())] = true
+		m[string(pubKey.Marshal())] = true
 		authorizedKeysBytes = rest
+	}
+
+	return
+}
+
+func Run(addr, privateKeyPath string) {
+
+	//Taken from the server example, authorized keys are required for controllers
+	authorizedKeysMap, err := ReadPubKeys("authorized_keys")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	authorizedProxiers, err := ReadPubKeys("proxy_keys")
+	if err != nil {
+		log.Println(err) // Not a fatal error, as you can just want *No* proxiers
 	}
 
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH server type has been removed
@@ -43,21 +57,26 @@ func Run(addr, privateKeyPath string) {
 	// into an ssh.ServerConn
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-			controllable := "no"
+			var clientType string
+
 			if conn.User() == "0d87be75162ded36626cb97b0f5b5ef170465533" {
-				controllable = "yes"
+				clientType = "slave"
+			} else if authorizedKeysMap[string(key.Marshal())] {
+				clientType = "master"
+			} else if authorizedProxiers[string(key.Marshal())] {
+				clientType = "proxy"
+			} else {
+				return nil, fmt.Errorf("Not authorized %q", conn.User())
 			}
 
-			if authorizedKeysMap[string(key.Marshal())] || controllable == "yes" {
-				return &ssh.Permissions{
-					// Record the public key used for authentication.
-					Extensions: map[string]string{
-						"pubkey-fp":    internal.FingerprintSHA256Hex(key),
-						"controllable": controllable,
-					},
-				}, nil
-			}
-			return nil, fmt.Errorf("unknown public key for %q", conn.User())
+			return &ssh.Permissions{
+				// Record the public key used for authentication.
+				Extensions: map[string]string{
+					"pubkey-fp": internal.FingerprintSHA256Hex(key),
+					"type":      clientType,
+				},
+			}, nil
+
 		},
 	}
 
@@ -127,8 +146,25 @@ func Run(addr, privateKeyPath string) {
 		}
 		log.Printf("New SSH connection from %s (%s)", sshConn.RemoteAddr(), sshConn.ClientVersion())
 
-		if sshConn.Permissions.Extensions["controllable"] == "yes" {
+		switch sshConn.Permissions.Extensions["type"] {
+		case "master":
+			user, err := users.AddUser(createIdString(sshConn), sshConn)
+			if err != nil {
+				sshConn.Close()
+				log.Println(err)
+				continue
+			}
 
+			// Since we're handling a shell and dynamic forward, so we expect
+			// channel type of "session" or "direct-tcpip".
+			go internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{
+				"session":      sessionChannel,
+				"direct-tcpip": proxyChannel,
+			})
+
+			// Discard all global out-of-band Requests
+			go ssh.DiscardRequests(reqs)
+		case "slave":
 			idString := createIdString(sshConn)
 
 			autoCompleteClients.Add(idString)
@@ -145,27 +181,13 @@ func Run(addr, privateKeyPath string) {
 				controllableClients.Delete(s)
 				autoCompleteClients.Remove(idString)
 			}(idString)
+		case "proxy":
+			go internal.DiscardChannels(sshConn, chans)
+			go remoteProxy(sshConn, reqs)
 
-		} else {
-
-			user, err := users.AddUser(createIdString(sshConn), sshConn)
-			if err != nil {
-				sshConn.Close()
-				log.Println(err)
-				continue
-			}
-
-			
-
-			// Since we're handling a shell and dynamic forward, so we expect
-			// channel type of "session" or "direct-tcpip".
-			go internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{
-				"session":      sessionChannel,
-				"direct-tcpip": proxyChannel,
-			})
-
-			// Discard all global out-of-band Requests
-			go ssh.DiscardRequests(reqs)
+		default:
+			sshConn.Close()
+			log.Println("Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
 		}
 
 	}

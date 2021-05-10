@@ -85,6 +85,8 @@ func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, han
 	for newChannel := range chans {
 		t := newChannel.ChannelType()
 
+		log.Println("New Chan: ", t)
+
 		if callBack, ok := handlers[t]; ok {
 			go callBack(user, newChannel)
 			continue
@@ -97,6 +99,16 @@ func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, han
 	users.RemoveUser(user.IdString)
 
 	return fmt.Errorf("connection terminated")
+}
+
+func DiscardChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel) {
+	for newChannel := range chans {
+		t := newChannel.ChannelType()
+
+		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
+		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
+	}
+
 }
 
 func FileExists(path string) bool {
