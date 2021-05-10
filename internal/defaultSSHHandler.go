@@ -59,6 +59,10 @@ func (dh *DefaultSSHHandler) Start() {
 					dh.terminal.SetSize(int(w), int(h))
 
 					dh.user.LastWindowChange = *req
+				default:
+					if req.WantReply {
+						req.Reply(false, nil)
+					}
 				}
 			}
 
