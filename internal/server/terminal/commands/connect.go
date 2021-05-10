@@ -211,20 +211,20 @@ func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh
 
 	}()
 
-RequestsPasser:
+RequestsProxyPasser:
 	for {
 		select {
 		case r := <-currentClientRequests:
 			response, err := internal.SendRequest(*r, newSession)
 			if err != nil {
-				break RequestsPasser
+				break RequestsProxyPasser
 			}
 
 			if r.WantReply {
 				r.Reply(response, nil)
 			}
 		case <-finished:
-			break RequestsPasser
+			break RequestsProxyPasser
 		}
 
 	}
