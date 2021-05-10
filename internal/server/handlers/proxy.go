@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"io"
@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func proxyChannel(user *users.User, newChannel ssh.NewChannel) {
+func Proxy(user *users.User, newChannel ssh.NewChannel) {
 
 	if user.ProxyConnection == nil {
 		newChannel.Reject(ssh.Prohibited, "no remote location to forward traffic to")

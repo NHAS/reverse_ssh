@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ type remoteForward struct {
 	BindPort uint32
 }
 
-func remoteProxy(sshConn ssh.Conn, reqs <-chan *ssh.Request) {
+func RemoteForward(sshConn ssh.Conn, reqs <-chan *ssh.Request) {
 	defer sshConn.Close()
 	clientClosed := make(chan bool)
 	for r := range reqs {

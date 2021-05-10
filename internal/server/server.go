@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
@@ -158,8 +159,8 @@ func Run(addr, privateKeyPath string) {
 			// Since we're handling a shell and dynamic forward, so we expect
 			// channel type of "session" or "direct-tcpip".
 			go internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{
-				"session":      sessionChannel,
-				"direct-tcpip": proxyChannel,
+				"session":      handlers.Shell(&controllableClients, autoCompleteClients),
+				"direct-tcpip": handlers.Proxy,
 			})
 
 			// Discard all global out-of-band Requests
@@ -183,7 +184,7 @@ func Run(addr, privateKeyPath string) {
 			}(idString)
 		case "proxy":
 			go internal.DiscardChannels(sshConn, chans)
-			go remoteProxy(sshConn, reqs)
+			go handlers.RemoteForward(sshConn, reqs)
 
 		default:
 			sshConn.Close()
