@@ -39,27 +39,15 @@ func (dh *DefaultSSHHandler) Start() {
 					return
 				}
 
-				log.Println("Got request: ", req.Type)
 				switch req.Type {
-				case "shell":
-					// We only accept the default shell
-					// (i.e. no command in the Payload)
-					req.Reply(len(req.Payload) == 0, nil)
-				case "pty-req":
 
-					//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
-					ptyReqData, _ := ParsePtyReq(req.Payload)
-					dh.terminal.SetSize(int(ptyReqData.Columns), int(ptyReqData.Rows))
-
-					dh.user.PtyReq = *req
-
-					req.Reply(true, nil)
 				case "window-change":
 					w, h := ParseDims(req.Payload)
 					dh.terminal.SetSize(int(w), int(h))
 
 					dh.user.LastWindowChange = *req
 				default:
+					log.Println("Got unknown request on shell channel: ", req.Type)
 					if req.WantReply {
 						req.Reply(false, nil)
 					}

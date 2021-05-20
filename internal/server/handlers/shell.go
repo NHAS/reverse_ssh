@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -15,57 +14,46 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func Shell(controllableClients *sync.Map, autoCompleteClients *trie.Trie) internal.ChannelHandler {
+func shell(user *users.User, connection ssh.Channel, requests <-chan *ssh.Request, ptySettings internal.PtyReq, controllableClients *sync.Map, autoCompleteClients *trie.Trie) error {
 
-	return func(user *users.User, newChannel ssh.NewChannel) {
+	user.ShellConnection = connection
+	user.ShellRequests = requests
 
-		defer log.Printf("Human client disconnected %s (%s)\n", user.ServerConnection.RemoteAddr(), user.ServerConnection.ClientVersion())
+	term := terminal.NewAdvancedTerminal(connection, "> ")
 
-		// At this point, we have the opportunity to reject the client's
-		// request for another logical connection
-		connection, requests, err := newChannel.Accept()
-		if err != nil {
-			log.Printf("Could not accept channel (%s)", err)
-			return
-		}
-		defer connection.Close()
+	term.SetSize(int(ptySettings.Columns), int(ptySettings.Rows))
 
-		user.ShellConnection = connection
-		user.ShellRequests = requests
+	term.AddValueAutoComplete(constants.RemoteId, autoCompleteClients)
 
-		term := terminal.NewAdvancedTerminal(connection, "> ")
+	defaultHandle := internal.NewDefaultHandler(user, term)
 
-		term.AddValueAutoComplete(constants.RemoteId, autoCompleteClients)
+	term.AddCommand("ls", commands.List(controllableClients))
+	term.AddCommand("help", commands.Help())
+	term.AddCommand("exit", commands.Exit())
+	term.AddCommand("connect", commands.Connect(user, defaultHandle, controllableClients))
+	term.AddCommand("rc", commands.RC(user, controllableClients))
+	term.AddCommand("proxy", commands.Proxy(user, controllableClients))
 
-		defaultHandle := internal.NewDefaultHandler(user, term)
+	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
+	// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect
+	defaultHandle.Start()
 
-		term.AddCommand("ls", commands.List(controllableClients))
-		term.AddCommand("help", commands.Help())
-		term.AddCommand("exit", commands.Exit())
-		term.AddCommand("connect", commands.Connect(user, defaultHandle, controllableClients))
-		term.AddCommand("rc", commands.RC(user, controllableClients))
-		term.AddCommand("proxy", commands.Proxy(user, controllableClients))
+	//Send list of controllable remote hosts to human client
+	fmt.Fprintf(term, "Connected controllable clients: \n")
+	controllableClients.Range(func(idStr interface{}, value interface{}) bool {
+		fmt.Fprintf(term, "%s, client version: %s\n",
+			idStr,
+			value.(ssh.Conn).ClientVersion(),
+		)
+		return true
+	})
 
-		// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
-		// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect
-		defaultHandle.Start()
-
-		//Send list of controllable remote hosts to human client
-		fmt.Fprintf(term, "Connected controllable clients: \n")
-		controllableClients.Range(func(idStr interface{}, value interface{}) bool {
-			fmt.Fprintf(term, "%s, client version: %s\n",
-				idStr,
-				value.(ssh.Conn).ClientVersion(),
-			)
-			return true
-		})
-
-		//Blocking function to handle all the human function calls. Will return io.EOF on exit, otherwise an error is passed up we cant deal with
-		err = term.Run()
-		if err != nil && err != io.EOF {
-			fmt.Fprintf(term, "Error: %s\n", err)
-		}
-
+	//Blocking function to handle all the human function calls. Will return io.EOF on exit, otherwise an error is passed up we cant deal with
+	err := term.Run()
+	if err != nil && err != io.EOF {
+		fmt.Fprintf(term, "Error: %s\n", err)
 	}
+
+	return err
 
 }
