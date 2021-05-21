@@ -86,8 +86,6 @@ func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, han
 	for newChannel := range chans {
 		t := newChannel.ChannelType()
 
-		log.Println("New Chan: ", t)
-
 		if callBack, ok := handlers[t]; ok {
 			go callBack(user, newChannel)
 			continue

@@ -53,8 +53,25 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 					}
 					log.Printf("%s", command.Cmd)
 
-					req.Reply(true, nil)
-					scp(connection, requests, parts[1], strings.Join(parts[2:], " "), controllableClients)
+					//Find where the path is, essentially ignore anything that is a flag '-t'
+					loc := -1
+					mode := ""
+					for i := 1; i < len(parts); i++ {
+						if mode == "" && (parts[i] == "-t" || parts[i] == "-f") {
+							mode = parts[i]
+							continue
+						}
+
+						if len(parts[i]) > 0 && parts[i][0] != '-' {
+							loc = i
+							break
+						}
+					}
+
+					if loc != -1 {
+						req.Reply(true, nil)
+						scp(connection, requests, mode, strings.Join(parts[loc:], " "), controllableClients)
+					}
 					return
 				}
 				req.Reply(false, nil)

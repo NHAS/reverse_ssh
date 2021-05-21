@@ -185,6 +185,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		err = internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{
 			"session":      shellChannel,
 			"direct-tcpip": proxyChannel,
+			"scp":          scpChannel,
 		})
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)
