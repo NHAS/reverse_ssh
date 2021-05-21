@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -73,7 +75,7 @@ func Run(addr, privateKeyPath string) {
 			return &ssh.Permissions{
 				// Record the public key used for authentication.
 				Extensions: map[string]string{
-					"pubkey-fp": internal.FingerprintSHA256Hex(key),
+					"pubkey-fp": internal.FingerprintSHA1Hex(key),
 					"type":      clientType,
 				},
 			}, nil
@@ -118,7 +120,7 @@ func Run(addr, privateKeyPath string) {
 		log.Fatalf("Failed to parse private key: %s", err)
 	}
 
-	log.Println("Server key fingerprint: ", internal.FingerprintSHA256Hex(private.PublicKey()))
+	log.Println("Server key fingerprint: ", internal.FingerprintSHA1Hex(private.PublicKey()))
 
 	config.AddHostKey(private)
 
@@ -159,7 +161,7 @@ func Run(addr, privateKeyPath string) {
 			// Since we're handling a shell and dynamic forward, so we expect
 			// channel type of "session" or "direct-tcpip".
 			go internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{
-				"session":      handlers.Shell(&controllableClients, autoCompleteClients),
+				"session":      handlers.Session(&controllableClients, autoCompleteClients),
 				"direct-tcpip": handlers.Proxy,
 			})
 
@@ -199,5 +201,9 @@ func Run(addr, privateKeyPath string) {
 }
 
 func createIdString(sshServerConn *ssh.ServerConn) string {
-	return fmt.Sprintf("%s@%s", sshServerConn.Permissions.Extensions["pubkey-fp"], sshServerConn.RemoteAddr())
+	b := sha1.Sum([]byte(fmt.Sprintf("%s@%s", sshServerConn.Permissions.Extensions["pubkey-fp"], sshServerConn.RemoteAddr())))
+
+	fingerPrint := hex.EncodeToString(b[:])
+	return fingerPrint
+
 }

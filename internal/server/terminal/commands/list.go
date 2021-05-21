@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
+	"github.com/NHAS/reverse_ssh/pkg/table"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -13,13 +14,16 @@ type list struct {
 }
 
 func (l *list) Run(term *terminal.Terminal, args ...string) error {
+
+	t, _ := table.NewTable("Targets", "ID", "IP Address")
+
 	l.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
-		fmt.Fprintf(term, "%s, client version: %s\n",
-			idStr,
-			value.(ssh.Conn).ClientVersion(),
-		)
+		t.AddValues(fmt.Sprintf("%s", idStr), value.(ssh.Conn).RemoteAddr().String())
+
 		return true
 	})
+
+	t.Fprint(term)
 
 	return nil
 }

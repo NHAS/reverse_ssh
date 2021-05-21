@@ -3,7 +3,7 @@ package internal
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/sha256"
+	"crypto/sha1"
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
@@ -45,9 +45,9 @@ func GeneratePrivateKey() ([]byte, error) {
 	return privatePem, nil
 }
 
-func FingerprintSHA256Hex(pubKey ssh.PublicKey) string {
-	sha256sum := sha256.Sum256(pubKey.Marshal())
-	fingerPrint := hex.EncodeToString(sha256sum[:])
+func FingerprintSHA1Hex(pubKey ssh.PublicKey) string {
+	shasum := sha1.Sum(pubKey.Marshal())
+	fingerPrint := hex.EncodeToString(shasum[:])
 	return fingerPrint
 }
 
@@ -59,6 +59,7 @@ type PtyReq struct {
 	Term          string
 	Columns, Rows uint32
 	Width, Height uint32
+	Modes         string
 }
 
 // =======================

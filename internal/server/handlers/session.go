@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -33,6 +34,31 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 		for req := range requests {
 			log.Println("Session got request: ", req.Type)
 			switch req.Type {
+			case "exec":
+				var command struct {
+					Cmd string
+				}
+				err = ssh.Unmarshal(req.Payload, &command)
+				if err != nil {
+					log.Printf("Human client sent an undecodable exec payload: %s", err)
+					req.Reply(false, nil)
+					return
+				}
+
+				parts := strings.Split(command.Cmd, " ")
+				if len(parts) > 1 {
+					if parts[0] != "scp" {
+						log.Printf("Human client tried to execute something other than SCP: %s", parts[0])
+						return
+					}
+					log.Printf("%s", command.Cmd)
+
+					req.Reply(true, nil)
+					scp(connection, requests, parts[1], strings.Join(parts[2:], " "), controllableClients)
+					return
+				}
+				req.Reply(false, nil)
+				return
 			case "shell":
 				// We only accept the default shell
 				// (i.e. no command in the Payload)
@@ -47,7 +73,7 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
 				ptySettings, err = internal.ParsePtyReq(req.Payload)
 				if err != nil {
-					log.Printf("Human client %s, sent undecodable pty request\n", user.ServerConnection.RemoteAddr())
+					log.Printf("Human client %s, sent undecodable pty request: %s\n", user.ServerConnection.RemoteAddr(), err)
 					return
 				}
 

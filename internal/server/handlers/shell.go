@@ -16,6 +16,7 @@ import (
 
 func shell(user *users.User, connection ssh.Channel, requests <-chan *ssh.Request, ptySettings internal.PtyReq, controllableClients *sync.Map, autoCompleteClients *trie.Trie) error {
 
+	user.PtyReq = ssh.Request{Type: "pty-req", WantReply: true, Payload: ssh.Marshal(ptySettings)}
 	user.ShellConnection = connection
 	user.ShellRequests = requests
 

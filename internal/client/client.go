@@ -148,8 +148,8 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 				return nil
 			}
 
-			if internal.FingerprintSHA256Hex(key) != serverPubKey {
-				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", serverPubKey, internal.FingerprintSHA256Hex(key))
+			if internal.FingerprintSHA1Hex(key) != serverPubKey {
+				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", serverPubKey, internal.FingerprintSHA1Hex(key))
 			}
 
 			return nil
