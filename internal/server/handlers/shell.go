@@ -40,14 +40,7 @@ func shell(user *users.User, connection ssh.Channel, requests <-chan *ssh.Reques
 	defaultHandle.Start()
 
 	//Send list of controllable remote hosts to human client
-	fmt.Fprintf(term, "Connected controllable clients: \n")
-	controllableClients.Range(func(idStr interface{}, value interface{}) bool {
-		fmt.Fprintf(term, "%s, client version: %s\n",
-			idStr,
-			value.(ssh.Conn).ClientVersion(),
-		)
-		return true
-	})
+	commands.List(controllableClients).Run(term)
 
 	//Blocking function to handle all the human function calls. Will return io.EOF on exit, otherwise an error is passed up we cant deal with
 	err := term.Run()
