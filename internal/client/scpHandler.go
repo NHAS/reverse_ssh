@@ -70,6 +70,8 @@ func readProtocolControl(connection ssh.Channel) (string, uint32, uint64, string
 
 	case 'C':
 		return "file", uint32(mode), uint64(size), filename
+	case 'E':
+		return "exit", 0, 0, ""
 
 	default:
 		log.Println("Unknown mode: ", strings.TrimSpace(control))
@@ -121,6 +123,30 @@ func readFile(connection ssh.Channel, path string, mode uint32, size uint64) err
 	return nil
 }
 
+func readDirectory(connection ssh.Channel, path string, mode uint32) {
+
+	err := os.Mkdir(path, os.FileMode(mode))
+	if err != nil && !os.IsExist(err) {
+		return
+	}
+
+	t, mode, size, filename := readProtocolControl(connection)
+	log.Printf("%s %#o %d %s\n", t, mode, size, filename)
+
+	newPath := filepath.Join(path, filename)
+	for {
+		switch t {
+		case "dir":
+			readDirectory(connection, newPath, mode)
+		case "file":
+			readFile(connection, newPath, mode, size)
+		case "exit":
+			return
+		}
+	}
+
+}
+
 func to(tocreate string, connection ssh.Channel) {
 
 	connection.Write([]byte{0})
@@ -130,6 +156,7 @@ func to(tocreate string, connection ssh.Channel) {
 
 	switch t {
 	case "dir":
+
 	case "file":
 		pathinfo, err := os.Stat(tocreate)
 		if err != nil && !os.IsNotExist(err) {
@@ -173,7 +200,7 @@ func from(todownload string, connection ssh.Channel) {
 		log.Println(scpTransferDirectory(todownload, fileinfo, connection))
 	}
 
-	connection.Write([]byte{0})
+	connection.Write([]byte("E\n"))
 	success, _ := readAck(connection)
 	if success != 0 {
 		log.Println("Final end failed")
@@ -213,6 +240,9 @@ func scpTransferDirectory(path string, mode fs.FileInfo, connection ssh.Channel)
 			return err
 		}
 	}
+
+	connection.Write([]byte("E\n"))
+
 	return nil
 }
 
@@ -277,5 +307,4 @@ func scpTransferFile(path string, fi fs.FileInfo, connection ssh.Channel) error 
 			return nil
 		}
 	}
-	return err
 }
