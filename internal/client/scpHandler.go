@@ -46,17 +46,22 @@ func scpChannel(user *users.User, newChannel ssh.NewChannel) {
 
 }
 
-func readProtocolControl(connection ssh.Channel) (string, uint32, uint64, string) {
+func readProtocolControl(connection ssh.Channel) (string, uint32, uint64, string, error) {
 	control, err := bufio.NewReader(connection).ReadString('\n')
 	if err != nil {
 		log.Println(err)
+		return "", 0, 0, "", err
 	}
 
 	connection.Write([]byte{0})
 
+	if len(control) > 0 && control[0] == 'E' {
+		return "exit", 0, 0, "", nil
+	}
+
 	parts := strings.SplitN(control, " ", 3)
 	if len(parts) != 3 {
-		return "", 0, 0, ""
+		return "", 0, 0, "", errors.New("Protocol error: " + control)
 	}
 
 	mode, _ := strconv.ParseInt(parts[0][1:], 8, 32)
@@ -66,17 +71,13 @@ func readProtocolControl(connection ssh.Channel) (string, uint32, uint64, string
 
 	switch parts[0][0] {
 	case 'D':
-		return "dir", uint32(mode), uint64(size), filename
-
+		return "dir", uint32(mode), uint64(size), filename, nil
 	case 'C':
-		return "file", uint32(mode), uint64(size), filename
-	case 'E':
-		return "exit", 0, 0, ""
-
+		return "file", uint32(mode), uint64(size), filename, nil
 	default:
 		log.Println("Unknown mode: ", strings.TrimSpace(control))
 	}
-	return "", 0, 0, ""
+	return "", 0, 0, "", errors.New("Unknown mode")
 }
 
 func readFile(connection ssh.Channel, path string, mode uint32, size uint64) error {
@@ -89,10 +90,16 @@ func readFile(connection ssh.Channel, path string, mode uint32, size uint64) err
 	defer f.Close()
 
 	b := make([]byte, 1024)
+	log.Println(path)
 	var nn uint64
 	for {
 
-		n, err := connection.Read(b[:size%1024])
+		readsize := (size - nn) % 1024
+		if readsize == 0 {
+			readsize = 1024
+		}
+
+		n, err := connection.Read(b[:readsize])
 		if err != nil {
 			return err
 		}
@@ -130,11 +137,16 @@ func readDirectory(connection ssh.Channel, path string, mode uint32) {
 		return
 	}
 
-	t, mode, size, filename := readProtocolControl(connection)
-	log.Printf("%s %#o %d %s\n", t, mode, size, filename)
-
-	newPath := filepath.Join(path, filename)
 	for {
+		t, mode, size, filename, err := readProtocolControl(connection)
+
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		newPath := filepath.Join(path, filename)
+
 		switch t {
 		case "dir":
 			readDirectory(connection, newPath, mode)
@@ -151,16 +163,17 @@ func to(tocreate string, connection ssh.Channel) {
 
 	connection.Write([]byte{0})
 
-	t, mode, size, filename := readProtocolControl(connection)
-	log.Printf("%s %#o %d %s\n", t, mode, size, filename)
+	t, mode, size, filename, err := readProtocolControl(connection)
+	if err != nil {
+		return
+	}
 
 	switch t {
 	case "dir":
-
+		readDirectory(connection, tocreate, mode)
 	case "file":
 		pathinfo, err := os.Stat(tocreate)
 		if err != nil && !os.IsNotExist(err) {
-			log.Println(err)
 			return
 		}
 
@@ -179,7 +192,6 @@ func to(tocreate string, connection ssh.Channel) {
 func from(todownload string, connection ssh.Channel) {
 	clientReady, _ := readAck(connection)
 	if clientReady != 0 {
-		log.Println("Client failed to ready up")
 		return
 	}
 
