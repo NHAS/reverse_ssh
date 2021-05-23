@@ -53,7 +53,10 @@ func readProtocolControl(connection ssh.Channel) (string, uint32, uint64, string
 		return "", 0, 0, "", err
 	}
 
-	connection.Write([]byte{0})
+	_, err = connection.Write([]byte{0})
+	if err != nil {
+		return "", 0, 0, "", err
+	}
 
 	if len(control) > 0 && control[0] == 'E' {
 		return "exit", 0, 0, "", nil
@@ -90,7 +93,6 @@ func readFile(connection ssh.Channel, path string, mode uint32, size uint64) err
 	defer f.Close()
 
 	b := make([]byte, 1024)
-	log.Println(path)
 	var nn uint64
 	for {
 
@@ -130,30 +132,35 @@ func readFile(connection ssh.Channel, path string, mode uint32, size uint64) err
 	return nil
 }
 
-func readDirectory(connection ssh.Channel, path string, mode uint32) {
+func readDirectory(connection ssh.Channel, path string, mode uint32) error {
 
 	err := os.Mkdir(path, os.FileMode(mode))
 	if err != nil && !os.IsExist(err) {
-		return
+		return err
 	}
 
 	for {
 		t, mode, size, filename, err := readProtocolControl(connection)
 
 		if err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 
 		newPath := filepath.Join(path, filename)
 
 		switch t {
 		case "dir":
-			readDirectory(connection, newPath, mode)
+			err = readDirectory(connection, newPath, mode)
+			if err != nil {
+				return err
+			}
 		case "file":
-			readFile(connection, newPath, mode, size)
+			err = readFile(connection, newPath, mode, size)
+			if err != nil {
+				return err
+			}
 		case "exit":
-			return
+			return nil
 		}
 	}
 

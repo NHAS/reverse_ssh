@@ -20,7 +20,7 @@ func shell(user *users.User, connection ssh.Channel, requests <-chan *ssh.Reques
 	user.ShellConnection = connection
 	user.ShellRequests = requests
 
-	term := terminal.NewAdvancedTerminal(connection, "> ")
+	term := terminal.NewAdvancedTerminal(connection, "catcher$ ")
 
 	term.SetSize(int(ptySettings.Columns), int(ptySettings.Rows))
 
