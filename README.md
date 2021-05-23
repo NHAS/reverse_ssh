@@ -29,14 +29,6 @@ You, the human client connect to the reverse shell catcher with ssh, and then se
 ```
 
 
-- [Reverse SSH](#reverse-ssh)
-  - [Setup Instructions](#setup-instructions)
-  - [Features](#features)
-    - [Proxy](#proxy)
-    - [SCP](#scp)
-    - [Shell](#shell)
-  - [Limitations](#limitations)
-
 ## Setup Instructions
 
 Depending on the platform that you're building the server and client for. You may need to change the GOOS and GOARCH enviroment variables. E.g building for linux:
