@@ -70,8 +70,8 @@ func (c *connect) Expect(sections []string) []string {
 	return nil
 }
 
-func (c *connect) Help(brief bool) string {
-	if brief {
+func (c *connect) Help(explain bool) string {
+	if explain {
 		return "Start shell on remote controllable host."
 	}
 

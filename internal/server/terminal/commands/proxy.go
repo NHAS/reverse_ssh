@@ -74,8 +74,8 @@ func (p *proxy) Expect(sections []string) []string {
 	}
 }
 
-func (p *proxy) Help(brief bool) string {
-	if brief {
+func (p *proxy) Help(explain bool) string {
+	if explain {
 		return "Set or stop proxy connection to controlled remote host."
 	}
 

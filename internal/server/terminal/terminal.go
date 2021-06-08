@@ -105,7 +105,7 @@ type Terminal struct {
 	// historyPending.
 	historyPending string
 
-	functions             map[string]Base
+	functions             map[string]Command
 	functionsAutoComplete *trie.Trie
 
 	autoCompleteValues map[string]*trie.Trie
@@ -138,7 +138,7 @@ func NewAdvancedTerminal(c io.ReadWriter, prompt string) *Terminal {
 		historyIndex:          -1,
 		AutoCompleteCallback:  defaultAutoComplete,
 		functionsAutoComplete: trie.NewTrie(),
-		functions:             make(map[string]Base),
+		functions:             make(map[string]Command),
 		autoCompleteValues:    make(map[string]*trie.Trie),
 	}
 
@@ -360,7 +360,7 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 	return utf8.RuneError, b
 }
 
-func (t *Terminal) AddCommand(name string, command Base) error {
+func (t *Terminal) AddCommand(name string, command Command) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 

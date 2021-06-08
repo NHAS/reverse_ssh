@@ -61,8 +61,8 @@ func (h *help) Expect(sections []string) []string {
 	return nil
 }
 
-func (h *help) Help(brief bool) string {
-	if brief {
+func (h *help) Help(explain bool) string {
+	if explain {
 		return "Get help for commands, or display all commands"
 	}
 

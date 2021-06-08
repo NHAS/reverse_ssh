@@ -17,6 +17,8 @@ type remoteForward struct {
 	BindPort uint32
 }
 
+//This allows for a client to forward a port to the server, e.g -R 9999
+//Which would open a port on 9999 on the server localhost, that will pipe traffic to the clients network
 func RemoteForward(sshConn ssh.Conn, reqs <-chan *ssh.Request) {
 	defer sshConn.Close()
 	clientClosed := make(chan bool)

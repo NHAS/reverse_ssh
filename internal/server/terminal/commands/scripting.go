@@ -149,8 +149,8 @@ func (s *scripting) Expect(sections []string) []string {
 	return nil
 }
 
-func (s *scripting) Help(brief bool) string {
-	if brief {
+func (s *scripting) Help(explain bool) string {
+	if explain {
 		return "Set scripts to run on connection to remote host."
 	}
 

@@ -17,14 +17,12 @@ func (e *exit) Expect(sections []string) []string {
 	return nil
 }
 
-func (e *exit) Help(brief bool) string {
-	if brief {
+func (e *exit) Help(explain bool) string {
+	if explain {
 		return "Quit connection"
 	}
 
-	return makeHelpText(
-		"exit",
-	)
+	return makeHelpText("exit")
 }
 
 func Exit() *exit {

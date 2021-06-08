@@ -32,8 +32,8 @@ func (l *list) Expect(sections []string) []string {
 	return nil
 }
 
-func (l *list) Help(brief bool) string {
-	if brief {
+func (l *list) Help(explain bool) string {
+	if explain {
 		return "List connected controllable hosts."
 	}
 
