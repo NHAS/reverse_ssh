@@ -110,7 +110,7 @@ PtyListener:
 	}
 
 	for req := range requests {
-		log.Logf("Got request: ", req.Type)
+		log.Logf("Got request: %s\n", req.Type)
 		switch req.Type {
 		case "shell":
 			// We only accept the default shell

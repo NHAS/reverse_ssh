@@ -45,14 +45,14 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 
 			_, err = fmt.Fprintf(connection, "%s", out)
 			if err != nil {
-				log.Println("Unable to write: ", err)
+				log.Ulogf(logger.WARN, "Unable to write: %s\n", err)
 				return
 			}
 		}
 	}()
 
 	for req := range requests {
-		log.Println("Got request: ", req.Type)
+		log.Logf("Got request: %s\n", req.Type)
 		switch req.Type {
 		case "shell":
 			// We only accept the default shell
