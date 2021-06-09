@@ -47,7 +47,7 @@ func (dh *DefaultSSHHandler) Start() {
 
 					dh.user.LastWindowChange = *req
 				default:
-					log.Println("Got unknown request on shell channel: ", req.Type)
+					log.Println("Handled unknown request type in default handler: ", req.Type)
 					if req.WantReply {
 						req.Reply(false, nil)
 					}

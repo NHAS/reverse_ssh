@@ -5,7 +5,6 @@ package client
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -13,18 +12,19 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/creack/pty"
 	"golang.org/x/crypto/ssh"
 )
 
 //This basically handles exactly like a SSH server would
-func shellChannel(user *users.User, newChannel ssh.NewChannel) {
+func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
-		log.Printf("Could not accept channel (%s)", err)
+		log.Ulogf(logger.WARN, "Could not accept channel (%s)", err)
 		return
 	}
 
@@ -47,7 +47,7 @@ PtyListener:
 		for {
 			line, err := term.ReadLine()
 			if err != nil {
-				log.Println("Unable to handle input")
+				log.Ulogf(logger.WARN, "Unable to handle input")
 				return
 			}
 
@@ -75,18 +75,18 @@ PtyListener:
 		if shell.Process != nil {
 			_, err := shell.Process.Wait()
 			if err != nil {
-				log.Printf("Failed to exit bash (%s)\n", err)
+				log.Ulogf(logger.WARN, "Failed to exit bash (%s)\n", err)
 			}
 		}
 
-		log.Printf("Session closed\n")
+		log.Logf("Session closed\n")
 	}
 
 	// Allocate a terminal for this channel
-	log.Print("Creating pty...")
+	log.Logf("Creating pty...")
 	shellf, err := pty.Start(shell)
 	if err != nil {
-		log.Printf("Could not start pty (%s)", err)
+		log.Ulogf(logger.WARN, "Could not start pty (%s)", err)
 		close()
 		return
 	}
@@ -105,11 +105,12 @@ PtyListener:
 
 	err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(ptyreq.Columns), Rows: uint16(ptyreq.Rows)})
 	if err != nil {
-		log.Printf("Unable to set terminal size (maybe windows?): %s\n", err)
+		log.Ulogf(logger.ERROR, "Unable to set terminal size %s\n", err)
+		fmt.Fprintf(connection, "Unable to set term size")
 	}
 
 	for req := range requests {
-		log.Println("Got request: ", req.Type)
+		log.Logf("Got request: ", req.Type)
 		switch req.Type {
 		case "shell":
 			// We only accept the default shell
@@ -120,7 +121,7 @@ PtyListener:
 			w, h := internal.ParseDims(req.Payload)
 			err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
 			if err != nil {
-				log.Printf("Unable to set terminal size: %s\n", err)
+				log.Ulogf(logger.WARN, "Unable to set terminal size: %s\n", err)
 			}
 		}
 	}

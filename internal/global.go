@@ -9,10 +9,10 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -79,20 +79,20 @@ func ParseDims(b []byte) (uint32, uint32) {
 
 // ======================
 
-type ChannelHandler func(user *users.User, newChannel ssh.NewChannel)
+type ChannelHandler func(user *users.User, newChannel ssh.NewChannel, log logger.Logger)
 
-func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, handlers map[string]ChannelHandler) error {
+func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, log logger.Logger, handlers map[string]ChannelHandler) error {
 	// Service the incoming Channel channel in go routine
 	for newChannel := range chans {
 		t := newChannel.ChannelType()
 
 		if callBack, ok := handlers[t]; ok {
-			go callBack(user, newChannel)
+			go callBack(user, newChannel, log)
 			continue
 		}
 
 		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
-		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", user.ServerConnection.RemoteAddr(), user.ServerConnection.ClientVersion(), t)
+		log.Ulogf(logger.WARN, "Sent an invalid channel type '%s'\n", t)
 	}
 
 	users.RemoveUser(user.IdString)
@@ -100,12 +100,12 @@ func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, han
 	return fmt.Errorf("connection terminated")
 }
 
-func DiscardChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel) {
+func DiscardChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, log logger.Logger) {
 	for newChannel := range chans {
 		t := newChannel.ChannelType()
 
 		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
-		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
+		log.Ulogf(logger.INFO, "Sent channel request to discarded channel handler '%s'\n", t)
 	}
 
 }

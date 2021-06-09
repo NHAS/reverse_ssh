@@ -13,6 +13,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -182,7 +183,9 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 			log.Fatalf("Unable to add user %s\n", err)
 		}
 
-		err = internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{
+		l := logger.NewLog("client")
+
+		err = internal.RegisterChannelCallbacks(user, chans, l, map[string]internal.ChannelHandler{
 			"session":      shellChannel,
 			"direct-tcpip": proxyChannel,
 			"scp":          scpChannel,

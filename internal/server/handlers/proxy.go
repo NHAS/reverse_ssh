@@ -2,14 +2,14 @@ package handlers
 
 import (
 	"io"
-	"log"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
-func Proxy(user *users.User, newChannel ssh.NewChannel) {
+func Proxy(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	if user.ProxyConnection == nil {
 		newChannel.Reject(ssh.Prohibited, "no remote location to forward traffic to")
@@ -21,7 +21,7 @@ func Proxy(user *users.User, newChannel ssh.NewChannel) {
 	var drtMsg internal.ChannelOpenDirectMsg
 	err := ssh.Unmarshal(proxyTarget, &drtMsg)
 	if err != nil {
-		log.Println(err)
+		log.Ulogf(logger.WARN, "Unable to unmarshal proxy destination: %s\n", err)
 		return
 	}
 
@@ -39,7 +39,7 @@ func Proxy(user *users.User, newChannel ssh.NewChannel) {
 		return
 	}
 
-	log.Printf("Human client proxying to: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
+	log.Logf("Human client proxying to: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
 
 	go ssh.DiscardRequests(proxyRequests)
 
@@ -54,7 +54,7 @@ func Proxy(user *users.User, newChannel ssh.NewChannel) {
 		defer connection.Close()
 		io.Copy(proxyDest, connection)
 
-		log.Printf("ENDED: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
+		log.Logf("ENDED: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
 
 	}()
 

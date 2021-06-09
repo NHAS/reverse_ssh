@@ -14,13 +14,14 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
-func scpChannel(user *users.User, newChannel ssh.NewChannel) {
+func scpChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
-		log.Printf("Could not accept channel (%s)", err)
+		log.Ulogf(logger.WARN, "Could not accept channel (%s)\n", err)
 		return
 	}
 	defer connection.Close()
@@ -30,18 +31,24 @@ func scpChannel(user *users.User, newChannel ssh.NewChannel) {
 
 	err = ssh.Unmarshal(newChannel.ExtraData(), &scpInfo)
 	if err != nil {
-		log.Printf("Unable to unmarshal scpInfo (%s)", err)
+		log.Ulogf(logger.WARN, "Unable to unmarshal scpInfo (%s)\n", err)
 		return
 	}
 
-	log.Println("Mode: ", scpInfo.Mode, scpInfo.Path)
+	log.Logf("Mode: %s %s\n", scpInfo.Mode, scpInfo.Path)
 	switch scpInfo.Mode {
 	case "-t":
-		to(scpInfo.Path, connection)
+		err = to(scpInfo.Path, connection)
+		if err != nil {
+			log.Ulogf(logger.WARN, "Error copying to: %s\n", err)
+		}
 	case "-f":
-		from(scpInfo.Path, connection)
+		err = from(scpInfo.Path, connection)
+		if err != nil {
+			log.Ulogf(logger.WARN, "Error copying from: %s\n", err)
+		}
 	default:
-		log.Println("Unknown mode.")
+		log.Ulogf(logger.WARN, "Unknown mode.")
 	}
 
 }
@@ -78,9 +85,8 @@ func readProtocolControl(connection ssh.Channel) (string, uint32, uint64, string
 	case 'C':
 		return "file", uint32(mode), uint64(size), filename, nil
 	default:
-		log.Println("Unknown mode: ", strings.TrimSpace(control))
+		return "", 0, 0, "", errors.New(fmt.Sprintf("Unknown mode: %s", strings.TrimSpace(control)))
 	}
-	return "", 0, 0, "", errors.New("Unknown mode")
 }
 
 func readFile(connection ssh.Channel, path string, mode uint32, size uint64) error {
@@ -127,9 +133,10 @@ func readFile(connection ssh.Channel, path string, mode uint32, size uint64) err
 	if status != 0 {
 		return errors.New("ACK bad")
 	}
-	connection.Write([]byte{0})
 
-	return nil
+	_, err = connection.Write([]byte{0})
+
+	return err
 }
 
 func readDirectory(connection ssh.Channel, path string, mode uint32) error {
@@ -166,22 +173,25 @@ func readDirectory(connection ssh.Channel, path string, mode uint32) error {
 
 }
 
-func to(tocreate string, connection ssh.Channel) {
+func to(tocreate string, connection ssh.Channel) error {
 
-	connection.Write([]byte{0})
+	_, err := connection.Write([]byte{0})
+	if err != nil {
+		return err
+	}
 
 	t, mode, size, filename, err := readProtocolControl(connection)
 	if err != nil {
-		return
+		return err
 	}
 
 	switch t {
 	case "dir":
-		readDirectory(connection, tocreate, mode)
+		return readDirectory(connection, tocreate, mode)
 	case "file":
 		pathinfo, err := os.Stat(tocreate)
 		if err != nil && !os.IsNotExist(err) {
-			return
+			return err
 		}
 
 		var path string = tocreate
@@ -189,45 +199,49 @@ func to(tocreate string, connection ssh.Channel) {
 			path = filepath.Join(tocreate, filename)
 		}
 
-		log.Println(readFile(connection, path, mode, size))
+		return readFile(connection, path, mode, size)
 	default:
-
+		return errors.New("Unknown file type")
 	}
 
 }
 
-func from(todownload string, connection ssh.Channel) {
+func from(todownload string, connection ssh.Channel) error {
 	clientReady, _ := readAck(connection)
 	if clientReady != 0 {
-		return
+		return errors.New("Client didnt ready up")
 	}
 
 	fileinfo, err := os.Stat(todownload)
 	if err != nil {
 		internal.ScpError(fmt.Sprintf("error: %s", err), connection)
-		log.Println("File not found")
-		return
+		return errors.New(fmt.Sprintf("File not found: %s", err))
 	}
 
 	if fileinfo.Mode().IsRegular() {
 		log.Println("Transfering single file")
-		log.Println(scpTransferFile(todownload, fileinfo, connection))
+		return scpTransferFile(todownload, fileinfo, connection)
 	}
 
 	if fileinfo.IsDir() {
 		log.Println("Transferring directory")
-		log.Println(scpTransferDirectory(todownload, fileinfo, connection))
+		return scpTransferDirectory(todownload, fileinfo, connection)
 	}
 
 	connection.Write([]byte("E\n"))
 	success, _ := readAck(connection)
 	if success != 0 {
-		log.Println("Final end failed")
+		return errors.New("Final end failed")
 	}
+
+	return nil
 }
 
 func scpTransferDirectory(path string, mode fs.FileInfo, connection ssh.Channel) error {
-	connection.Write([]byte(fmt.Sprintf("D%#o 1 %s\n", mode.Mode().Perm(), filepath.Base(path))))
+	_, err := connection.Write([]byte(fmt.Sprintf("D%#o 1 %s\n", mode.Mode().Perm(), filepath.Base(path))))
+	if err != nil {
+		return err
+	}
 
 	success, _ := readAck(connection)
 	if success != 0 {
@@ -260,9 +274,9 @@ func scpTransferDirectory(path string, mode fs.FileInfo, connection ssh.Channel)
 		}
 	}
 
-	connection.Write([]byte("E\n"))
+	_, err = connection.Write([]byte("E\n"))
 
-	return nil
+	return err
 }
 
 func readAck(conn ssh.Channel) (int, error) {

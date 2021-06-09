@@ -14,6 +14,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
@@ -147,7 +148,9 @@ func Run(addr, privateKeyPath string) {
 			log.Printf("Failed to handshake (%s)", err)
 			continue
 		}
-		log.Printf("New SSH connection from %s (%s)", sshConn.RemoteAddr(), sshConn.ClientVersion())
+
+		clientLog := logger.NewLog(sshConn.RemoteAddr().String())
+		clientLog.Logf("New SSH connection, version %s", sshConn.ClientVersion())
 
 		switch sshConn.Permissions.Extensions["type"] {
 		case "master":
@@ -160,7 +163,7 @@ func Run(addr, privateKeyPath string) {
 
 			// Since we're handling a shell and dynamic forward, so we expect
 			// channel type of "session" or "direct-tcpip".
-			go internal.RegisterChannelCallbacks(user, chans, map[string]internal.ChannelHandler{
+			go internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
 				"session":      handlers.Session(&controllableClients, autoCompleteClients),
 				"direct-tcpip": handlers.Proxy,
 			})
@@ -180,7 +183,8 @@ func Run(addr, privateKeyPath string) {
 						req.Reply(false, nil)
 					}
 				}
-				log.Printf("SSH client disconnected %s", s)
+
+				clientLog.Logf("SSH client disconnected")
 				controllableClients.Delete(s)
 				autoCompleteClients.Remove(idString)
 			}(idString)
@@ -188,12 +192,12 @@ func Run(addr, privateKeyPath string) {
 		case "proxy":
 			// Proxy is a special case, we dont want the client to have access to control elements, but want a port to be able to be opened.
 			// I would have liked to wrap this into the callbacks register, however this has different requirements to the channel handlers.
-			go internal.DiscardChannels(sshConn, chans)
+			go internal.DiscardChannels(sshConn, chans, clientLog)
 			go handlers.RemoteForward(sshConn, reqs)
 
 		default:
 			sshConn.Close()
-			log.Println("Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
+			clientLog.Ulogf(logger.WARN, "Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
 		}
 
 	}

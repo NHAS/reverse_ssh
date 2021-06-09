@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 
@@ -12,10 +11,12 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
 type connect struct {
+	log                 logger.Logger
 	user                *users.User
 	defaultHandle       *internal.DefaultSSHHandler
 	controllableClients *sync.Map
@@ -35,7 +36,7 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 
 	defer func() {
 
-		log.Printf("Client %s (%s) has disconnected from remote host %s (%s)\n", c.user.ServerConnection.RemoteAddr(), c.user.ServerConnection.ClientVersion(), controlClient.RemoteAddr(), controlClient.ClientVersion())
+		c.log.Ulogf(logger.INFO, "Disconnected from remote host %s (%s)\n", controlClient.RemoteAddr(), controlClient.ClientVersion())
 
 		c.defaultHandle.Start() // Re-enable the default handler if the client isnt connected to a remote host
 
@@ -45,6 +46,8 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 	// If we cant, report and error to the clients terminal
 	newSession, err := createSession(controlClient, c.user.PtyReq, c.user.LastWindowChange)
 	if err != nil {
+
+		c.log.Ulogf(logger.ERROR, "%s\n", err)
 		return err
 	}
 
@@ -53,7 +56,7 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 	err = attachSession(term, newSession, c.user.ShellConnection, c.user.ShellRequests, c.user.EnabledRcfiles[args[0]])
 	if err != nil {
 
-		log.Println("Client tried to attach session and failed: ", err)
+		c.log.Ulogf(logger.ERROR, "Client tried to attach session and failed: %s\n", err)
 		return err
 	}
 
@@ -83,11 +86,13 @@ func (c *connect) Help(explain bool) string {
 func Connect(
 	user *users.User,
 	defaultHandle *internal.DefaultSSHHandler,
-	controllableClients *sync.Map) *connect {
+	controllableClients *sync.Map,
+	log logger.Logger) *connect {
 	return &connect{
 		user:                user,
 		defaultHandle:       defaultHandle,
 		controllableClients: controllableClients,
+		log:                 log,
 	}
 }
 
@@ -95,7 +100,6 @@ func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc s
 
 	splice, newrequests, err := sshConn.OpenChannel("session", nil)
 	if err != nil {
-		log.Printf("Unable to start remote session on host %s (%s) : %s\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), err)
 		return sc, fmt.Errorf("Unable to start remote session on host %s (%s) : %s", sshConn.RemoteAddr(), sshConn.ClientVersion(), err)
 	}
 
