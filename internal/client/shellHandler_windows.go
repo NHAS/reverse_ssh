@@ -3,13 +3,13 @@ package client
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 	"syscall"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -20,7 +20,7 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 	// request for another logical connection
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
-		log.Printf("Could not accept channel (%s)", err)
+		log.Ulogf(logger.ERROR, "Could not accept channel (%s)", err)
 		return
 	}
 	defer connection.Close()
