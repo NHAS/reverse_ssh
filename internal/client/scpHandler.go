@@ -41,11 +41,13 @@ func scpChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger) 
 		err = to(scpInfo.Path, connection)
 		if err != nil {
 			log.Ulogf(logger.WARN, "Error copying to: %s\n", err)
+			internal.ScpError(fmt.Sprintf("error: %s", err), connection)
 		}
 	case "-f":
 		err = from(scpInfo.Path, connection)
 		if err != nil {
 			log.Ulogf(logger.WARN, "Error copying from: %s\n", err)
+			internal.ScpError(fmt.Sprintf("error: %s", err), connection)
 		}
 	default:
 		log.Ulogf(logger.WARN, "Unknown mode.")
@@ -214,18 +216,17 @@ func from(todownload string, connection ssh.Channel) error {
 
 	fileinfo, err := os.Stat(todownload)
 	if err != nil {
-		internal.ScpError(fmt.Sprintf("error: %s", err), connection)
 		return errors.New(fmt.Sprintf("File not found: %s", err))
 	}
 
 	if fileinfo.Mode().IsRegular() {
 		log.Println("Transfering single file")
-		return scpTransferFile(todownload, fileinfo, connection)
+		err = scpTransferFile(todownload, fileinfo, connection)
 	}
 
 	if fileinfo.IsDir() {
 		log.Println("Transferring directory")
-		return scpTransferDirectory(todownload, fileinfo, connection)
+		err = scpTransferDirectory(todownload, fileinfo, connection)
 	}
 
 	connection.Write([]byte("E\n"))
@@ -234,7 +235,7 @@ func from(todownload string, connection ssh.Channel) error {
 		return errors.New("Final end failed")
 	}
 
-	return nil
+	return err
 }
 
 func scpTransferDirectory(path string, mode fs.FileInfo, connection ssh.Channel) error {
