@@ -55,6 +55,11 @@ func Run(addr, privateKeyPath string) {
 		log.Println(err) // Not a fatal error, as you can just want *No* proxiers
 	}
 
+	authorizedControllees, err := ReadPubKeys("authorized_controllee_keys")
+	if err != nil {
+		log.Println(err)
+	}
+
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH server type has been removed
 	// in favour of an SSH connection type. A ssh.ServerConn is created by passing an existing
 	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in effect, upgrading the net.Conn
@@ -63,7 +68,7 @@ func Run(addr, privateKeyPath string) {
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 			var clientType string
 
-			if conn.User() == "0d87be75162ded36626cb97b0f5b5ef170465533" {
+			if authorizedControllees[string(key.Marshal())] {
 				clientType = "slave"
 			} else if authorizedKeysMap[string(key.Marshal())] {
 				clientType = "master"

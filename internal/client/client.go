@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
@@ -127,14 +128,9 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 
 func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 
-	pemBlock, err := internal.GeneratePrivateKey()
+	sshPriv, err := keys.GetPrivateKey()
 	if err != nil {
-		log.Fatal("Generating private key: ", err)
-	}
-
-	sshPriv, err := ssh.ParsePrivateKey(pemBlock)
-	if err != nil {
-		log.Fatal("Parsing the generated ssh private key failed: ", err)
+		log.Fatal("Getting private key failed: ", err)
 	}
 
 	shells = loadShells()
