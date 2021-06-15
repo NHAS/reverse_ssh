@@ -121,7 +121,7 @@ func Run(addr, privateKeyPath string) {
 		log.Fatalf("Failed to parse private key: %s", err)
 	}
 
-	log.Println("Server key fingerprint: ", internal.FingerprintSHA1Hex(private.PublicKey()))
+	log.Println("Server key fingerprint: ", internal.FingerprintSHA256Hex(private.PublicKey()))
 
 	config.AddHostKey(private)
 

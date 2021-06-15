@@ -138,6 +138,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 	}
 
 	shells = loadShells()
+	l := logger.NewLog("client")
 
 	config := &ssh.ClientConfig{
 		User: "0d87be75162ded36626cb97b0f5b5ef170465533",
@@ -146,11 +147,12 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		},
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			if serverPubKey == "" { // If a server key isnt supplied, fail open. Potentially should change this for more paranoid people
+				l.Ulogf(logger.WARN, "No server key specified, allowing connection to %s", addr)
 				return nil
 			}
 
-			if internal.FingerprintSHA1Hex(key) != serverPubKey {
-				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", serverPubKey, internal.FingerprintSHA1Hex(key))
+			if internal.FingerprintSHA256Hex(key) != serverPubKey {
+				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", serverPubKey, internal.FingerprintSHA256Hex(key))
 			}
 
 			return nil
@@ -182,8 +184,6 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		if err != nil {
 			log.Fatalf("Unable to add user %s\n", err)
 		}
-
-		l := logger.NewLog("client")
 
 		err = internal.RegisterChannelCallbacks(user, chans, l, map[string]internal.ChannelHandler{
 			"session":      shellChannel,
