@@ -3,13 +3,13 @@ ADDR=localhost:2200
 debug: 
 	mkdir -p bin
 	ssh-keygen -t ed25519 -N '' -f internal/client/keys/private_key
-	cp internal/client/keys/private_key bin/authorized_controllee_keys
+	cp internal/client/keys/private_key.pub bin/authorized_controllee_keys
 	go build -o bin ./...
 
 release:
 	mkdir -p bin
 	ssh-keygen -t ed25519 -N '' -f internal/client/keys/private_key
-	cp internal/client/keys/private_key bin/authorized_controllee_keys
+	cp internal/client/keys/private_key.pub bin/authorized_controllee_keys
 	go build -ldflags="-s -w" -o bin ./...
 
 client:

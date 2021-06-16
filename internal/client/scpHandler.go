@@ -294,7 +294,7 @@ func readAck(conn ssh.Channel) (int, error) {
 
 func scpTransferFile(path string, fi fs.FileInfo, connection ssh.Channel) error {
 
-	_, err := fmt.Fprintf(connection, "C%#o %d %s\n", fi.Mode(), fi.Size(), filepath.Base(path))
+	_, err := fmt.Fprintf(connection, "C%04o %d %s\n", fi.Mode().Perm(), fi.Size(), filepath.Base(path))
 	if err != nil {
 		return err
 	}
