@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/user"
 	"strings"
 	"time"
 
@@ -136,6 +137,15 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 	shells = loadShells()
 	l := logger.NewLog("client")
 
+	var username string
+	userInfo, err := user.Current()
+	if err != nil {
+		l.Ulogf(logger.WARN, "Couldnt get username: %s", err.Error())
+		username = "Unknown"
+	} else {
+		username = userInfo.Username
+	}
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "Unknown Hostname"
@@ -143,7 +153,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 	}
 
 	config := &ssh.ClientConfig{
-		User: hostname,
+		User: fmt.Sprintf("%s@%s", username, hostname),
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(sshPriv),
 		},
