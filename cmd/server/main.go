@@ -20,6 +20,7 @@ func printHelp() {
 func main() {
 
 	privkey_path := flag.String("key", "", "Path to SSH private key, if omitted will generate a key on first use")
+	insecure := flag.Bool("insecure", false, "Ignore authorized_controllee_keys and allow any controllable client to connect")
 
 	flag.Usage = printHelp
 
@@ -31,6 +32,6 @@ func main() {
 		return
 	}
 
-	server.Run(flag.Args()[0], *privkey_path)
+	server.Run(flag.Args()[0], *privkey_path, *insecure)
 
 }

@@ -42,7 +42,7 @@ func ReadPubKeys(path string) (m map[string]bool, err error) {
 	return
 }
 
-func Run(addr, privateKeyPath string) {
+func Run(addr, privateKeyPath string, insecure bool) {
 
 	//Taken from the server example, authorized keys are required for controllers
 	authorizedKeysMap, err := ReadPubKeys("authorized_keys")
@@ -57,7 +57,11 @@ func Run(addr, privateKeyPath string) {
 
 	authorizedControllees, err := ReadPubKeys("authorized_controllee_keys")
 	if err != nil {
-		log.Println(err)
+		if !insecure {
+			log.Fatal(err)
+		} else {
+			log.Println(err)
+		}
 	}
 
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH server type has been removed
@@ -68,14 +72,16 @@ func Run(addr, privateKeyPath string) {
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 			var clientType string
 
-			if authorizedControllees[string(key.Marshal())] {
-				clientType = "slave"
-			} else if authorizedKeysMap[string(key.Marshal())] {
+			//If insecure mode, then any unknown client will be connected as a controllable client.
+			//The server effectively ignores channel requests from controllable clients.
+			if authorizedKeysMap[string(key.Marshal())] {
 				clientType = "master"
 			} else if authorizedProxiers[string(key.Marshal())] {
 				clientType = "proxy"
+			} else if insecure || authorizedControllees[string(key.Marshal())] {
+				clientType = "slave"
 			} else {
-				return nil, fmt.Errorf("Not authorized %q", conn.User())
+				return nil, fmt.Errorf("Not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
 			}
 
 			return &ssh.Permissions{
@@ -150,7 +156,7 @@ func Run(addr, privateKeyPath string) {
 		// Before use, a handshake must be performed on the incoming net.Conn.
 		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
 		if err != nil {
-			log.Printf("Failed to handshake (%s)", err)
+			log.Printf("Failed to handshake (%s)", err.Error())
 			continue
 		}
 

@@ -15,10 +15,11 @@ type list struct {
 
 func (l *list) Run(term *terminal.Terminal, args ...string) error {
 
-	t, _ := table.NewTable("Targets", "ID", "IP Address")
+	t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address")
 
 	l.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
-		t.AddValues(fmt.Sprintf("%s", idStr), value.(ssh.Conn).RemoteAddr().String())
+		sc := value.(ssh.Conn)
+		t.AddValues(fmt.Sprintf("%s", idStr), sc.User(), sc.RemoteAddr().String())
 
 		return true
 	})

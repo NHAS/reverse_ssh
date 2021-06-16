@@ -136,8 +136,14 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 	shells = loadShells()
 	l := logger.NewLog("client")
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "Unknown Hostname"
+		l.Ulogf(logger.WARN, "Couldnt get host name: %s", err)
+	}
+
 	config := &ssh.ClientConfig{
-		User: "0d87be75162ded36626cb97b0f5b5ef170465533",
+		User: hostname,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(sshPriv),
 		},
