@@ -21,7 +21,7 @@ func Proxy(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 	var drtMsg internal.ChannelOpenDirectMsg
 	err := ssh.Unmarshal(proxyTarget, &drtMsg)
 	if err != nil {
-		log.Ulogf(logger.WARN, "Unable to unmarshal proxy destination: %s\n", err)
+		log.Warning("Unable to unmarshal proxy destination: %s", err)
 		return
 	}
 
@@ -39,7 +39,7 @@ func Proxy(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 		return
 	}
 
-	log.Logf("Human client proxying to: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
+	log.Info("Human client proxying to: %s:%d", drtMsg.Raddr, drtMsg.Rport)
 
 	go ssh.DiscardRequests(proxyRequests)
 
@@ -54,7 +54,7 @@ func Proxy(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 		defer connection.Close()
 		io.Copy(proxyDest, connection)
 
-		log.Logf("ENDED: %s:%d\n", drtMsg.Raddr, drtMsg.Rport)
+		log.Info("ENDED: %s:%d", drtMsg.Raddr, drtMsg.Rport)
 
 	}()
 

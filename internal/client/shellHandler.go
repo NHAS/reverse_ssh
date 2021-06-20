@@ -24,7 +24,7 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 	// request for another logical connection
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
-		log.Ulogf(logger.WARN, "Could not accept channel (%s)", err)
+		log.Warning("Could not accept channel (%s)", err)
 		return
 	}
 
@@ -47,7 +47,7 @@ PtyListener:
 		for {
 			line, err := term.ReadLine()
 			if err != nil {
-				log.Ulogf(logger.WARN, "Unable to handle input")
+				log.Warning("Unable to handle input")
 				return
 			}
 
@@ -75,18 +75,18 @@ PtyListener:
 		if shell.Process != nil {
 			_, err := shell.Process.Wait()
 			if err != nil {
-				log.Ulogf(logger.WARN, "Failed to exit bash (%s)\n", err)
+				log.Warning("Failed to exit bash (%s)", err)
 			}
 		}
 
-		log.Logf("Session closed\n")
+		log.Info("Session closed")
 	}
 
 	// Allocate a terminal for this channel
-	log.Logf("Creating pty...")
+	log.Info("Creating pty...")
 	shellf, err := pty.Start(shell)
 	if err != nil {
-		log.Ulogf(logger.WARN, "Could not start pty (%s)", err)
+		log.Info("Could not start pty (%s)", err)
 		close()
 		return
 	}
@@ -105,12 +105,12 @@ PtyListener:
 
 	err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(ptyreq.Columns), Rows: uint16(ptyreq.Rows)})
 	if err != nil {
-		log.Ulogf(logger.ERROR, "Unable to set terminal size %s\n", err)
+		log.Error("Unable to set terminal size %s", err)
 		fmt.Fprintf(connection, "Unable to set term size")
 	}
 
 	for req := range requests {
-		log.Logf("Got request: %s\n", req.Type)
+		log.Info("Got request: %s", req.Type)
 		switch req.Type {
 		case "shell":
 			// We only accept the default shell
@@ -121,7 +121,7 @@ PtyListener:
 			w, h := internal.ParseDims(req.Payload)
 			err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
 			if err != nil {
-				log.Ulogf(logger.WARN, "Unable to set terminal size: %s\n", err)
+				log.Warning("Unable to set terminal size: %s", err)
 			}
 		}
 	}

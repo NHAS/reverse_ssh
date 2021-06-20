@@ -23,13 +23,13 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 
 	return func(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 
-		defer log.Logf("Human disconnected, client version %s\n", user.ServerConnection.ClientVersion())
+		defer log.Info("Human disconnected, client version %s", user.ServerConnection.ClientVersion())
 
 		// At this point, we have the opportunity to reject the client's
 		// request for another logical connection
 		connection, requests, err := newChannel.Accept()
 		if err != nil {
-			log.Ulogf(logger.WARN, "Could not accept channel (%s)\n", err)
+			log.Warning("Could not accept channel (%s)", err)
 			return
 		}
 		defer connection.Close()
@@ -37,7 +37,7 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 		var ptySettings internal.PtyReq
 
 		for req := range requests {
-			log.Logf("Session got request: %s\n", req.Type)
+			log.Info("Session got request: %q", req.Type)
 			switch req.Type {
 			case "exec":
 				var command struct {
@@ -45,7 +45,7 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 				}
 				err = ssh.Unmarshal(req.Payload, &command)
 				if err != nil {
-					log.Ulogf(logger.WARN, "Human client sent an undecodable exec payload: %s\n", err)
+					log.Warning("Human client sent an undecodable exec payload: %s\n", err)
 					req.Reply(false, nil)
 					return
 				}
@@ -53,7 +53,7 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 				parts := strings.Split(command.Cmd, " ")
 				if len(parts) > 1 {
 					if parts[0] != "scp" {
-						log.Ulogf(logger.WARN, "Human client tried to execute something other than SCP: %s\n", parts[0])
+						log.Warning("Human client tried to execute something other than SCP: %s\n", parts[0])
 						return
 					}
 
@@ -94,14 +94,14 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
 				ptySettings, err = internal.ParsePtyReq(req.Payload)
 				if err != nil {
-					log.Ulogf(logger.WARN, "Got undecodable pty request: %s\n", err)
+					log.Warning("Got undecodable pty request: %s", err)
 					req.Reply(false, nil)
 					return
 				}
 
 				req.Reply(true, nil)
 			default:
-				log.Ulogf(logger.WARN, "Got an unknown request %s\n", req.Type)
+				log.Warning("Got an unknown request %s", req.Type)
 				if req.WantReply {
 					req.Reply(false, nil)
 				}

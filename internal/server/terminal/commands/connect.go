@@ -36,7 +36,7 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 
 	defer func() {
 
-		c.log.Ulogf(logger.INFO, "Disconnected from remote host %s (%s)\n", controlClient.RemoteAddr(), controlClient.ClientVersion())
+		c.log.Info("Disconnected from remote host %s (%s)", controlClient.RemoteAddr(), controlClient.ClientVersion())
 
 		c.defaultHandle.Start() // Re-enable the default handler if the client isnt connected to a remote host
 
@@ -47,16 +47,18 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 	newSession, err := createSession(controlClient, c.user.PtyReq, c.user.LastWindowChange)
 	if err != nil {
 
-		c.log.Ulogf(logger.ERROR, "%s\n", err)
+		c.log.Error("Creating session failed: %s", err)
 		return err
 	}
 
 	c.defaultHandle.Stop()
 
+	c.log.Info("Connected to %s", controlClient.RemoteAddr().String())
+
 	err = attachSession(term, newSession, c.user.ShellConnection, c.user.ShellRequests, c.user.EnabledRcfiles[args[0]])
 	if err != nil {
 
-		c.log.Ulogf(logger.ERROR, "Client tried to attach session and failed: %s\n", err)
+		c.log.Error("Client tried to attach session and failed: %s", err)
 		return err
 	}
 

@@ -99,7 +99,7 @@ func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, log
 		}
 
 		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
-		log.Ulogf(logger.WARN, "Sent an invalid channel type '%s'\n", t)
+		log.Warning("Sent an invalid channel type %q", t)
 	}
 
 	users.RemoveUser(user.IdString)
@@ -112,7 +112,7 @@ func DiscardChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, log logger.L
 		t := newChannel.ChannelType()
 
 		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
-		log.Ulogf(logger.INFO, "Sent channel request to discarded channel handler '%s'\n", t)
+		log.Info("Sent channel request to discarded channel handler %q", t)
 	}
 
 }

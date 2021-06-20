@@ -140,7 +140,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 	var username string
 	userInfo, err := user.Current()
 	if err != nil {
-		l.Ulogf(logger.WARN, "Couldnt get username: %s", err.Error())
+		l.Warning("Couldnt get username: %s", err.Error())
 		username = "Unknown"
 	} else {
 		username = userInfo.Username
@@ -149,7 +149,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "Unknown Hostname"
-		l.Ulogf(logger.WARN, "Couldnt get host name: %s", err)
+		l.Warning("Couldnt get host name: %s", err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -159,7 +159,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		},
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			if serverPubKey == "" { // If a server key isnt supplied, fail open. Potentially should change this for more paranoid people
-				l.Ulogf(logger.WARN, "No server key specified, allowing connection to %s", addr)
+				l.Warning("No server key specified, allowing connection to %s", addr)
 				return nil
 			}
 

@@ -18,10 +18,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func scpChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+func scpChannel(user *users.User, newChannel ssh.NewChannel, l logger.Logger) {
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
-		log.Ulogf(logger.WARN, "Could not accept channel (%s)\n", err)
+		l.Warning("Could not accept channel (%s)\n", err)
 		return
 	}
 	defer connection.Close()
@@ -31,26 +31,26 @@ func scpChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger) 
 
 	err = ssh.Unmarshal(newChannel.ExtraData(), &scpInfo)
 	if err != nil {
-		log.Ulogf(logger.WARN, "Unable to unmarshal scpInfo (%s)\n", err)
+		l.Warning("Unable to unmarshal scpInfo (%s)\n", err)
 		return
 	}
 
-	log.Logf("Mode: %s %s\n", scpInfo.Mode, scpInfo.Path)
+	l.Info("Mode: %s %s\n", scpInfo.Mode, scpInfo.Path)
 	switch scpInfo.Mode {
 	case "-t":
 		err = to(scpInfo.Path, connection)
 		if err != nil {
-			log.Ulogf(logger.WARN, "Error copying to: %s\n", err)
+			l.Warning("Error copying to: %s\n", err)
 			internal.ScpError(fmt.Sprintf("error: %s", err), connection)
 		}
 	case "-f":
 		err = from(scpInfo.Path, connection)
 		if err != nil {
-			log.Ulogf(logger.WARN, "Error copying from: %s\n", err)
+			l.Warning("Error copying from: %s\n", err)
 			internal.ScpError(fmt.Sprintf("error: %s", err), connection)
 		}
 	default:
-		log.Ulogf(logger.WARN, "Unknown mode.")
+		l.Warning("Unknown mode.")
 	}
 
 }

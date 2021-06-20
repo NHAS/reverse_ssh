@@ -11,26 +11,26 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func proxyChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+func proxyChannel(user *users.User, newChannel ssh.NewChannel, l logger.Logger) {
 	a := newChannel.ExtraData()
 
 	var drtMsg internal.ChannelOpenDirectMsg
 	err := ssh.Unmarshal(a, &drtMsg)
 	if err != nil {
-		log.Ulogf(logger.WARN, "Unable to unmarshal proxy %s\n", err)
+		l.Warning("Unable to unmarshal proxy %s", err)
 		return
 	}
 
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
-		log.Ulogf(logger.WARN, "Unable to accept new channel %s\n", err)
+		l.Warning("Unable to accept new channel %s", err)
 		return
 	}
 	go ssh.DiscardRequests(requests)
 
 	tcpConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport))
 	if err != nil {
-		log.Ulogf(logger.WARN, "Unable to dial destination: %s\n", err)
+		l.Warning("Unable to dial destination: %s", err)
 		return
 	}
 

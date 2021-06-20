@@ -161,7 +161,7 @@ func Run(addr, privateKeyPath string, insecure bool) {
 		}
 
 		clientLog := logger.NewLog(sshConn.RemoteAddr().String())
-		clientLog.Logf("New SSH connection, version %s", sshConn.ClientVersion())
+		clientLog.Info("New SSH connection, version %s", sshConn.ClientVersion())
 
 		switch sshConn.Permissions.Extensions["type"] {
 		case "master":
@@ -195,7 +195,7 @@ func Run(addr, privateKeyPath string, insecure bool) {
 					}
 				}
 
-				clientLog.Logf("SSH client disconnected")
+				clientLog.Info("SSH client disconnected")
 				controllableClients.Delete(s)
 				autoCompleteClients.Remove(idString)
 			}(idString)
@@ -208,7 +208,7 @@ func Run(addr, privateKeyPath string, insecure bool) {
 
 		default:
 			sshConn.Close()
-			clientLog.Ulogf(logger.WARN, "Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
+			clientLog.Warning("Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
 		}
 
 	}
