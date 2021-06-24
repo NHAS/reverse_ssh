@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
@@ -25,18 +26,24 @@ var autoCompleteCommands, autoCompleteClients *trie.Trie
 func ReadPubKeys(path string) (m map[string]bool, err error) {
 	authorizedKeysBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return m, fmt.Errorf("Failed to load %s, err: %v", path, err)
+		return m, fmt.Errorf("Failed to load file %s, err: %v", path, err)
 	}
 
+	keys := bytes.Split(authorizedKeysBytes, []byte("\n"))
 	m = map[string]bool{}
-	for len(authorizedKeysBytes) > 0 {
-		pubKey, _, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
+
+	for i, key := range keys {
+		key = bytes.TrimSpace(key)
+		if len(key) == 0 {
+			continue
+		}
+
+		pubKey, _, _, _, err := ssh.ParseAuthorizedKey(key)
 		if err != nil {
-			return m, err
+			return m, fmt.Errorf("Unable to parse public key on line %d. Reason: %s", i+1, err)
 		}
 
 		m[string(pubKey.Marshal())] = true
-		authorizedKeysBytes = rest
 	}
 
 	return
