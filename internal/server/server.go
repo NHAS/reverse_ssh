@@ -40,7 +40,7 @@ func ReadPubKeys(path string) (m map[string]bool, err error) {
 
 		pubKey, _, _, _, err := ssh.ParseAuthorizedKey(key)
 		if err != nil {
-			return m, fmt.Errorf("Unable to parse public key on line %d. Reason: %s", i+1, err)
+			return m, fmt.Errorf("Unable to parse public key. %s line %d. Reason: %s", path, i+1, err)
 		}
 
 		m[string(pubKey.Marshal())] = true

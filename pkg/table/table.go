@@ -1,105 +1,151 @@
 package table
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
-type table struct {
-	name          string
-	rowNames      []string
-	values        [][]string
-	valueMaxSizes []int
+type value struct {
+	parts   []string
+	longest int
 }
 
-func (t *table) updateMaxs(rn ...string) error {
-	if len(rn) > len(t.rowNames) {
-		return fmt.Errorf("Wrong size guy")
+type Table struct {
+	name          string
+	rows          int
+	line          [][]value
+	cellMaxWidth  []int
+	lineMaxHeight []int
+}
+
+func makeValue(rn string) (val value) {
+	val.parts = strings.Split(rn, "\n")
+	for _, n := range val.parts {
+		if len(n) > val.longest {
+			val.longest = len(n)
+		}
+	}
+	return
+}
+
+func (t *Table) updateMax(line []value) error {
+	if len(line) != t.rows {
+		return errors.New("Wrong size guy")
 	}
 
-	if t.valueMaxSizes == nil {
-		t.valueMaxSizes = make([]int, len(t.rowNames))
+	if t.cellMaxWidth == nil {
+		t.cellMaxWidth = make([]int, t.rows)
 	}
 
-	for i, v := range rn {
-		if t.valueMaxSizes[i] < len(v) {
-			t.valueMaxSizes[i] = len(v)
+	height := 0
+	for i, n := range line {
+		if t.cellMaxWidth[i] < n.longest {
+			t.cellMaxWidth[i] = n.longest
+		}
+
+		if height < len(n.parts) {
+			height = len(n.parts)
 		}
 	}
 
-	return nil
-}
-
-func (t *table) addRow(rn ...string) error {
-	t.rowNames = append(t.rowNames, rn...)
-
-	err := t.updateMaxs(rn...)
-	if err != nil {
-		return err
-	}
+	t.lineMaxHeight = append(t.lineMaxHeight, height)
 
 	return nil
 }
 
-func (t *table) AddValues(vals ...string) error {
-	if len(vals) > len(t.rowNames) {
+func (t *Table) AddValues(vals ...string) error {
+	if len(vals) != t.rows {
 		return fmt.Errorf("Error more values than exist in the row name")
 	}
 
-	t.values = append(t.values, vals)
+	var line []value
+	for _, v := range vals {
+		line = append(line, makeValue(v))
+	}
 
-	err := t.updateMaxs(vals...)
+	err := t.updateMax(line)
 	if err != nil {
 		return err
 	}
 
+	t.line = append(t.line, line)
+
 	return nil
 }
 
-func (t *table) Print() {
+func (t *Table) Print() {
 	t.Fprint(os.Stdout)
 }
 
-func (t *table) Fprint(w io.Writer) {
+func (t *Table) Fprint(w io.Writer) {
 
-	top := "|"
-	for i, rh := range t.rowNames {
-		top += fmt.Sprintf(" %-"+fmt.Sprintf("%d", t.valueMaxSizes[i])+"s |", rh)
-	}
+	firstLine := true
 
-	fmt.Fprintf(w, "%"+fmt.Sprintf("%d", len(top)/2-len(t.name))+"s\n", t.name)
+	for n, line := range t.line {
+		// X Y
+		values := make([][]string, len(line))
+		for x, m := range line {
+			values[x] = m.parts
+		}
 
-	seperator(w, len(top))
-	fmt.Fprintln(w, top)
-	seperator(w, len(top))
+		drawnLines := []string{}
+		max := 0
+		for y := 0; y < t.lineMaxHeight[n]; y++ {
 
-	for _, row := range t.values {
-		line := "|"
-		for i, v := range row {
-			line += fmt.Sprintf(" %-"+fmt.Sprintf("%d", t.valueMaxSizes[i])+"s |", v)
+			m := "|"
+			for x := 0; x < len(line); x++ {
+				val := ""
+				if len(values[x]) > y {
+					val = values[x][y]
+				}
+				m += fmt.Sprintf(" %-"+fmt.Sprintf("%d", t.cellMaxWidth[x])+"s |", val)
+			}
+
+			if max < len(m) {
+				max = len(m)
+			}
+
+			drawnLines = append(drawnLines, m)
 
 		}
-		fmt.Fprintln(w, line)
-		seperator(w, len(line))
+
+		if firstLine {
+			firstLine = false
+			fmt.Fprintf(w, "%"+fmt.Sprintf("%d", max/2)+"s\n", t.name)
+
+			fmt.Fprintln(w, seperator(max))
+		}
+
+		for _, l := range drawnLines {
+			fmt.Fprintln(w, l)
+		}
+
+		fmt.Fprintln(w, seperator(max))
+
 	}
 }
 
-func seperator(w io.Writer, i int) {
+func seperator(i int) (out string) {
 	for n := 0; n < i; n++ {
-		fmt.Fprint(w, "-")
+		out += "-"
 	}
-	fmt.Fprint(w, "\n")
+
+	return out
 }
 
-func NewTable(name string, rows ...string) (t table, err error) {
+func NewTable(name string, rowNames ...string) (t Table, err error) {
 
-	err = t.addRow(rows...)
-	if err != nil {
-		return
+	var line []value
+	for _, name := range rowNames {
+		line = append(line, makeValue(name))
 	}
+
+	t.rows = len(line)
 
 	t.name = name
 
-	return
+	return t, t.AddValues(rowNames...)
 }
