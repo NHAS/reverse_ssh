@@ -20,7 +20,7 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 	// request for another logical connection
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
-		log.Ulogf(logger.ERROR, "Could not accept channel (%s)", err)
+		log.Error("Could not accept channel (%s)", err)
 		return
 	}
 	defer connection.Close()
@@ -45,14 +45,14 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 
 			_, err = fmt.Fprintf(connection, "%s", out)
 			if err != nil {
-				log.Ulogf(logger.WARN, "Unable to write: %s\n", err)
+				log.Warning("Unable to write: %s", err)
 				return
 			}
 		}
 	}()
 
 	for req := range requests {
-		log.Logf("Got request: %s\n", req.Type)
+		log.Info("Got request: %s", req.Type)
 		switch req.Type {
 		case "shell":
 			// We only accept the default shell
