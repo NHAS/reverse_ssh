@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"runtime"
 	"strings"
 	"time"
 
@@ -134,7 +135,10 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		log.Fatal("Getting private key failed: ", err)
 	}
 
-	shells = loadShells()
+	if runtime.GOOS != "windows" {
+		shells = loadShells()
+	}
+
 	l := logger.NewLog("client")
 
 	var username string
