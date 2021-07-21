@@ -403,6 +403,9 @@ func (t *Terminal) Run() error {
 		//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
 		line, err := t.ReadLine()
 		if err != nil {
+			if err == ErrCtrlC {
+				continue
+			}
 			return err
 		}
 
