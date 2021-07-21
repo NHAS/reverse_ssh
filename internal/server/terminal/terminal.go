@@ -20,6 +20,8 @@ import (
 )
 
 var ErrTrample = errors.New("Function already registered")
+var ErrCtrlC = errors.New("Ctrl + C")
+var ErrCtrlD = errors.New("Ctrl + D")
 
 type TerminalFunctionCallback func(term *Terminal, args ...string) error
 
@@ -947,12 +949,12 @@ func (t *Terminal) readLine() (line string, err error) {
 			if !t.pasteActive {
 				if key == keyCtrlD {
 					if len(t.line) == 0 {
-						return "", io.EOF
+						return "", ErrCtrlD
 					}
 				}
 				if key == keyCtrlC {
-
-					return "", io.EOF
+					t.remainder = nil
+					return "", ErrCtrlC
 				}
 				if key == keyPasteStart {
 					t.pasteActive = true
