@@ -16,6 +16,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/sys/windows"
 )
 
 //The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
@@ -42,19 +43,21 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 		case "pty-req":
 			req.Reply(true, nil)
 
-			// vsn := windows.RtlGetVersion()
-			// if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
-			// 	log.Info("Windows version too old for Conpty, using basic shell")
-			// 	basicShell(log, connection)
-			// } else {
-			// 	ptyreq, _ := internal.ParsePtyReq(req.Payload)
-			// 	conptyShell(requests, log, ptyreq, connection)
-			// }
+			vsn := windows.RtlGetVersion()
+			if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
+				log.Info("Windows version too old for Conpty, using basic shell")
+				pwr, _ := exec.LookPath("powershell")
+				err := shellhost.Start_with_pty(pwr, connection)
+				if err != nil {
+					log.Error("%s", err)
+				}
 
-			pwr, _ := exec.LookPath("powershell")
-			err := shellhost.Start_with_pty(pwr, connection)
-			if err != nil {
-				log.Error("%s", err)
+			} else {
+				ptyreq, _ := internal.ParsePtyReq(req.Payload)
+				err = conptyShell(requests, log, ptyreq, connection)
+				if err != nil {
+					log.Error("%v", err)
+				}
 			}
 
 			connection.Close()
@@ -66,11 +69,11 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 
 }
 
-func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq, connection ssh.Channel) {
+func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq, connection ssh.Channel) error {
 
 	cpty, err := conpty.New(int16(ptyReq.Width), int16(ptyReq.Height))
 	if err != nil {
-		log.Fatal("Could not open a conpty terminal: %v", err)
+		return fmt.Errorf("Could not open a conpty terminal: %v", err)
 	}
 	defer cpty.Close()
 
@@ -82,6 +85,7 @@ func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.Pt
 			case "window-change":
 				w, h := internal.ParseDims(req.Payload)
 				cpty.Resize(uint16(w), uint16(h))
+
 			}
 
 		}
@@ -96,7 +100,7 @@ func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.Pt
 		},
 	)
 	if err != nil {
-		log.Fatal("Could not spawn a powershell: %v", err)
+		return fmt.Errorf("Could not spawn a powershell: %v", err)
 	}
 	log.Info("New process with pid %d spawned", pid)
 	process, err := os.FindProcess(pid)
@@ -108,13 +112,12 @@ func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.Pt
 	go io.Copy(connection, cpty.OutPipe())
 	go io.Copy(cpty.InPipe(), connection)
 
-	ps, err := process.Wait()
+	_, err = process.Wait()
 	if err != nil {
-		log.Error("Error waiting for process: %v", err)
-		return
+		return fmt.Errorf("Error waiting for process: %v", err)
 	}
-	log.Info("Session ended normally, exit code %d", ps.ExitCode())
 
+	return nil
 }
 
 func basicShell(log logger.Logger, connection ssh.Channel) {

@@ -3,7 +3,6 @@ package shellhost
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -39,7 +38,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 	SendClearScreen(connection)
 
-	windows.GetStartupInfo(&inputSi)
+	err := windows.GetStartupInfo(&inputSi)
 
 	sa.InheritHandle = 1
 
@@ -60,7 +59,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 		return err
 	}
 
-	err = windows.CreateProcess(nil, windows.StringToUTF16Ptr(fmt.Sprintf("\"%s\" /c \"%s\"", cmd, command)), nil, nil, true, CREATE_NEW_CONSOLE, nil, nil, &si, &pi)
+	err = windows.CreateProcess(nil, windows.StringToUTF16Ptr(fmt.Sprintf("\"%s\" /c \"%s\"", cmd, command)), nil, nil, true, CREATE_NEW_CONSOLE|windows.CREATE_NO_WINDOW, nil, nil, &si, &pi)
 	if err != nil {
 		return err
 	}
@@ -75,7 +74,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 	err = FreeConsole()
 	if err != nil {
-		log.Fatal("Freeconsole: ", err)
+		return fmt.Errorf("Freeing Console failed: %s", err)
 	}
 
 	windows.SleepEx(20, false)
@@ -85,8 +84,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 		err = windows.GetExitCodeProcess(pi.Process, &exitCode)
 		if err != nil && exitCode != STILL_ACTIVE {
-			log.Println("Waiting on child process to exist failed")
-			os.Exit(1)
+			return fmt.Errorf("Waiting on child process to exist failed: %s", err)
 		}
 
 		windows.SleepEx(100, false)
@@ -94,23 +92,21 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 	path, err := syscall.UTF16PtrFromString("CONIN$")
 	if err != nil {
-		log.Fatal("Getting handle: ", err)
+		return fmt.Errorf("Creating utf16-string 'CONIN' failed: %s", err)
 	}
 	childIn, err := windows.CreateFile(path, syscall.GENERIC_READ|syscall.GENERIC_WRITE, syscall.FILE_SHARE_READ, nil, syscall.OPEN_EXISTING, 0, 0)
 	if err != nil {
-		log.Fatal("Getting handle2: ", err)
+		return fmt.Errorf("Getting handle on CONIN failed: %s", err)
 	}
 	defer windows.CloseHandle(childIn)
 
 	path, err = windows.UTF16PtrFromString("CONOUT$")
 	if err != nil {
-		log.Fatal("Getting handle3: ", err)
-
+		return fmt.Errorf("Creating utf16-string 'CONOUT' failed: %s", err)
 	}
 	childOut, err := windows.CreateFile(path, syscall.GENERIC_READ|syscall.GENERIC_WRITE, syscall.FILE_SHARE_READ, nil, syscall.OPEN_EXISTING, 0, 0)
 	if err != nil {
-		log.Fatal("Getting handle3: ", err)
-
+		return fmt.Errorf("Getting handle on CONOUT failed: %s", err)
 	}
 	defer windows.CloseHandle(childOut)
 
@@ -118,17 +114,17 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 	go func() {
 		windows.WaitForSingleObject(pi.Process, windows.INFINITE)
-		err = PostThreadMessage(uint32(u), WM_APPEXIT, 0, 0)
-		log.Println("Child process has now died, rip", err)
+		PostThreadMessage(uint32(u), WM_APPEXIT, 0, 0)
+
 	}()
 
 	go ProcessEvents(events, childProcessId, childOut, connection)
 	go ProcessPipes(connection, childIn, pi.ThreadId)
 
-	SizeWindow(childOut)
-
-	var consoleInfo windows.ConsoleScreenBufferInfo
-	windows.GetConsoleScreenBufferInfo(childOut, &consoleInfo)
+	err = SizeWindow(childOut)
+	if err != nil {
+		return err
+	}
 
 	var msg Msg
 	for GetMessage(&msg, 0, 0, 0) == nil {
@@ -138,11 +134,11 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 		err = TranslateMessage(&msg)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("Translating message failed: %s", err)
 		}
 		err = DispatchMessage(&msg)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("Dispatching message failed: %s", err)
 		}
 
 	}
@@ -152,7 +148,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 var inputSi windows.StartupInfo
 
-func SizeWindow(hInput windows.Handle) {
+func SizeWindow(hInput windows.Handle) error {
 
 	/* Set the default font to Consolas */
 	var matchingFont CONSOLE_FONT_INFOEX
@@ -165,16 +161,14 @@ func SizeWindow(hInput windows.Handle) {
 
 	fontName, err := windows.UTF16FromString("Consolas")
 	if err != nil {
-		log.Fatal("FONT name: ", err)
+		return fmt.Errorf("Creating utf16-string 'Consolas' failed: %s", err)
 	}
 
-	if copy(matchingFont.FaceName[:], fontName) > 32 {
-		log.Fatal("Wrote more bytes than I wanted to")
-	}
+	copy(matchingFont.FaceName[:], fontName)
 
 	err = SetCurrentConsoleFont(hInput, true, &matchingFont)
 	if err != nil {
-		log.Fatal("Me?", err)
+		return fmt.Errorf("Setting font failed: %s", err)
 	}
 
 	/* This information is the live screen  */
@@ -182,7 +176,7 @@ func SizeWindow(hInput windows.Handle) {
 
 	err = windows.GetConsoleScreenBufferInfo(hInput, &consoleInfo)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Getting the console screen buffer failed: %s", err)
 	}
 
 	/* Get the largest size we can size the console window to */
@@ -210,7 +204,7 @@ func SizeWindow(hInput windows.Handle) {
 		SetConsoleWindowInfo(hInput, true, &srWindowRect)
 	}
 
-	windows.GetConsoleScreenBufferInfo(hInput, &consoleInfo)
+	return nil
 }
 
 func min(x, y int16) int16 {
@@ -238,7 +232,7 @@ func ProcessPipes(connection ssh.Channel, childIn windows.Handle, threadId uint3
 	}
 
 	//Need to do the whole "Tell everything to die", here
-
+	PostThreadMessage(threadId, WM_APPEXIT, 0, 0)
 }
 
 func ProcessIncomingKeys(buffer []byte, childIn windows.Handle) {
@@ -419,7 +413,7 @@ func GetVirtualKeyByMask(prefix byte, value []byte, vlen int, suffix byte) int {
 	return pk.vk
 }
 
-func SendKeyStrokeEx(hInput windows.Handle, vKey uint16, character uint16, ctrlState uint32, keyDown bool) {
+func SendKeyStrokeEx(hInput windows.Handle, vKey uint16, character uint16, ctrlState uint32, keyDown bool) error {
 	var ir InputRecord
 
 	ir.EventType = uint16(KEY_EVENT)
@@ -432,13 +426,23 @@ func SendKeyStrokeEx(hInput windows.Handle, vKey uint16, character uint16, ctrlS
 
 	_, err := WriteConsoleInput(hInput, &ir, 1)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("Error writing to console input: %s", err)
 	}
+	return nil
 }
 
-func SendKeyStroke(hInput windows.Handle, keyStroke int, character int16, ctrlState uint32) {
-	SendKeyStrokeEx(hInput, uint16(keyStroke), uint16(character), uint32(ctrlState), true)
-	SendKeyStrokeEx(hInput, uint16(keyStroke), uint16(character), uint32(ctrlState), false)
+func SendKeyStroke(hInput windows.Handle, keyStroke int, character int16, ctrlState uint32) error {
+	err := SendKeyStrokeEx(hInput, uint16(keyStroke), uint16(character), uint32(ctrlState), true)
+	if err != nil {
+		return err
+	}
+
+	err = SendKeyStrokeEx(hInput, uint16(keyStroke), uint16(character), uint32(ctrlState), false)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type Event struct {
@@ -448,7 +452,7 @@ type Event struct {
 	Child  int32
 }
 
-func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput windows.Handle, connection ssh.Channel) uint32 {
+func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput windows.Handle, connection ssh.Channel) error {
 	for event := range queue {
 		if event.Event < win.EVENT_CONSOLE_CARET || event.Event > win.EVENT_CONSOLE_LAYOUT {
 			continue
@@ -464,7 +468,7 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 		var consoleInfo windows.ConsoleScreenBufferInfo
 		err := windows.GetConsoleScreenBufferInfo(childOutput, &consoleInfo)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		switch event.Event {
@@ -612,7 +616,7 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 
 	}
 
-	return 0
+	return nil
 }
 
 var bStartup = true
