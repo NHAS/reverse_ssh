@@ -59,7 +59,10 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 		return err
 	}
 
-	err = windows.CreateProcess(nil, windows.StringToUTF16Ptr(fmt.Sprintf("\"%s\" /c \"%s\"", cmd, command)), nil, nil, true, CREATE_NEW_CONSOLE|windows.CREATE_NO_WINDOW, nil, nil, &si, &pi)
+	si.Flags = windows.STARTF_USESHOWWINDOW
+	si.ShowWindow = windows.SW_HIDE
+
+	err = windows.CreateProcess(nil, windows.StringToUTF16Ptr(fmt.Sprintf("\"%s\" /c \"%s\"", cmd, command)), nil, nil, true, CREATE_NEW_CONSOLE, nil, nil, &si, &pi)
 	if err != nil {
 		return err
 	}
