@@ -57,9 +57,6 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 		return err
 	}
 
-	si.Flags = windows.STARTF_USESHOWWINDOW
-	si.ShowWindow = windows.SW_HIDE
-
 	SetConsoleCtrlHandler(false)
 	err = windows.CreateProcess(nil, windows.StringToUTF16Ptr(fmt.Sprintf("\"%s\" /c \"%s\"", cmd, command)), nil, nil, true, CREATE_NEW_CONSOLE, nil, nil, &si, &pi)
 	if err != nil {
@@ -492,6 +489,7 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			} else {
 				SendSetCursor(connection, int(lastX+1), int(lastY+1))
 			}
+
 		case win.EVENT_CONSOLE_UPDATE_REGION:
 
 			var readRect windows.SmallRect
