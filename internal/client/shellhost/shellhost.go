@@ -26,8 +26,6 @@ var (
 	CREATE_NEW_CONSOLE = uint32(0x00000010)
 )
 
-const LF_FACESIZE = 32
-
 func Start_with_pty(command string, connection ssh.Channel) error {
 	var (
 		si             windows.StartupInfo
@@ -62,6 +60,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 	si.Flags = windows.STARTF_USESHOWWINDOW
 	si.ShowWindow = windows.SW_HIDE
 
+	SetConsoleCtrlHandler(false)
 	err = windows.CreateProcess(nil, windows.StringToUTF16Ptr(fmt.Sprintf("\"%s\" /c \"%s\"", cmd, command)), nil, nil, true, CREATE_NEW_CONSOLE, nil, nil, &si, &pi)
 	if err != nil {
 		return err
@@ -121,6 +120,8 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 	}()
 
+	SetConsoleCtrlHandler(true)
+
 	go ProcessEvents(events, childProcessId, childOut, connection)
 	go ProcessPipes(connection, childIn, pi.ThreadId)
 
@@ -144,6 +145,11 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 			return fmt.Errorf("Dispatching message failed: %s", err)
 		}
 
+	}
+
+	err = FreeConsole()
+	if err != nil {
+		return fmt.Errorf("Freeing Console failed: %s", err)
 	}
 
 	return nil

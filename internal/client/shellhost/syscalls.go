@@ -22,6 +22,8 @@ var (
 
 	procGenerateConsoleCtrlEvent = kernel32.NewProc("GenerateConsoleCtrlEvent")
 
+	procSetConsoleCtrlHandler = kernel32.NewProc("SetConsoleCtrlHandler")
+
 	user32               = windows.NewLazySystemDLL("user32.dll")
 	procGetMessage       = user32.NewProc("GetMessageW")
 	procTranslateMessage = user32.NewProc("TranslateMessage")
@@ -184,6 +186,18 @@ func PostMessage(hwnd windows.Handle, msg uint32, wParam, lParam uintptr) error 
 	r, _, err := procPostMessage.Call(uintptr(hwnd), uintptr(msg), wParam, lParam)
 	if r == 0 {
 		return fmt.Errorf("PostMessage failed: %v", err)
+	}
+	return nil
+}
+
+func SetConsoleCtrlHandler(on bool) error {
+	var p0 uint32
+	if on {
+		p0 = 1
+	}
+	r, _, err := procSetConsoleCtrlHandler.Call(uintptr(0), uintptr(p0))
+	if r == 0 {
+		return err
 	}
 	return nil
 }
