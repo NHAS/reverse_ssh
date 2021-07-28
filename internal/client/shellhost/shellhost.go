@@ -1,3 +1,5 @@
+// +build windows
+
 package shellhost
 
 import (
@@ -57,6 +59,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 		return err
 	}
 
+	//We are intentionally starting powershell via cmd.exe due to color issues
 	SetConsoleCtrlHandler(false)
 	err = windows.CreateProcess(nil, windows.StringToUTF16Ptr(fmt.Sprintf("\"%s\" /c \"%s\"", cmd, command)), nil, nil, true, CREATE_NEW_CONSOLE, nil, nil, &si, &pi)
 	if err != nil {
@@ -374,7 +377,6 @@ func ProcessModifierKeySequence(buf []byte, childIn windows.Handle) int {
 				break
 			}
 		}
-
 	}
 
 	return vkey

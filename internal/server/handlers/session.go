@@ -1,15 +1,10 @@
 package handlers
 
 import (
-	"fmt"
-	"io"
 	"strings"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
@@ -89,6 +84,7 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 				shell(user, connection, requests, ptySettings, controllableClients, autoCompleteClients, log)
 
 				return
+				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actuall proceeds all of them
 			case "pty-req":
 
 				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
@@ -109,83 +105,5 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 		}
 
 	}
-
-}
-
-func scp(connection ssh.Channel, requests <-chan *ssh.Request, mode string, path string, controllableClients *sync.Map) error {
-	go ssh.DiscardRequests(requests)
-
-	parts := strings.SplitN(path, ":", 2)
-
-	if len(parts) < 1 {
-		internal.ScpError("No target specified", connection)
-		return nil
-	}
-
-	conn, ok := controllableClients.Load(parts[0])
-	if !ok {
-		internal.ScpError(fmt.Sprintf("Invalid target, %s not found", parts[0]), connection)
-		return nil
-	}
-
-	device := conn.(ssh.Conn)
-
-	//This is not the standard spec, but I wanted to do it this way as its easier to deal with
-	scp, r, err := device.OpenChannel("scp", ssh.Marshal(&internal.Scp{Mode: mode, Path: parts[1]}))
-	if err != nil {
-		internal.ScpError("Could not connect to remote target", connection)
-		return err
-	}
-	go ssh.DiscardRequests(r)
-
-	go func() {
-		defer scp.Close()
-		defer connection.Close()
-
-		io.Copy(connection, scp)
-	}()
-
-	defer scp.Close()
-	defer connection.Close()
-	io.Copy(scp, connection)
-
-	return nil
-}
-
-func shell(user *users.User, connection ssh.Channel, requests <-chan *ssh.Request, ptySettings internal.PtyReq, controllableClients *sync.Map, autoCompleteClients *trie.Trie, log logger.Logger) error {
-
-	user.PtyReq = ssh.Request{Type: "pty-req", WantReply: true, Payload: ssh.Marshal(ptySettings)}
-	user.ShellConnection = connection
-	user.ShellRequests = requests
-
-	term := terminal.NewAdvancedTerminal(connection, "catcher$ ")
-
-	term.SetSize(int(ptySettings.Columns), int(ptySettings.Rows))
-
-	term.AddValueAutoComplete(constants.RemoteId, autoCompleteClients)
-
-	defaultHandle := internal.NewDefaultHandler(user, term)
-
-	term.AddCommand("ls", commands.List(controllableClients))
-	term.AddCommand("help", commands.Help())
-	term.AddCommand("exit", commands.Exit())
-	term.AddCommand("connect", commands.Connect(user, defaultHandle, controllableClients, log))
-	term.AddCommand("rc", commands.RC(user, controllableClients))
-	term.AddCommand("proxy", commands.Proxy(user, controllableClients))
-
-	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
-	// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect
-	defaultHandle.Start()
-
-	//Send list of controllable remote hosts to human client
-	commands.List(controllableClients).Run(term)
-
-	//Blocking function to handle all the human function calls. Will return io.EOF on exit, otherwise an error is passed up we cant deal with
-	err := term.Run()
-	if err != nil && err != io.EOF {
-		fmt.Fprintf(term, "Error: %s\n", err)
-	}
-
-	return err
 
 }
