@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -52,17 +53,17 @@ func ReadPubKeys(path string) (m map[string]bool, err error) {
 func Run(addr, privateKeyPath string, insecure bool) {
 
 	//Taken from the server example, authorized keys are required for controllers
-	authorizedKeysMap, err := ReadPubKeys("authorized_keys")
+	_, err := ReadPubKeys("authorized_keys")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	authorizedProxiers, err := ReadPubKeys("proxy_keys")
+	_, err = ReadPubKeys("proxy_keys")
 	if err != nil {
 		log.Println(err) // Not a fatal error, as you can just want *No* proxiers
 	}
 
-	authorizedControllees, err := ReadPubKeys("authorized_controllee_keys")
+	_, err = ReadPubKeys("authorized_controllee_keys")
 	if err != nil {
 		if !insecure {
 			log.Fatal(err)
@@ -77,6 +78,22 @@ func Run(addr, privateKeyPath string, insecure bool) {
 	// into an ssh.ServerConn
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+
+			authorizedKeysMap, err := ReadPubKeys("authorized_keys")
+			if err != nil {
+				log.Println("Reloading authorized_keys failed: ", err)
+			}
+
+			authorizedProxiers, err := ReadPubKeys("proxy_keys")
+			if err != nil && !strings.Contains(err.Error(), "Failed to load file") {
+				log.Println(err)
+			}
+
+			authorizedControllees, err := ReadPubKeys("authorized_controllee_keys")
+			if err != nil {
+				log.Println("Reloading authorized_controllee_keys failed: ", err)
+			}
+
 			var clientType string
 
 			//If insecure mode, then any unknown client will be connected as a controllable client.
