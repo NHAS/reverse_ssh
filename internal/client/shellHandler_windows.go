@@ -48,7 +48,7 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 			if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
 				log.Info("Windows version too old for Conpty, using basic shell")
 				pwr, _ := exec.LookPath("powershell")
-				err := shellhost.Start_with_pty(pwr, connection)
+				err := shellhost.Start_with_pty(pwr+" -windowstyle hidden", connection)
 				if err != nil {
 					log.Error("%s", err)
 				}

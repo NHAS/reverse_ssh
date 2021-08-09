@@ -60,7 +60,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 	}
 
 	//We are intentionally starting powershell via cmd.exe due to color issues
-	SetConsoleCtrlHandler(false)
+	//	SetConsoleCtrlHandler(false)
 	err = windows.CreateProcess(nil, windows.StringToUTF16Ptr(fmt.Sprintf("\"%s\" /c \"%s\"", cmd, command)), nil, nil, true, CREATE_NEW_CONSOLE, nil, nil, &si, &pi)
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ func Start_with_pty(command string, connection ssh.Channel) error {
 
 	}()
 
-	SetConsoleCtrlHandler(true)
+	//	SetConsoleCtrlHandler(true)
 
 	go ProcessEvents(events, childProcessId, childOut, connection)
 	go ProcessPipes(connection, childIn, pi.ThreadId)
@@ -493,15 +493,17 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			}
 
 		case win.EVENT_CONSOLE_UPDATE_REGION:
-
 			var readRect windows.SmallRect
 			readRect.Top = int16(win.HIWORD(uint32(event.Object)))
 			readRect.Left = int16(win.LOWORD(uint32(event.Object)))
 			readRect.Bottom = int16(win.HIWORD(uint32(event.Child)))
 
+			var cb windows.ConsoleScreenBufferInfo
+			windows.GetConsoleScreenBufferInfo(childOutput, &cb)
+
 			readRect.Right = int16(win.LOWORD(uint32(event.Child)))
-			if readRect.Right < consoleInfo.Window.Right {
-				readRect.Right = consoleInfo.Window.Right
+			if readRect.Right < cb.Window.Right {
+				readRect.Right = cb.Window.Right
 			}
 
 			if !bStartup && (readRect.Top == consoleInfo.Window.Top) {
@@ -559,7 +561,10 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			readRect.Top = int16(wY)
 			readRect.Bottom = int16(wY)
 			readRect.Left = int16(wX)
-			readRect.Right = int16(consoleInfo.Window.Right)
+
+			var cb windows.ConsoleScreenBufferInfo
+			windows.GetConsoleScreenBufferInfo(childOutput, &cb)
+			readRect.Right = int16(cb.Window.Right)
 
 			/* Set cursor location based on the reported location from the message */
 			CalculateAndSetCursor(connection, int16(wX), int16(wY), true)
