@@ -15,7 +15,6 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
@@ -189,7 +188,7 @@ func Run(addr, privateKeyPath string, insecure bool) {
 
 		switch sshConn.Permissions.Extensions["type"] {
 		case "master":
-			user, err := users.AddUser(createIdString(sshConn), sshConn)
+			user, err := internal.AddUser(createIdString(sshConn), sshConn)
 			if err != nil {
 				sshConn.Close()
 				log.Println(err)

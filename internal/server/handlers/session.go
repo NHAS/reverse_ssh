@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
@@ -16,7 +15,7 @@ import (
 //This callback just sorts out what the client wants to be doing
 func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) internal.ChannelHandler {
 
-	return func(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 		defer log.Info("Human disconnected, client version %s", user.ServerConnection.ClientVersion())
 
@@ -28,8 +27,6 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 			return
 		}
 		defer connection.Close()
-
-		var ptySettings internal.PtyReq
 
 		for req := range requests {
 			log.Info("Session got request: %q", req.Type)
@@ -81,19 +78,21 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 				req.Reply(len(req.Payload) == 0, nil)
 
 				//This blocks so will keep the channel from defer closing
-				shell(user, connection, requests, ptySettings, controllableClients, autoCompleteClients, log)
+				shell(user, connection, requests, controllableClients, autoCompleteClients, log)
 
 				return
 				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actuall proceeds all of them
 			case "pty-req":
 
 				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
-				ptySettings, err = internal.ParsePtyReq(req.Payload)
+				pty, err := internal.ParsePtyReq(req.Payload)
 				if err != nil {
 					log.Warning("Got undecodable pty request: %s", err)
 					req.Reply(false, nil)
 					return
 				}
+
+				user.Pty = &pty
 
 				req.Reply(true, nil)
 			default:

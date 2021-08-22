@@ -7,13 +7,12 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
 
 type scripting struct {
 	modeAutoComplete    *trie.Trie
-	user                *users.User
+	user                *internal.User
 	controllableClients *sync.Map
 }
 
@@ -161,7 +160,7 @@ func (s *scripting) Help(explain bool) string {
 	)
 }
 
-func RC(user *users.User, controllableClients *sync.Map) *scripting {
+func RC(user *internal.User, controllableClients *sync.Map) *scripting {
 	return &scripting{
 		modeAutoComplete:    trie.NewTrie("enable", "disable", "ls"),
 		controllableClients: controllableClients,

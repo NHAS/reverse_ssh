@@ -5,11 +5,11 @@ ifeq "$(GOOS)" "windows"
 	LDFLAGS += -H=windowsgui
 endif
 
-release: .generate_keys
-	go build -ldflags="$(LDFLAGS)" -o bin ./...
-
 debug: .generate_keys
 	go build  -o bin ./...
+
+release: .generate_keys
+	go build -ldflags="$(LDFLAGS)" -o bin ./...
 
 client: .generate_keys
 	go build -ldflags="$(LDFLAGS)" -o bin ./cmd/client

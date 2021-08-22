@@ -10,15 +10,14 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
 type connect struct {
 	log                 logger.Logger
-	user                *users.User
-	defaultHandle       *internal.DefaultSSHHandler
+	user                *internal.User
+	defaultHandle       *WindowSizeChangeHandler
 	controllableClients *sync.Map
 }
 
@@ -44,7 +43,7 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 
 	//Attempt to connect to remote host and send inital pty request and screen size
 	// If we cant, report and error to the clients terminal
-	newSession, err := createSession(controlClient, c.user.PtyReq, c.user.LastWindowChange)
+	newSession, err := createSession(controlClient, *c.user.Pty)
 	if err != nil {
 
 		c.log.Error("Creating session failed: %s", err)
@@ -86,9 +85,9 @@ func (c *connect) Help(explain bool) string {
 }
 
 func Connect(
-	user *users.User,
-	defaultHandle *internal.DefaultSSHHandler,
+	user *internal.User,
 	controllableClients *sync.Map,
+	defaultHandle *WindowSizeChangeHandler,
 	log logger.Logger) *connect {
 	return &connect{
 		user:                user,
@@ -98,22 +97,17 @@ func Connect(
 	}
 }
 
-func createSession(sshConn ssh.Conn, ptyReq, lastWindowChange ssh.Request) (sc ssh.Channel, err error) {
+func createSession(sshConn ssh.Conn, ptyReq internal.PtyReq) (sc ssh.Channel, err error) {
 
 	splice, newrequests, err := sshConn.OpenChannel("session", nil)
 	if err != nil {
 		return sc, fmt.Errorf("Unable to start remote session on host %s (%s) : %s", sshConn.RemoteAddr(), sshConn.ClientVersion(), err)
 	}
 
-	//Replay the pty and any the very last window size change in order to correctly size the PTY on the controlled client
-	_, err = internal.SendRequest(ptyReq, splice)
+	//Send pty request, pty has been continuously updated with window-change sizes
+	_, err = splice.SendRequest("pty-req", true, ssh.Marshal(ptyReq))
 	if err != nil {
 		return sc, fmt.Errorf("Unable to send PTY request: %s", err)
-	}
-
-	_, err = internal.SendRequest(lastWindowChange, splice)
-	if err != nil {
-		return sc, fmt.Errorf("Unable to send last window change request: %s", err)
 	}
 
 	go ssh.DiscardRequests(newrequests)

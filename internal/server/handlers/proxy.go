@@ -4,12 +4,11 @@ import (
 	"io"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
-func Proxy(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+func Proxy(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	if user.ProxyConnection == nil {
 		newChannel.Reject(ssh.Prohibited, "no remote location to forward traffic to")

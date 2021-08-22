@@ -1,4 +1,4 @@
-// +build !windows
+//go:build !windows
 
 package client
 
@@ -11,14 +11,13 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/creack/pty"
 	"golang.org/x/crypto/ssh"
 )
 
 //This basically handles exactly like a SSH server would
-func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+func shellChannel(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
@@ -31,12 +30,15 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 	var ptyreq internal.PtyReq
 PtyListener:
 	for req := range requests {
+
 		switch req.Type {
 		case "pty-req":
 			ptyreq, _ = internal.ParsePtyReq(req.Payload)
 
 			req.Reply(true, nil)
 			break PtyListener
+		default:
+			log.Warning("Unknown message: '%s'", req.Type)
 		}
 	}
 

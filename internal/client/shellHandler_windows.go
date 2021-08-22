@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package client
@@ -13,14 +14,13 @@ import (
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sys/windows"
 )
 
 //The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
-func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+func shellChannel(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	// At this point, we have the opportunity to reject the client's.
 	// request for another logical connection
@@ -66,25 +66,11 @@ func shellChannel(user *users.User, newChannel ssh.NewChannel, log logger.Logger
 
 func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq, connection ssh.Channel) error {
 
-	cpty, err := conpty.New(int16(ptyReq.Width), int16(ptyReq.Height))
+	cpty, err := conpty.New(int16(ptyReq.Columns), int16(ptyReq.Rows))
 	if err != nil {
 		return fmt.Errorf("Could not open a conpty terminal: %v", err)
 	}
 	defer cpty.Close()
-
-	// Dynamically handle resizes of terminal window
-	go func() {
-		for req := range reqs {
-			switch req.Type {
-
-			case "window-change":
-				w, h := internal.ParseDims(req.Payload)
-				cpty.Resize(uint16(w), uint16(h))
-
-			}
-
-		}
-	}()
 
 	// Spawn and catch new powershell process
 	pid, _, err := cpty.Spawn(
@@ -102,6 +88,20 @@ func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.Pt
 	if err != nil {
 		log.Fatal("Failed to find process: %v", err)
 	}
+
+	// Dynamically handle resizes of terminal window
+	go func() {
+		for req := range reqs {
+			switch req.Type {
+
+			case "window-change":
+				w, h := internal.ParseDims(req.Payload)
+				cpty.Resize(uint16(w), uint16(h))
+
+			}
+
+		}
+	}()
 
 	// Link data streams of ssh session and conpty
 	go io.Copy(connection, cpty.OutPipe())
@@ -156,6 +156,7 @@ func basicShell(log logger.Logger, connection ssh.Channel) {
 	}
 
 	term := terminal.NewTerminal(connection, "")
+	//Put window size changing here TODO
 
 	go func() {
 

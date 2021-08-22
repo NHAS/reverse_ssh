@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -86,9 +85,9 @@ func ParseDims(b []byte) (uint32, uint32) {
 
 // ======================
 
-type ChannelHandler func(user *users.User, newChannel ssh.NewChannel, log logger.Logger)
+type ChannelHandler func(user *User, newChannel ssh.NewChannel, log logger.Logger)
 
-func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, log logger.Logger, handlers map[string]ChannelHandler) error {
+func RegisterChannelCallbacks(user *User, chans <-chan ssh.NewChannel, log logger.Logger, handlers map[string]ChannelHandler) error {
 	// Service the incoming Channel channel in go routine
 	for newChannel := range chans {
 		t := newChannel.ChannelType()
@@ -102,7 +101,7 @@ func RegisterChannelCallbacks(user *users.User, chans <-chan ssh.NewChannel, log
 		log.Warning("Sent an invalid channel type %q", t)
 	}
 
-	users.RemoveUser(user.IdString)
+	RemoveUser(user.IdString)
 
 	return fmt.Errorf("connection terminated")
 }

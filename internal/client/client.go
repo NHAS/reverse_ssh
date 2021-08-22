@@ -15,7 +15,6 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -196,7 +195,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 
 		go ssh.DiscardRequests(reqs) // Then go on to ignore everything else
 
-		user, err := users.AddUser("server", sshConn)
+		user, err := internal.AddUser("server", sshConn)
 		if err != nil {
 			log.Fatalf("Unable to add user %s\n", err)
 		}

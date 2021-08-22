@@ -13,12 +13,11 @@ import (
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
-func scpChannel(user *users.User, newChannel ssh.NewChannel, l logger.Logger) {
+func scpChannel(user *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
 		l.Warning("Could not accept channel (%s)\n", err)

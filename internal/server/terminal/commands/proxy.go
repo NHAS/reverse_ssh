@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
 
 type proxy struct {
-	user                *users.User
+	user                *internal.User
 	controllableClients *sync.Map
 	currentlyConnected  string
 	modeAutoComplete    *trie.Trie
@@ -86,7 +86,7 @@ func (p *proxy) Help(explain bool) string {
 	)
 }
 
-func Proxy(user *users.User, controllableClients *sync.Map) *proxy {
+func Proxy(user *internal.User, controllableClients *sync.Map) *proxy {
 	return &proxy{
 		user:                user,
 		controllableClients: controllableClients,

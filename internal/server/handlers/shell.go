@@ -9,30 +9,28 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
 
-func shell(user *users.User, connection ssh.Channel, requests <-chan *ssh.Request, ptySettings internal.PtyReq, controllableClients *sync.Map, autoCompleteClients *trie.Trie, log logger.Logger) error {
+func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, autoCompleteClients *trie.Trie, log logger.Logger) error {
 
-	user.PtyReq = ssh.Request{Type: "pty-req", WantReply: true, Payload: ssh.Marshal(ptySettings)}
 	user.ShellConnection = connection
 	user.ShellRequests = requests
 
 	term := terminal.NewAdvancedTerminal(connection, "catcher$ ")
 
-	term.SetSize(int(ptySettings.Columns), int(ptySettings.Rows))
+	term.SetSize(int(user.Pty.Columns), int(user.Pty.Rows))
 
 	term.AddValueAutoComplete(constants.RemoteId, autoCompleteClients)
 
-	defaultHandle := internal.NewDefaultHandler(user, term)
+	defaultHandle := commands.NewWindowSizeChangeHandler(user, term)
 
 	term.AddCommand("ls", commands.List(controllableClients))
 	term.AddCommand("help", commands.Help())
 	term.AddCommand("exit", commands.Exit())
-	term.AddCommand("connect", commands.Connect(user, defaultHandle, controllableClients, log))
+	term.AddCommand("connect", commands.Connect(user, controllableClients, defaultHandle, log))
 	term.AddCommand("rc", commands.RC(user, controllableClients))
 	term.AddCommand("proxy", commands.Proxy(user, controllableClients))
 
