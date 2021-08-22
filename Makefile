@@ -14,7 +14,7 @@ release: .generate_keys
 client: .generate_keys
 	go build -ldflags="$(LDFLAGS)" -o bin ./cmd/client
 
-run: 
+run:
 	./bin/client --reconnect $(ADDR)
 	./bin/client --reconnect $(ADDR)
 	./bin/client --reconnect $(ADDR)
@@ -22,9 +22,7 @@ run:
 
 .generate_keys:
 	mkdir -p bin
-	ssh-keygen -t ed25519 -N '' -f internal/client/keys/private_key; 
-	cat internal/client/keys/private_key.pub >> bin/authorized_controllee_keys;
-
-	
-
-	
+# Supress errors if user doesn't overwrite existing key
+	ssh-keygen -t ed25519 -N '' -f internal/client/keys/private_key || true
+# Avoid duplicate entries
+	@grep -q "$$(cat internal/client/keys/private_key.pub)" bin/authorized_controllee_keys || cat internal/client/keys/private_key.pub >> bin/authorized_controllee_keys
