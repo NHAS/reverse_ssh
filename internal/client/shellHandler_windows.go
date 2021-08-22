@@ -46,10 +46,10 @@ func shellChannel(user *internal.User, newChannel ssh.NewChannel, log logger.Log
 			vsn := windows.RtlGetVersion()
 			if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
 				log.Info("Windows version too old for Conpty, using basic shell")
-				basicShell(log, connection)
+				basicShell(requests, connection, log)
 			} else {
 				ptyreq, _ := internal.ParsePtyReq(req.Payload)
-				err = conptyShell(requests, log, ptyreq, connection)
+				err = conptyShell(requests, connection, log, ptyreq)
 				if err != nil {
 					log.Error("%v", err)
 				}
@@ -64,7 +64,7 @@ func shellChannel(user *internal.User, newChannel ssh.NewChannel, log logger.Log
 
 }
 
-func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq, connection ssh.Channel) error {
+func conptyShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Logger, ptyReq internal.PtyReq) error {
 
 	cpty, err := conpty.New(int16(ptyReq.Columns), int16(ptyReq.Rows))
 	if err != nil {
@@ -115,7 +115,7 @@ func conptyShell(reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.Pt
 	return nil
 }
 
-func basicShell(log logger.Logger, connection ssh.Channel) {
+func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Logger) {
 
 	c := make(chan os.Signal, 1)
 	expected := make(chan bool, 1)
@@ -156,7 +156,19 @@ func basicShell(log logger.Logger, connection ssh.Channel) {
 	}
 
 	term := terminal.NewTerminal(connection, "")
-	//Put window size changing here TODO
+	// Dynamically handle resizes of terminal window
+	go func() {
+		for req := range reqs {
+			switch req.Type {
+
+			case "window-change":
+				w, h := internal.ParseDims(req.Payload)
+				term.SetSize(int(w), int(h))
+
+			}
+
+		}
+	}()
 
 	go func() {
 
