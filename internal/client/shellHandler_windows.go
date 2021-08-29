@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package client
@@ -169,6 +170,7 @@ func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Log
 		}
 	}()
 
+	ignoredByes := 0
 	go func() {
 
 		buf := make([]byte, 128)
@@ -183,11 +185,14 @@ func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Log
 				return
 			}
 
-			_, err = term.Write(buf[:n])
+			//This should ignore the echo'd result from cmd.exe on newline, this isnt super thread safe, but should be okay.
+			_, err = term.Write(buf[ignoredByes:n])
 			if err != nil {
 				log.Error("%s", err)
 				return
 			}
+
+			ignoredByes = 0
 
 		}
 	}()
@@ -206,13 +211,18 @@ func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Log
 				expected <- true
 				err := sendCtrlC(cmd.Process.Pid)
 				if err != nil {
-					fmt.Fprintf(term, "Failed to send Ctrl +C sorry! You are most likely trapped: %s", err)
+					fmt.Fprintf(term, "Failed to send Ctrl+C sorry! You are most likely trapped: %s", err)
 					log.Error("%s", err)
 				}
 			}
 
 			if err == nil {
-				stdin.Write([]byte(line + "\r\n"))
+				_, err := stdin.Write([]byte(line + "\r\n"))
+				if err != nil {
+					fmt.Fprintf(term, "Error writing to STDIN: %s", err)
+					log.Error("%s", err)
+				}
+				ignoredByes = len(line)
 			}
 
 		}
