@@ -45,7 +45,7 @@ func shellChannel(user *internal.User, newChannel ssh.NewChannel, log logger.Log
 
 			vsn := windows.RtlGetVersion()
 			if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
-				log.Info("Windows version too old for Conpty, using basic shell")
+				log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
 				basicShell(requests, connection, log)
 			} else {
 				ptyreq, _ := internal.ParsePtyReq(req.Payload)

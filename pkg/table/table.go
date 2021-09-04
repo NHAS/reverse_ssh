@@ -15,7 +15,7 @@ type value struct {
 
 type Table struct {
 	name          string
-	rows          int
+	cols          int
 	line          [][]value
 	cellMaxWidth  []int
 	lineMaxHeight []int
@@ -32,12 +32,12 @@ func makeValue(rn string) (val value) {
 }
 
 func (t *Table) updateMax(line []value) error {
-	if len(line) != t.rows {
-		return errors.New("Wrong size guy")
+	if len(line) != t.cols {
+		return errors.New("Number of values exceeds max number of columns")
 	}
 
 	if t.cellMaxWidth == nil {
-		t.cellMaxWidth = make([]int, t.rows)
+		t.cellMaxWidth = make([]int, t.cols)
 	}
 
 	height := 0
@@ -57,8 +57,8 @@ func (t *Table) updateMax(line []value) error {
 }
 
 func (t *Table) AddValues(vals ...string) error {
-	if len(vals) != t.rows {
-		return fmt.Errorf("Error more values than exist in the row name")
+	if len(vals) != t.cols {
+		return fmt.Errorf("Error more values than exist then row names")
 	}
 
 	var line []value
@@ -143,7 +143,7 @@ func NewTable(name string, rowNames ...string) (t Table, err error) {
 		line = append(line, makeValue(name))
 	}
 
-	t.rows = len(line)
+	t.cols = len(line)
 
 	t.name = name
 
