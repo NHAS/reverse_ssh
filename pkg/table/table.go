@@ -76,6 +76,17 @@ func (t *Table) AddValues(vals ...string) error {
 	return nil
 }
 
+func (t* Table) seperator() (out string) {
+	out = "+"
+
+	for i := 0; i < t.cols; i++ {
+		// +2 to ensure there is room for the spaces either side of the value
+		out += strings.Repeat("-", t.cellMaxWidth[i] + 2) + "+"
+    	}
+
+	return
+}
+
 func (t *Table) Print() {
 	t.Fprint(os.Stdout)
 }
@@ -83,6 +94,8 @@ func (t *Table) Print() {
 func (t *Table) Fprint(w io.Writer) {
 
 	firstLine := true
+
+	seperator := t.seperator()
 
 	for n, line := range t.line {
 		// X Y
@@ -116,24 +129,16 @@ func (t *Table) Fprint(w io.Writer) {
 			firstLine = false
 			fmt.Fprintf(w, "%"+fmt.Sprintf("%d", max/2)+"s\n", t.name)
 
-			fmt.Fprintln(w, seperator(max))
+			fmt.Fprintln(w, seperator)
 		}
 
 		for _, l := range drawnLines {
 			fmt.Fprintln(w, l)
 		}
 
-		fmt.Fprintln(w, seperator(max))
+		fmt.Fprintln(w, seperator)
 
 	}
-}
-
-func seperator(i int) (out string) {
-	for n := 0; n < i; n++ {
-		out += "-"
-	}
-
-	return out
 }
 
 func NewTable(name string, columnNames ...string) (t Table, err error) {
