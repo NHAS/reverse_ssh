@@ -58,7 +58,7 @@ func (t *Table) updateMax(line []value) error {
 
 func (t *Table) AddValues(vals ...string) error {
 	if len(vals) != t.cols {
-		return fmt.Errorf("Error more values than exist then row names")
+		return fmt.Errorf("Error more values exist than number of columns")
 	}
 
 	var line []value
@@ -136,10 +136,10 @@ func seperator(i int) (out string) {
 	return out
 }
 
-func NewTable(name string, rowNames ...string) (t Table, err error) {
+func NewTable(name string, columnNames ...string) (t Table, err error) {
 
 	var line []value
-	for _, name := range rowNames {
+	for _, name := range columnNames {
 		line = append(line, makeValue(name))
 	}
 
@@ -147,5 +147,5 @@ func NewTable(name string, rowNames ...string) (t Table, err error) {
 
 	t.name = name
 
-	return t, t.AddValues(rowNames...)
+	return t, t.AddValues(columnNames...)
 }
