@@ -77,14 +77,14 @@ func (t *Table) AddValues(vals ...string) error {
 }
 
 func (t* Table) seperator() (out string) {
-    out = "+"
+	out = "+"
 
-    for i := 0; i < t.cols; i++ {
+	for i := 0; i < t.cols; i++ {
 		// +2 to ensure there is room for the spaces either side of the value
-        out += strings.Repeat("-", t.cellMaxWidth[i] + 2) + "+"
-    }
+		out += strings.Repeat("-", t.cellMaxWidth[i] + 2) + "+"
+    	}
 
-    return
+	return
 }
 
 func (t *Table) Print() {
