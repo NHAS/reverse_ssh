@@ -1,18 +1,23 @@
 ADDR=localhost:2200
-LDFLAGS = -s -w
 
 ifeq "$(GOOS)" "windows"
 	LDFLAGS += -H=windowsgui
 endif
 
-debug: .generate_keys
-	go build  -o bin ./...
+ifdef RSSH_HOMESERVER
+	LDFLAGS += -X main.defaultClientDestination=$(RSSH_HOMESERVER)
+endif
 
-release: .generate_keys
+LDFLAGS_RELEASE = $(LDFLAGS) -s -w
+
+debug: .generate_keys
 	go build -ldflags="$(LDFLAGS)" -o bin ./...
 
+release: .generate_keys
+	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./...
+
 client: .generate_keys
-	go build -ldflags="$(LDFLAGS)" -o bin ./cmd/client
+	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
 run:
 	./bin/client --reconnect $(ADDR)

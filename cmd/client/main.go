@@ -20,6 +20,8 @@ func printHelp() {
 	fmt.Println("\t\t--proxy\tSets the HTTP_PROXY enviroment variable so the net library will use it")
 }
 
+var defaultClientDestination string
+
 func main() {
 
 	flag.Bool("foreground", false, "Dont fork to background on start")
@@ -42,15 +44,20 @@ func main() {
 		}
 	})
 
-	if len(flag.Args()) != 1 {
-		fmt.Println("Missing destination")
-		printHelp()
-		return
+	destination := flag.Arg(0)
+
+	if len(destination) == 0 {
+		if len(defaultClientDestination) > 0 {
+			destination = defaultClientDestination
+		} else {
+			fmt.Println("Missing destination (no default present)")
+			printHelp()
+			return
+		}
 	}
 
 	if fg {
-
-		client.Run(flag.Args()[0], *fingerprint, *proxyAddress, rc)
+		client.Run(destination, *fingerprint, *proxyAddress, rc)
 		return
 	}
 

