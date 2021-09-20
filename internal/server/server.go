@@ -176,66 +176,69 @@ func Run(addr, privateKeyPath string, insecure bool) {
 			continue
 		}
 
-		// Before use, a handshake must be performed on the incoming net.Conn.
-		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
-		if err != nil {
-			log.Printf("Failed to handshake (%s)", err.Error())
-			continue
-		}
-
-		clientLog := logger.NewLog(sshConn.RemoteAddr().String())
-		clientLog.Info("New SSH connection, version %s", sshConn.ClientVersion())
-
-		switch sshConn.Permissions.Extensions["type"] {
-		case "master":
-			user, err := internal.AddUser(createIdString(sshConn), sshConn)
-			if err != nil {
-				sshConn.Close()
-				log.Println(err)
-				continue
-			}
-
-			// Since we're handling a shell and dynamic forward, so we expect
-			// channel type of "session" or "direct-tcpip".
-			go internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
-				"session":      handlers.Session(&controllableClients, autoCompleteClients),
-				"direct-tcpip": handlers.Proxy,
-			})
-
-			// Discard all global out-of-band Requests
-			go ssh.DiscardRequests(reqs)
-		case "slave":
-			idString := createIdString(sshConn)
-
-			autoCompleteClients.Add(idString)
-
-			controllableClients.Store(idString, sshConn)
-
-			go func(s string) {
-				for req := range reqs {
-					if req.WantReply {
-						req.Reply(false, nil)
-					}
-				}
-
-				clientLog.Info("SSH client disconnected")
-				controllableClients.Delete(s)
-				autoCompleteClients.Remove(idString)
-			}(idString)
-
-		case "proxy":
-			// Proxy is a special case, we dont want the client to have access to control elements, but want a port to be able to be opened.
-			// I would have liked to wrap this into the callbacks register, however this has different requirements to the channel handlers.
-			go internal.DiscardChannels(sshConn, chans, clientLog)
-			go handlers.RemoteForward(sshConn, reqs)
-
-		default:
-			sshConn.Close()
-			clientLog.Warning("Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
-		}
-
+		go acceptConn(tcpConn, config)
 	}
 
+}
+
+func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
+	// Before use, a handshake must be performed on the incoming net.Conn.
+	sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
+	if err != nil {
+		log.Printf("Failed to handshake (%s)", err.Error())
+		return
+	}
+
+	clientLog := logger.NewLog(sshConn.RemoteAddr().String())
+	clientLog.Info("New SSH connection, version %s", sshConn.ClientVersion())
+
+	switch sshConn.Permissions.Extensions["type"] {
+	case "master":
+		user, err := internal.AddUser(createIdString(sshConn), sshConn)
+		if err != nil {
+			sshConn.Close()
+			log.Println(err)
+			return
+		}
+
+		// Since we're handling a shell and dynamic forward, so we expect
+		// channel type of "session" or "direct-tcpip".
+		go internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
+			"session":      handlers.Session(&controllableClients, autoCompleteClients),
+			"direct-tcpip": handlers.Proxy,
+		})
+
+		// Discard all global out-of-band Requests
+		go ssh.DiscardRequests(reqs)
+	case "slave":
+		idString := createIdString(sshConn)
+
+		autoCompleteClients.Add(idString)
+
+		controllableClients.Store(idString, sshConn)
+
+		go func(s string) {
+			for req := range reqs {
+				if req.WantReply {
+					req.Reply(false, nil)
+				}
+			}
+
+			clientLog.Info("SSH client disconnected")
+			controllableClients.Delete(s)
+			autoCompleteClients.Remove(idString)
+		}(idString)
+
+	case "proxy":
+		// Proxy is a special case, we dont want the client to have access to control elements, but want a port to be able to be opened.
+		// I would have liked to wrap this into the callbacks register, however this has different requirements to the channel handlers.
+		go internal.DiscardChannels(sshConn, chans, clientLog)
+		go handlers.RemoteForward(sshConn, reqs)
+
+	default:
+		sshConn.Close()
+		clientLog.Warning("Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
+	}
 }
 
 func createIdString(sshServerConn *ssh.ServerConn) string {
