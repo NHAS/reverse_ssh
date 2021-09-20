@@ -5,7 +5,7 @@ ifeq "$(GOOS)" "windows"
 endif
 
 ifdef RSSH_HOMESERVER
-	LDFLAGS += -X main.defaultClientDestination=$(RSSH_HOMESERVER)
+	LDFLAGS += -X main.destination=$(RSSH_HOMESERVER)
 endif
 
 LDFLAGS_RELEASE = $(LDFLAGS) -s -w
