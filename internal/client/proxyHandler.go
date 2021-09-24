@@ -17,21 +17,28 @@ func proxyChannel(user *internal.User, newChannel ssh.NewChannel, l logger.Logge
 	err := ssh.Unmarshal(a, &drtMsg)
 	if err != nil {
 		l.Warning("Unable to unmarshal proxy %s", err)
+		newChannel.Reject(ssh.ResourceShortage, "Unable to unmarshal proxy")
 		return
 	}
+
+	dest := fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport)
+	tcpConn, err := net.Dial("tcp", dest)
+	if err != nil {
+		l.Warning("Unable to dial destination: %s", err)
+		newChannel.Reject(ssh.ConnectionFailed, "Unable to connect to "+dest)
+		return
+	}
+	defer tcpConn.Close()
 
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
+		newChannel.Reject(ssh.ResourceShortage, dest)
 		l.Warning("Unable to accept new channel %s", err)
 		return
 	}
-	go ssh.DiscardRequests(requests)
+	defer connection.Close()
 
-	tcpConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport))
-	if err != nil {
-		l.Warning("Unable to dial destination: %s", err)
-		return
-	}
+	go ssh.DiscardRequests(requests)
 
 	go func() {
 		defer tcpConn.Close()
@@ -40,10 +47,7 @@ func proxyChannel(user *internal.User, newChannel ssh.NewChannel, l logger.Logge
 		io.Copy(connection, tcpConn)
 
 	}()
-	go func() {
-		defer tcpConn.Close()
-		defer connection.Close()
 
-		io.Copy(tcpConn, connection)
-	}()
+	io.Copy(tcpConn, connection)
+
 }

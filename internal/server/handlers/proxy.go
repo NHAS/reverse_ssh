@@ -24,19 +24,21 @@ func Proxy(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 		return
 	}
 
-	connection, requests, err := newChannel.Accept()
-	if err != nil {
-		newChannel.Reject(ssh.ConnectionFailed, err.Error())
-		return
-	}
-
-	go ssh.DiscardRequests(requests)
-
 	proxyDest, proxyRequests, err := user.ProxyConnection.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
 	if err != nil {
 		newChannel.Reject(ssh.ConnectionFailed, err.Error())
 		return
 	}
+	defer proxyDest.Close()
+
+	connection, requests, err := newChannel.Accept()
+	if err != nil {
+		newChannel.Reject(ssh.ConnectionFailed, err.Error())
+		return
+	}
+	defer connection.Close()
+
+	go ssh.DiscardRequests(requests)
 
 	log.Info("Human client proxying to: %s:%d", drtMsg.Raddr, drtMsg.Rport)
 
@@ -48,13 +50,9 @@ func Proxy(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 		io.Copy(connection, proxyDest)
 	}()
-	go func() {
-		defer proxyDest.Close()
-		defer connection.Close()
-		io.Copy(proxyDest, connection)
 
-		log.Info("ENDED: %s:%d", drtMsg.Raddr, drtMsg.Rport)
+	io.Copy(proxyDest, connection)
 
-	}()
+	log.Info("ENDED: %s:%d", drtMsg.Raddr, drtMsg.Rport)
 
 }
