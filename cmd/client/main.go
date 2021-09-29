@@ -3,9 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/NHAS/reverse_ssh/internal/client"
@@ -59,8 +57,5 @@ func main() {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], append([]string{"--foreground"}, os.Args[1:]...)...)
-	cmd.Start()
-	log.Println("Ending parent")
-
+	runInBackground(fingerprint, proxyAddress, rc)
 }
