@@ -49,10 +49,10 @@ func ReadPubKeys(path string) (m map[string]bool, err error) {
 	return
 }
 
-func Run(addr, privateKeyPath string, insecure bool) {
+func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 
 	//Taken from the server example, authorized keys are required for controllers
-	_, err := ReadPubKeys("authorized_keys")
+	_, err := ReadPubKeys(publicKeyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func Run(addr, privateKeyPath string, insecure bool) {
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 
-			authorizedKeysMap, err := ReadPubKeys("authorized_keys")
+			authorizedKeysMap, err := ReadPubKeys(publicKeyPath)
 			if err != nil {
 				log.Println("Reloading authorized_keys failed: ", err)
 			}
