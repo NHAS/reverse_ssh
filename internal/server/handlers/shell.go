@@ -31,6 +31,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	term.AddCommand("help", commands.Help())
 	term.AddCommand("exit", commands.Exit())
 	term.AddCommand("connect", commands.Connect(user, controllableClients, defaultHandle, log))
+	term.AddCommand("kill", commands.Kill(controllableClients, log))
 	term.AddCommand("rc", commands.RC(user, controllableClients))
 	term.AddCommand("proxy", commands.Proxy(user, controllableClients))
 
