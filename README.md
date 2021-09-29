@@ -56,6 +56,7 @@ If you need to build the client for a different architecture.
 
 ```sh
 GOOS=linux GOARCH=amd64 make client
+GOOS=windows GOARCH=amd64 make client # will create client.exe
 ```
 
 You will need to create an `authorized_keys` file, containing *your* public key.
