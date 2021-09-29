@@ -156,3 +156,11 @@ $ bin/client
 # Behaviour is otherwise normal; will connect to example.com:1234
 $ bin/client example.com:1234
 ```
+
+## Foreground vs Background
+
+By default, clients will run in the background. When started they will start a new background instance and then exit, printing a message like 'Ending parent'. Most processing is then done in the background.
+
+This has one important ramification: no output from the background process will appear in the terminal. This is intentional and is for stealth reasons. However this *also* means that failures will not be reported: e.g. if the client can't reach the server, this will not be visible.
+
+If necessary, use the `--foreground` flag to prevent this - all output will be printed to the terminal/windows command shell, which can be useful for debugging purposes.
