@@ -52,6 +52,7 @@ func ReadPubKeys(path string) (m map[string]bool, err error) {
 func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 
 	//Taken from the server example, authorized keys are required for controllers
+	log.Printf("Loading authorized keys from: %s\n", publicKeyPath)
 	_, err := ReadPubKeys(publicKeyPath)
 	if err != nil {
 		log.Fatal(err)
