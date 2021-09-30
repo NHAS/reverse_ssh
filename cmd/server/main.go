@@ -11,7 +11,7 @@ import (
 
 func printHelp() {
 
-	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--key] [--publickeys] address")
+	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--key] [--authorizedkeys] address")
 	fmt.Println("\t\taddress\tThe network address the server will listen on")
 	fmt.Println("\t\t--key\tPath to the ssh private key the server will use when talking with clients")
 	fmt.Println("\t\t--authorizedkeys\tPath to the authorized_keys file or a given public key that control which users can talk to the server")
