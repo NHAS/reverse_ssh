@@ -1,9 +1,5 @@
 ADDR=localhost:2200
 
-ifeq "$(GOOS)" "windows"
-	LDFLAGS += -H=windowsgui
-endif
-
 ifdef RSSH_HOMESERVER
 	LDFLAGS += -X main.destination=$(RSSH_HOMESERVER)
 endif

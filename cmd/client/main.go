@@ -3,12 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-
-	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
 func printHelp() {
@@ -26,14 +22,15 @@ func main() {
 
 	flag.Bool("foreground", false, "Dont fork to background on start")
 	flag.Bool("reconnect", true, "Auto reconnect on disconnection")
-	proxyAddress := flag.String("proxy", "", "Sets the HTTP_PROXY enviroment variable so the net library will use it")
+	flag.Bool("detach", true, "(windows only) will force a console detach")
+	proxyaddress := flag.String("proxy", "", "Sets the HTTP_PROXY enviroment variable so the net library will use it")
 	fingerprint := flag.String("fingerprint", "", "Server public key fingerprint")
 
 	flag.Usage = printHelp
 
 	flag.Parse()
 
-	var fg, rc bool
+	var fg, rc, dt bool
 
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -41,6 +38,8 @@ func main() {
 			rc = true
 		case "foreground":
 			fg = true
+		case "detach":
+			dt = true
 		}
 	})
 
@@ -54,13 +53,5 @@ func main() {
 		destination = flag.Arg(0)
 	}
 
-	if fg {
-		client.Run(destination, *fingerprint, *proxyAddress, rc)
-		return
-	}
-
-	cmd := exec.Command(os.Args[0], append([]string{"--foreground"}, os.Args[1:]...)...)
-	cmd.Start()
-	log.Println("Ending parent")
-
+	runOrFork(destination, *proxyaddress, *fingerprint, fg, dt, rc)
 }
