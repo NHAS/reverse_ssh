@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func scp(connection ssh.Channel, requests <-chan *ssh.Request, mode string, path string, controllableClients *sync.Map) error {
+func Scp(connection ssh.Channel, requests <-chan *ssh.Request, mode string, path string, controllableClients *sync.Map) error {
 	go ssh.DiscardRequests(requests)
 
 	parts := strings.SplitN(path, ":", 2)

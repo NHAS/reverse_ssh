@@ -66,7 +66,7 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 
 					if loc != -1 {
 						req.Reply(true, nil)
-						scp(connection, requests, mode, strings.Join(parts[loc:], " "), controllableClients)
+						Scp(connection, requests, mode, strings.Join(parts[loc:], " "), controllableClients)
 					}
 					return
 				}
