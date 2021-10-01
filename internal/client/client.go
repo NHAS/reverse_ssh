@@ -204,6 +204,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 			"session":      shellChannel,
 			"direct-tcpip": proxyChannel,
 			"scp":          scpChannel,
+			"kill":         killChannel,
 		})
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)

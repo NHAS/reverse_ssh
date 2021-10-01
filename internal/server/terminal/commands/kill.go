@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
@@ -28,13 +29,9 @@ func (k *kill) Run(term *terminal.Terminal, args ...string) error {
 
 	controlClient := cc.(ssh.Conn)
 
-	err := controlClient.Close()
-	if err != nil {
-		k.log.Error("creating session failed: %s", err)
-		return err
-	}
+	controlClient.OpenChannel("kill", nil)
+	<-time.After(5 * time.Second)
 
-	k.controllableClients.Delete(args[0])
 	return fmt.Errorf("connection has been killed")
 }
 
