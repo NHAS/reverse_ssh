@@ -193,7 +193,18 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		}
 		defer sshConn.Close()
 
-		go ssh.DiscardRequests(reqs) // Then go on to ignore everything else
+		go func(in <-chan *ssh.Request) {
+			for r := range in {
+				switch r.Type {
+				case "kill":
+					l.Info("Kill command sent, dying")
+					os.Exit(0)
+				default:
+					//Ignore any unspecified global requests
+					r.Reply(false, nil)
+				}
+			}
+		}(reqs)
 
 		user, err := internal.AddUser("server", sshConn)
 		if err != nil {
@@ -204,7 +215,6 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 			"session":      shellChannel,
 			"direct-tcpip": proxyChannel,
 			"scp":          scpChannel,
-			"kill":         killChannel,
 		})
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)

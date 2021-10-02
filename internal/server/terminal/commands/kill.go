@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -29,8 +30,33 @@ func (k *kill) Run(term *terminal.Terminal, args ...string) error {
 
 	controlClient := cc.(ssh.Conn)
 
-	controlClient.OpenChannel("kill", nil)
-	<-time.After(5 * time.Second)
+	isClosed := make(chan bool, 1)
+
+	//Essentially a timeout function for killing the client.
+	go func(conn ssh.Conn) {
+		//Just in case a malicious client is told to die, then exactly times a 5 second wait inorder to force double close.
+		//Frankly, such a small chance of this happening. But meh
+		defer func() {
+			if r := recover(); r != nil {
+				k.log.Info("Client double closed.")
+			}
+		}()
+
+		select {
+		case <-time.After(2 * time.Second):
+			k.log.Warning("Client failed to exit")
+			controlClient.Close()
+		case <-isClosed:
+			return
+		}
+
+	}(controlClient)
+
+	_, _, err := controlClient.SendRequest("kill", true, nil)
+	//If connection was closed, causing WantReply to fail
+	if err == io.EOF {
+		isClosed <- true
+	}
 
 	return fmt.Errorf("connection has been killed")
 }
