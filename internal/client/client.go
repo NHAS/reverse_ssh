@@ -130,9 +130,9 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 
 func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 
-	sshPriv, err := keys.GetPrivateKey()
-	if err != nil {
-		log.Fatal("Getting private key failed: ", err)
+	sshPriv, sysinfoError := keys.GetPrivateKey()
+	if sysinfoError != nil {
+		log.Fatal("Getting private key failed: ", sysinfoError)
 	}
 
 	if runtime.GOOS != "windows" {
@@ -142,18 +142,18 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 	l := logger.NewLog("client")
 
 	var username string
-	userInfo, err := user.Current()
-	if err != nil {
-		l.Warning("Couldnt get username: %s", err.Error())
+	userInfo, sysinfoError := user.Current()
+	if sysinfoError != nil {
+		l.Warning("Couldnt get username: %s", sysinfoError.Error())
 		username = "Unknown"
 	} else {
 		username = userInfo.Username
 	}
 
-	hostname, err := os.Hostname()
-	if err != nil {
+	hostname, sysinfoError := os.Hostname()
+	if sysinfoError != nil {
 		hostname = "Unknown Hostname"
-		l.Warning("Couldnt get host name: %s", err)
+		l.Warning("Couldnt get host name: %s", sysinfoError)
 	}
 
 	config := &ssh.ClientConfig{
@@ -175,6 +175,19 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		},
 	}
 
+	sysinfoCmd := []string{"name", "-rv"}
+	if runtime.GOOS == "windows" {
+		sysinfoCmd = []string{"cmd", "ver"}
+	}
+
+	succeeded := true
+	sysInfo, sysinfoError := exec.Command(sysinfoCmd[0], sysinfoCmd[1:]...).Output()
+	if sysinfoError != nil {
+		succeeded = false
+		sysInfo = []byte(sysinfoError.Error())
+	}
+	sysInfo = bytes.Split(sysInfo, []byte("\n"))[0]
+
 	once := true
 	for ; once || reconnect; once = false { // My take on a golang do {} while loop :P
 		log.Println("Connecting to ", addr)
@@ -194,22 +207,14 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		}
 		defer sshConn.Close()
 
-		sysinfoCmd := []string{"uname", "-rv"}
-		if runtime.GOOS == "windows" {
-			sysinfoCmd = []string{"cmd", "ver"}
-		}
-		out, err := exec.Command(sysinfoCmd[0], sysinfoCmd[1:]...).Output()
-		if err == nil {
-			out = []byte(strings.Split(string(out), "\n")[0])
-			sshConn.SendRequest("sysinfo", false, out)
-		}
-
 		go func(in <-chan *ssh.Request) {
 			for r := range in {
 				switch r.Type {
 				case "kill":
 					l.Info("Kill command sent, dying")
 					os.Exit(0)
+				case "info":
+					r.Reply(succeeded, sysInfo)
 				default:
 					//Ignore any unspecified global requests
 					r.Reply(false, nil)

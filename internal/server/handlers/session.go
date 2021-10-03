@@ -78,7 +78,7 @@ func Session(controllableClients *sync.Map, clientSysinfo map[string]string, aut
 				req.Reply(len(req.Payload) == 0, nil)
 
 				//This blocks so will keep the channel from defer closing
-				shell(user, connection, requests, controllableClients, clientSysinfo, autoCompleteClients, log)
+				shell(user, connection, requests, controllableClients, autoCompleteClients, log)
 
 				return
 				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actuall proceeds all of them

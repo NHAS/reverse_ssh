@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, clientSysinfo map[string]string, autoCompleteClients *trie.Trie, log logger.Logger) error {
+func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, autoCompleteClients *trie.Trie, log logger.Logger) error {
 
 	user.ShellConnection = connection
 	user.ShellRequests = requests
@@ -27,7 +27,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 
 	defaultHandle := commands.NewWindowSizeChangeHandler(user, term)
 
-	term.AddCommand("ls", commands.List(controllableClients, clientSysinfo))
+	term.AddCommand("ls", commands.List(controllableClients))
 	term.AddCommand("help", commands.Help())
 	term.AddCommand("exit", commands.Exit())
 	term.AddCommand("connect", commands.Connect(user, controllableClients, defaultHandle, log))
@@ -40,7 +40,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	defaultHandle.Start()
 
 	//Send list of controllable remote hosts to human client
-	commands.List(controllableClients, clientSysinfo).Run(term)
+	commands.List(controllableClients).Run(term)
 
 	//Blocking function to handle all the human function calls. Will return io.EOF on exit, otherwise an error is passed up we cant deal with
 	err := term.Run()

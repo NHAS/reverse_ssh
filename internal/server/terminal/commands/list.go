@@ -11,7 +11,6 @@ import (
 
 type list struct {
 	controllableClients *sync.Map
-	clientSysinfo       map[string]string
 }
 
 func (l *list) Run(term *terminal.Terminal, args ...string) error {
@@ -20,11 +19,14 @@ func (l *list) Run(term *terminal.Terminal, args ...string) error {
 
 	l.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
 		sc := value.(ssh.Conn)
-		sysInfo, infoSet := l.clientSysinfo[idStr.(string)]
-		if !infoSet {
-			sysInfo = "Unknown"
+
+		_, sysInfo, err := sc.SendRequest("info", true, nil)
+		//This will happen on connection failure, rather than error gathering system information
+		if err != nil {
+			sysInfo = []byte(err.Error())
 		}
-		t.AddValues(fmt.Sprintf("%s", idStr), sc.User(), sc.RemoteAddr().String(), sysInfo)
+
+		t.AddValues(fmt.Sprintf("%s", idStr), sc.User(), sc.RemoteAddr().String(), string(sysInfo))
 
 		return true
 	})
@@ -48,6 +50,6 @@ func (l *list) Help(explain bool) string {
 	)
 }
 
-func List(controllableClients *sync.Map, clientSysinfo map[string]string) *list {
-	return &list{controllableClients, clientSysinfo}
+func List(controllableClients *sync.Map) *list {
+	return &list{controllableClients}
 }
