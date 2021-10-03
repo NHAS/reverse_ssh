@@ -22,12 +22,12 @@ import (
 
 var controllableClients sync.Map
 var clientSysInfo map[string]string = make(map[string]string)
-var autoCompleteCommands, autoCompleteClients *trie.Trie
+var autoCompleteClients *trie.Trie
 
 func ReadPubKeys(path string) (m map[string]bool, err error) {
 	authorizedKeysBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return m, fmt.Errorf("Failed to load file %s, err: %v", path, err)
+		return m, fmt.Errorf("failed to load file %s, err: %v", path, err)
 	}
 
 	keys := bytes.Split(authorizedKeysBytes, []byte("\n"))
@@ -41,7 +41,7 @@ func ReadPubKeys(path string) (m map[string]bool, err error) {
 
 		pubKey, _, _, _, err := ssh.ParseAuthorizedKey(key)
 		if err != nil {
-			return m, fmt.Errorf("Unable to parse public key. %s line %d. Reason: %s", path, i+1, err)
+			return m, fmt.Errorf("unable to parse public key. %s line %d. Reason: %s", path, i+1, err)
 		}
 
 		m[string(pubKey.Marshal())] = true
@@ -106,7 +106,7 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 			} else if insecure || authorizedControllees[string(key.Marshal())] {
 				clientType = "client"
 			} else {
-				return nil, fmt.Errorf("Not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
+				return nil, fmt.Errorf("not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
 			}
 
 			return &ssh.Permissions{
