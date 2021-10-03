@@ -175,7 +175,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		},
 	}
 
-	sysinfoCmd := []string{"name", "-rv"}
+	sysinfoCmd := []string{"uname", "-rv"}
 	if runtime.GOOS == "windows" {
 		sysinfoCmd = []string{"cmd", "ver"}
 	}
