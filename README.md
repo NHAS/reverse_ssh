@@ -13,7 +13,7 @@ The reverse SSH server lets you catch multiple reverse shells, using the fully s
                     |    Catcher     |       |         +---------+
 +---------+         |                |       |
 |         |         |                |       |
-| Human   |         |                |  SSH  |         +---------+
+| Human   |   SSH   |                |  SSH  |         +---------+
 | Client  +-------->+                <-----------------+         |
 |         |         |                |       |         | Shelled |
 +---------+         |                |       |         |  Client |
