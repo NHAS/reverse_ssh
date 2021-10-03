@@ -21,6 +21,7 @@ import (
 )
 
 var controllableClients sync.Map
+var clientSysInfo map[string]string = make(map[string]string)
 var autoCompleteCommands, autoCompleteClients *trie.Trie
 
 func ReadPubKeys(path string) (m map[string]bool, err error) {
@@ -205,7 +206,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 		// Since we're handling a shell and dynamic forward, so we expect
 		// channel type of "session" or "direct-tcpip".
 		go internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
-			"session":      handlers.Session(&controllableClients, autoCompleteClients),
+			"session":      handlers.Session(&controllableClients, clientSysInfo, autoCompleteClients),
 			"direct-tcpip": handlers.Proxy,
 		})
 
@@ -220,7 +221,9 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 
 		go func(s string) {
 			for req := range reqs {
-				if req.WantReply {
+				if req.Type == "sysinfo" {
+					clientSysInfo[idString] = string(req.Payload)
+				} else if req.WantReply {
 					req.Reply(false, nil)
 				}
 			}

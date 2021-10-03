@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"os/user"
 	"runtime"
 	"strings"
@@ -192,6 +193,16 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 			continue
 		}
 		defer sshConn.Close()
+
+		sysinfoCmd := []string{"uname", "-rv"}
+		if runtime.GOOS == "windows" {
+			sysinfoCmd = []string{"cmd", "ver"}
+		}
+		out, err := exec.Command(sysinfoCmd[0], sysinfoCmd[1:]...).Output()
+		if err == nil {
+			out = []byte(strings.Split(string(out), "\n")[0])
+			sshConn.SendRequest("sysinfo", false, out)
+		}
 
 		go func(in <-chan *ssh.Request) {
 			for r := range in {

@@ -13,7 +13,7 @@ import (
 //Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
 //However these calls are done through requests, rather than opening a new channel
 //This callback just sorts out what the client wants to be doing
-func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) internal.ChannelHandler {
+func Session(controllableClients *sync.Map, clientSysinfo map[string]string, autoCompleteClients *trie.Trie) internal.ChannelHandler {
 
 	return func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
@@ -78,7 +78,7 @@ func Session(controllableClients *sync.Map, autoCompleteClients *trie.Trie) inte
 				req.Reply(len(req.Payload) == 0, nil)
 
 				//This blocks so will keep the channel from defer closing
-				shell(user, connection, requests, controllableClients, autoCompleteClients, log)
+				shell(user, connection, requests, controllableClients, clientSysinfo, autoCompleteClients, log)
 
 				return
 				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actuall proceeds all of them

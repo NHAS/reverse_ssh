@@ -11,15 +11,20 @@ import (
 
 type list struct {
 	controllableClients *sync.Map
+	clientSysinfo       map[string]string
 }
 
 func (l *list) Run(term *terminal.Terminal, args ...string) error {
 
-	t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address")
+	t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address", "Sys Info")
 
 	l.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
 		sc := value.(ssh.Conn)
-		t.AddValues(fmt.Sprintf("%s", idStr), sc.User(), sc.RemoteAddr().String())
+		sysInfo, infoSet := l.clientSysinfo[idStr.(string)]
+		if !infoSet {
+			sysInfo = "Unknown"
+		}
+		t.AddValues(fmt.Sprintf("%s", idStr), sc.User(), sc.RemoteAddr().String(), sysInfo)
 
 		return true
 	})
@@ -43,6 +48,6 @@ func (l *list) Help(explain bool) string {
 	)
 }
 
-func List(controllableClients *sync.Map) *list {
-	return &list{controllableClients: controllableClients}
+func List(controllableClients *sync.Map, clientSysinfo map[string]string) *list {
+	return &list{controllableClients, clientSysinfo}
 }
