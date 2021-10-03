@@ -99,11 +99,11 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 			//If insecure mode, then any unknown client will be connected as a controllable client.
 			//The server effectively ignores channel requests from controllable clients.
 			if authorizedKeysMap[string(key.Marshal())] {
-				clientType = "master"
+				clientType = "user"
 			} else if authorizedProxiers[string(key.Marshal())] {
 				clientType = "proxy"
 			} else if insecure || authorizedControllees[string(key.Marshal())] {
-				clientType = "slave"
+				clientType = "client"
 			} else {
 				return nil, fmt.Errorf("Not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
 			}
@@ -194,7 +194,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	clientLog.Info("New SSH connection, version %s", sshConn.ClientVersion())
 
 	switch sshConn.Permissions.Extensions["type"] {
-	case "master":
+	case "user":
 		user, err := internal.AddUser(createIdString(sshConn), sshConn)
 		if err != nil {
 			sshConn.Close()
@@ -211,7 +211,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 
 		// Discard all global out-of-band Requests
 		go ssh.DiscardRequests(reqs)
-	case "slave":
+	case "client":
 		idString := createIdString(sshConn)
 
 		autoCompleteClients.Add(idString)
