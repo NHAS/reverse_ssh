@@ -21,7 +21,7 @@ var destination string
 func main() {
 
 	flag.Bool("foreground", false, "Dont fork to background on start")
-	flag.Bool("reconnect", true, "Auto reconnect on disconnection")
+	flag.Bool("no-reconnect", false, "Disable reconnect on disconnection")
 	flag.Bool("detach", true, "(windows only) will force a console detach")
 	proxyaddress := flag.String("proxy", "", "Sets the HTTP_PROXY enviroment variable so the net library will use it")
 	fingerprint := flag.String("fingerprint", "", "Server public key fingerprint")
@@ -30,12 +30,13 @@ func main() {
 
 	flag.Parse()
 
-	var fg, rc, dt bool
+	var fg, dt bool
+	rc := true
 
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case "reconnect":
-			rc = true
+		case "no-reconnect":
+			rc = false
 		case "foreground":
 			fg = true
 		case "detach":
