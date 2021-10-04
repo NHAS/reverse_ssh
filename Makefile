@@ -16,9 +16,9 @@ client: .generate_keys
 	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
 run:
-	./bin/client --reconnect $(ADDR)
-	./bin/client --reconnect $(ADDR)
-	./bin/client --reconnect $(ADDR)
+	./bin/client  $(ADDR)
+	./bin/client $(ADDR)
+	./bin/client  $(ADDR)
 	cd bin; ./server $(ADDR)
 
 .generate_keys:
