@@ -22,6 +22,7 @@ type Table struct {
 }
 
 func makeValue(rn string) (val value) {
+	rn = strings.TrimSpace(rn)
 	val.parts = strings.Split(rn, "\n")
 	for _, n := range val.parts {
 		if len(n) > val.longest {
@@ -76,13 +77,13 @@ func (t *Table) AddValues(vals ...string) error {
 	return nil
 }
 
-func (t* Table) seperator() (out string) {
+func (t *Table) seperator() (out string) {
 	out = "+"
 
 	for i := 0; i < t.cols; i++ {
 		// +2 to ensure there is room for the spaces either side of the value
-		out += strings.Repeat("-", t.cellMaxWidth[i] + 2) + "+"
-    	}
+		out += strings.Repeat("-", t.cellMaxWidth[i]+2) + "+"
+	}
 
 	return
 }
