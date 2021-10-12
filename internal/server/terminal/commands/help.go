@@ -49,7 +49,9 @@ func (h *help) Run(term *terminal.Terminal, args ...string) error {
 		return err
 	}
 
-	fmt.Fprintf(term, hf(false))
+	fmt.Fprintf(term, "\ndescription:\n%s\n", hf(true))
+
+	fmt.Fprintf(term, "\nusage:\n%s\n", hf(false))
 
 	return nil
 }
