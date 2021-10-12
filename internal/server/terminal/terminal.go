@@ -263,7 +263,10 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 	} else if term.autoCompleting {
 		term.resetAutoComplete()
-		output := line + " " + string(key)
+		output := line + " "
+		if key != ' ' {
+			output += string(key)
+		}
 		return output, len(output), true
 	}
 
