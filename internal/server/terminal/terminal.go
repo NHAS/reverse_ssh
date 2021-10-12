@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -107,6 +108,10 @@ type Terminal struct {
 	// historyPending.
 	historyPending string
 
+	autoCompleteIndex  int
+	autoCompletePendng string
+	autoCompleting     bool
+
 	functions             map[string]Command
 	functionsAutoComplete *trie.Trie
 
@@ -190,7 +195,11 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 	if key == '\t' {
 
-		line = collapse(line, ' ')
+		if !term.autoCompleting {
+			term.startAutoComplete(line)
+		}
+
+		line = collapse(term.autoCompletePendng, ' ')
 		if len(line) > 0 && line[0] == ' ' {
 			line = line[1:]
 		}
@@ -234,15 +243,30 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 		}
 
 		if len(r) == 1 {
-			return line + r[0] + " ", len(line+r[0]) + 1, true
+			term.resetAutoComplete()
+
+			output := line + r[0] + " "
+			return output, len(output), true
 		}
 
-		for _, completion := range r {
-			fmt.Fprintf(term, "%s\n", line+completion)
+		if len(r) > 1 {
+			sort.Strings(r)
+
+			output := line + r[term.autoCompleteIndex]
+
+			term.autoCompleteIndex = (term.autoCompleteIndex + 1) % len(r)
+
+			return output, len(output), true
 		}
 
 		return "", 0, false
+
+	} else if term.autoCompleting {
+		term.resetAutoComplete()
+		output := line + " " + string(key)
+		return output, len(output), true
 	}
+
 	return "", 0, false
 }
 
@@ -665,8 +689,14 @@ func visualLength(runes []rune) int {
 // that the user has entered.
 func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 	if t.pasteActive && key != keyEnter {
+		t.resetAutoComplete()
 		t.addKeyToLine(key)
 		return
+	}
+
+	switch key {
+	case keyBackspace, keyAltLeft, keyAltRight, keyLeft, keyRight, keyHome, keyEnd, keyUp, keyDown, keyEnter, keyDeleteWord, keyDeleteLine, keyCtrlD, keyCtrlU, keyClearScreen:
+		t.resetAutoComplete()
 	}
 
 	switch key {
@@ -1199,4 +1229,16 @@ func readPasswordLine(reader io.Reader) ([]byte, error) {
 			return ret, err
 		}
 	}
+}
+
+func (t *Terminal) resetAutoComplete() {
+	t.autoCompleteIndex = 0
+	t.autoCompletePendng = ""
+	t.autoCompleting = false
+}
+
+func (t *Terminal) startAutoComplete(lineFragment string) {
+	t.autoCompleteIndex = 0
+	t.autoCompletePendng = lineFragment
+	t.autoCompleting = true
 }

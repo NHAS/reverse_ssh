@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
+	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 	"golang.org/x/crypto/ssh"
 )
@@ -15,18 +16,34 @@ type list struct {
 
 func (l *list) Run(term *terminal.Terminal, args ...string) error {
 
-	t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address", "Sys Info")
+	if len(args) == 1 {
+		t, _ := table.NewTable("Target", "Hostname", "IP Address", "Sys Info")
 
-	l.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
-		sc := value.(ssh.Conn)
+		v, ok := l.controllableClients.Load(args[0])
+		if !ok {
+			return fmt.Errorf("unknown client host")
+		}
 
-		_, sysInfo, err := sc.SendRequest("info", true, nil)
+		client := v.(ssh.Conn)
+
+		_, sysInfo, err := client.SendRequest("info", true, nil)
 		//This will happen on connection failure, rather than error gathering system information
 		if err != nil {
 			sysInfo = []byte(err.Error())
 		}
 
-		t.AddValues(fmt.Sprintf("%s", idStr), sc.User(), sc.RemoteAddr().String(), string(sysInfo))
+		t.AddValues(client.User(), client.RemoteAddr().String(), string(sysInfo))
+
+		t.Fprint(term)
+		return nil
+	}
+
+	t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address")
+
+	l.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
+		sc := value.(ssh.Conn)
+
+		t.AddValues(fmt.Sprintf("%s", idStr), sc.User(), sc.RemoteAddr().String())
 
 		return true
 	})
@@ -37,6 +54,10 @@ func (l *list) Run(term *terminal.Terminal, args ...string) error {
 }
 
 func (l *list) Expect(sections []string) []string {
+	if len(sections) == 1 {
+		return []string{constants.RemoteId}
+	}
+
 	return nil
 }
 
@@ -47,6 +68,7 @@ func (l *list) Help(explain bool) string {
 
 	return makeHelpText(
 		"ls",
+		"ls <remote_id>",
 	)
 }
 
