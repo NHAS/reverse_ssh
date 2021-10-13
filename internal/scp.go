@@ -7,8 +7,7 @@ type Scp struct {
 	Path string
 }
 
-func ScpError(reason string, connection io.Writer) {
-	connection.Write([]byte{2})
+func ScpError(severity int, reason string, connection io.Writer) {
+	connection.Write([]byte{byte(severity)})
 	connection.Write([]byte(reason + "\n"))
-	connection.Write([]byte("E\n"))
 }
