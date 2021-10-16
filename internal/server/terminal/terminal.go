@@ -547,6 +547,10 @@ func (t *Terminal) move(up, down, left, right int) {
 	t.queue(m)
 }
 
+func (t *Terminal) Read(b []byte) (n int, err error) {
+	return 0, io.EOF
+}
+
 func (t *Terminal) clearLineToRight() {
 	op := []rune{keyEscape, '[', 'K'}
 	t.queue(op)

@@ -17,13 +17,9 @@ type kill struct {
 	log                 logger.Logger
 }
 
-func (k *kill) Run(term *terminal.Terminal, args ...string) error {
+func killClient(controllableClients *sync.Map, k logger.Logger, id string) error {
 
-	if len(args) != 1 {
-		return fmt.Errorf(k.Help(false))
-	}
-
-	cc, ok := k.controllableClients.Load(args[0])
+	cc, ok := controllableClients.Load(id)
 	if !ok {
 		return fmt.Errorf("unknown connection host")
 	}
@@ -38,13 +34,13 @@ func (k *kill) Run(term *terminal.Terminal, args ...string) error {
 		//Frankly, such a small chance of this happening. But meh
 		defer func() {
 			if r := recover(); r != nil {
-				k.log.Info("Client double closed.")
+				k.Info("Client double closed.")
 			}
 		}()
 
 		select {
 		case <-time.After(2 * time.Second):
-			k.log.Warning("Client failed to exit")
+			k.Warning("Client failed to exit")
 			controlClient.Close()
 		case <-isClosed:
 			return
@@ -57,6 +53,29 @@ func (k *kill) Run(term *terminal.Terminal, args ...string) error {
 	if err == io.EOF {
 		isClosed <- true
 	}
+
+	return err
+}
+
+func (k *kill) Run(term *terminal.Terminal, args ...string) error {
+
+	if len(args) != 1 {
+		return fmt.Errorf(k.Help(false))
+	}
+
+	if args[0] == "all" {
+		killedClients := 0
+		k.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
+			killClient(k.controllableClients, k.log, idStr.(string))
+
+			killedClients++
+
+			return true
+		})
+		return fmt.Errorf("%d connections killed", killedClients)
+	}
+
+	killClient(k.controllableClients, k.log, args[0])
 
 	return fmt.Errorf("connection has been killed")
 }
@@ -77,6 +96,7 @@ func (k *kill) Help(explain bool) string {
 
 	return makeHelpText(
 		"kill <remote_id>",
+		"kill all",
 	)
 }
 
