@@ -2,10 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"sync"
 
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
+	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 	"golang.org/x/crypto/ssh"
 )
@@ -14,7 +14,7 @@ type list struct {
 	controllableClients *sync.Map
 }
 
-func (l *list) Run(term *terminal.Terminal, args ...string) error {
+func (l *list) Run(tty io.ReadWriter, args ...string) error {
 
 	if len(args) == 1 {
 		t, _ := table.NewTable("Target", "Hostname", "IP Address", "Sys Info")
@@ -34,7 +34,7 @@ func (l *list) Run(term *terminal.Terminal, args ...string) error {
 
 		t.AddValues(client.User(), client.RemoteAddr().String(), string(sysInfo))
 
-		t.Fprint(term)
+		t.Fprint(tty)
 		return nil
 	}
 
@@ -48,7 +48,7 @@ func (l *list) Run(term *terminal.Terminal, args ...string) error {
 		return true
 	})
 
-	t.Fprint(term)
+	t.Fprint(tty)
 
 	return nil
 }

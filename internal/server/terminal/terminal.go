@@ -16,7 +16,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
+	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
 
@@ -116,6 +116,20 @@ type Terminal struct {
 	functionsAutoComplete *trie.Trie
 
 	autoCompleteValues map[string]*trie.Trie
+
+	raw bool
+}
+
+func (t *Terminal) EnableRaw() {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	t.raw = true
+}
+
+func (t *Terminal) DisableRaw() {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	t.raw = false
 }
 
 // NewTerminal runs a VT100 terminal on the given ReadWriter. If the ReadWriter is
@@ -548,6 +562,16 @@ func (t *Terminal) move(up, down, left, right int) {
 }
 
 func (t *Terminal) Read(b []byte) (n int, err error) {
+	if t.raw {
+		n, err := t.c.Read(b)
+		if !t.raw {
+			//This is a patch due to blocking reads
+			t.addCharacterToInput(b)
+		}
+
+		return n, err
+	}
+
 	return 0, io.EOF
 }
 
@@ -571,7 +595,7 @@ func (t *Terminal) setLine(newLine []rune, newPos int) {
 	t.pos = newPos
 }
 
-func (t *Terminal) SetLine(characters []byte) {
+func (t *Terminal) addCharacterToInput(characters []byte) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -896,6 +920,10 @@ func writeWithCRLF(w io.Writer, buf []byte) (n int, err error) {
 }
 
 func (t *Terminal) Write(buf []byte) (n int, err error) {
+	if t.raw {
+		return t.c.Write(buf)
+	}
+
 	t.lock.Lock()
 	defer t.lock.Unlock()
 

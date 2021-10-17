@@ -2,17 +2,19 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"sort"
 
+	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 )
 
 type help struct {
+	term *terminal.Terminal
 }
 
-func (h *help) Run(term *terminal.Terminal, args ...string) error {
+func (h *help) Run(tty io.ReadWriter, args ...string) error {
 	if len(args) < 1 {
 
 		t, err := table.NewTable("Commands", "Function", "Purpose")
@@ -21,14 +23,14 @@ func (h *help) Run(term *terminal.Terminal, args ...string) error {
 		}
 
 		keys := []string{}
-		for funcName := range term.GetHelpList() {
+		for funcName := range h.term.GetHelpList() {
 			keys = append(keys, funcName)
 		}
 
 		sort.Strings(keys)
 
 		for _, k := range keys {
-			hf, err := term.GetHelp(k)
+			hf, err := h.term.GetHelp(k)
 			if err != nil {
 				return err
 			}
@@ -39,19 +41,19 @@ func (h *help) Run(term *terminal.Terminal, args ...string) error {
 			}
 		}
 
-		t.Fprint(term)
+		t.Fprint(tty)
 
 		return nil
 	}
 
-	hf, err := term.GetHelp(args[0])
+	hf, err := h.term.GetHelp(args[0])
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(term, "\ndescription:\n%s\n", hf(true))
+	fmt.Fprintf(tty, "\ndescription:\n%s\n", hf(true))
 
-	fmt.Fprintf(term, "\nusage:\n%s\n", hf(false))
+	fmt.Fprintf(tty, "\nusage:\n%s\n", hf(false))
 
 	return nil
 }

@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -19,9 +19,13 @@ type connect struct {
 	user                *internal.User
 	defaultHandle       *WindowSizeChangeHandler
 	controllableClients *sync.Map
+	term                *terminal.Terminal
+
+	init     func()
+	teardown func()
 }
 
-func (c *connect) Run(term *terminal.Terminal, args ...string) error {
+func (c *connect) Run(tty io.ReadWriter, args ...string) error {
 	if len(args) != 1 {
 		return fmt.Errorf(c.Help(false))
 	}
@@ -54,7 +58,14 @@ func (c *connect) Run(term *terminal.Terminal, args ...string) error {
 
 	c.log.Info("Connected to %s", controlClient.RemoteAddr().String())
 
-	err = attachSession(term, newSession, c.user.ShellConnection, c.user.ShellRequests, c.user.EnabledRcfiles[args[0]])
+	if c.init != nil {
+		c.init()
+	}
+
+	if c.teardown != nil {
+		defer c.teardown()
+	}
+	err = attachSession(newSession, tty, c.user.ShellRequests, c.user.EnabledRcfiles[args[0]])
 	if err != nil {
 
 		c.log.Error("Client tried to attach session and failed: %s", err)
@@ -88,12 +99,16 @@ func Connect(
 	user *internal.User,
 	controllableClients *sync.Map,
 	defaultHandle *WindowSizeChangeHandler,
-	log logger.Logger) *connect {
+	log logger.Logger,
+	initFunc func(),
+	teardownFunc func()) *connect {
 	return &connect{
 		user:                user,
 		defaultHandle:       defaultHandle,
 		controllableClients: controllableClients,
 		log:                 log,
+		init:                initFunc,
+		teardown:            teardownFunc,
 	}
 }
 
@@ -115,62 +130,12 @@ func createSession(sshConn ssh.Conn, ptyReq internal.PtyReq) (sc ssh.Channel, er
 	return splice, nil
 }
 
-// This was a massive pain in the ass to fix.
-// Effectively, io.Copy(client, us) will 'eat' a character as its waiting on the human client to send a character
-// Which then causes the io.Copy to try and write to 'client' only to find that the client is closed. Thus returning control back to the terminal interface
-// I didnt like this, had to modify the terminal library to let us write user input, and then use a writer interface to copy the input data to both the io.Copy
-// And the terminal, so that the io.Copy thread will end, and that we get the input on the terminal side.
-// Damn you unstoppable blocking reads!
-
-//Frankly I hate this fix. But I cant think of a better way of solving this
-// Other than bringing this structure into the terminal and having the terminal expose a "Raw" mode hmm
-type terminalWriter struct {
-	sync.Mutex
-
-	writer              io.Writer
-	term                *terminal.Terminal
-	enableWriteTermLine bool
-}
-
-func (dw *terminalWriter) Enable() {
-	dw.Lock()
-	defer dw.Unlock()
-
-	dw.enableWriteTermLine = true
-}
-
-func (dw *terminalWriter) Write(p []byte) (n int, err error) {
-	dw.Lock()
-	defer dw.Unlock()
-
-	n, err = dw.writer.Write(p)
-	if err != nil {
-		if dw.enableWriteTermLine {
-			dw.term.SetLine(p)
-		}
-		return
-	}
-
-	if n != len(p) {
-		return n, io.ErrShortWrite
-	}
-
-	return n, nil
-}
-
-func newTermMultiWriter(writer io.Writer, term *terminal.Terminal) *terminalWriter {
-
-	return &terminalWriter{writer: writer, term: term}
-}
-
-func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh.Channel, currentClientRequests <-chan *ssh.Request, rcfiles []string) error {
+func attachSession(newSession ssh.Channel, currentClientSession io.ReadWriter, currentClientRequests <-chan *ssh.Request, rcfiles []string) error {
 
 	finished := make(chan bool)
-	sm := newTermMultiWriter(newSession, term)
 
 	close := func() {
 		newSession.Close()
-		sm.Enable()      // This sucks... a lot. But cant think of a better way to do this
 		finished <- true // Stop the request passer on IO error
 	}
 
@@ -182,7 +147,7 @@ func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh
 
 	go func() {
 		//dst <- src
-		io.Copy(sm, currentClientSession)
+		io.Copy(newSession, currentClientSession)
 		once.Do(close)
 
 	}()
@@ -190,7 +155,7 @@ func attachSession(term *terminal.Terminal, newSession, currentClientSession ssh
 	for _, path := range rcfiles {
 		file, err := os.Open(path)
 		if err != nil {
-			fmt.Fprintf(term, "Unable to open rc file: %s\n", path)
+			fmt.Fprintf(currentClientSession, "Unable to open rc file: %s\n", path)
 			continue
 		}
 		defer file.Close()

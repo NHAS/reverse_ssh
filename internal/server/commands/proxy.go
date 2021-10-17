@@ -2,11 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
+	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
@@ -18,7 +18,7 @@ type proxy struct {
 	modeAutoComplete    *trie.Trie
 }
 
-func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
+func (p *proxy) Run(tty io.ReadWriter, args ...string) error {
 
 	if len(args) < 1 {
 		return fmt.Errorf(p.Help(false))
@@ -30,10 +30,10 @@ func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 			return fmt.Errorf("Disconnected")
 		}
 
-		fmt.Fprintf(term, "Connected to %s\n", p.currentlyConnected)
+		fmt.Fprintf(tty, "Connected to %s\n", p.currentlyConnected)
 
 	case "disconnect":
-		fmt.Fprintf(term, "Disconnected from %s\n", p.currentlyConnected)
+		fmt.Fprintf(tty, "Disconnected from %s\n", p.currentlyConnected)
 
 		p.user.ProxyConnection = nil
 		p.currentlyConnected = ""
@@ -53,7 +53,7 @@ func (p *proxy) Run(term *terminal.Terminal, args ...string) error {
 		p.user.ProxyConnection = controlClient
 		p.currentlyConnected = args[1]
 
-		fmt.Fprintf(term, "Connected: %s\n", p.currentlyConnected)
+		fmt.Fprintf(tty, "Connected: %s\n", p.currentlyConnected)
 	default:
 		return fmt.Errorf("Invalid subcommand %s", args[0])
 	}

@@ -6,9 +6,9 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/commands"
+	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
@@ -30,7 +30,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	term.AddCommand("ls", commands.List(controllableClients))
 	term.AddCommand("help", commands.Help())
 	term.AddCommand("exit", commands.Exit())
-	term.AddCommand("connect", commands.Connect(user, controllableClients, defaultHandle, log))
+	term.AddCommand("connect", commands.Connect(user, controllableClients, defaultHandle, log, term.EnableRaw, term.DisableRaw))
 	term.AddCommand("kill", commands.Kill(controllableClients, log))
 	term.AddCommand("rc", commands.RC(user, controllableClients))
 	term.AddCommand("proxy", commands.Proxy(user, controllableClients))

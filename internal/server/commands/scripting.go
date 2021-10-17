@@ -2,11 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
+	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
 
@@ -16,7 +16,7 @@ type scripting struct {
 	controllableClients *sync.Map
 }
 
-func (s *scripting) enable(term *terminal.Terminal, remoteid, rcfile string) error {
+func (s *scripting) enable(tty io.ReadWriter, remoteid, rcfile string) error {
 	if !internal.FileExists(rcfile) {
 		return fmt.Errorf("File %s does not exist", rcfile)
 	}
@@ -28,16 +28,16 @@ func (s *scripting) enable(term *terminal.Terminal, remoteid, rcfile string) err
 
 	for _, v := range currentHostRCFiles {
 		if v == rcfile {
-			fmt.Fprintf(term, "%s is already enabled for %s\n", rcfile, remoteid)
+			fmt.Fprintf(tty, "%s is already enabled for %s\n", rcfile, remoteid)
 			return nil // Already exists so just exit!
 		}
 	}
 
 	s.user.EnabledRcfiles[remoteid] = append(currentHostRCFiles, rcfile)
 
-	fmt.Fprintf(term, "Host %s rc files\n", remoteid)
+	fmt.Fprintf(tty, "Host %s rc files\n", remoteid)
 	for _, v := range s.user.EnabledRcfiles[remoteid] {
-		fmt.Fprintf(term, "\t%s\n", v)
+		fmt.Fprintf(tty, "\t%s\n", v)
 	}
 
 	return nil
@@ -69,7 +69,7 @@ func (s *scripting) disable(remoteid, rcfile string) error {
 
 }
 
-func (s *scripting) Run(term *terminal.Terminal, args ...string) error {
+func (s *scripting) Run(tty io.ReadWriter, args ...string) error {
 	if len(args) < 1 {
 		return fmt.Errorf(s.Help(false))
 	}
@@ -86,7 +86,7 @@ func (s *scripting) Run(term *terminal.Terminal, args ...string) error {
 		}
 
 		if args[0] == "enable" {
-			return s.enable(term, args[1], args[2])
+			return s.enable(tty, args[1], args[2])
 		}
 
 		if args[0] == "disable" {
@@ -102,16 +102,16 @@ func (s *scripting) Run(term *terminal.Terminal, args ...string) error {
 			}
 
 			for _, v := range rcfiles {
-				fmt.Fprintf(term, "%s\n", v)
+				fmt.Fprintf(tty, "%s\n", v)
 			}
 
 			return nil
 		}
 
 		for k, v := range s.user.EnabledRcfiles {
-			fmt.Fprintf(term, "%s\n", k)
+			fmt.Fprintf(tty, "%s\n", k)
 			for _, rcfile := range v {
-				fmt.Fprintf(term, "\t%s\n", rcfile)
+				fmt.Fprintf(tty, "\t%s\n", rcfile)
 			}
 		}
 

@@ -6,8 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal/commands/constants"
+	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -57,7 +56,7 @@ func killClient(controllableClients *sync.Map, k logger.Logger, id string) error
 	return err
 }
 
-func (k *kill) Run(term *terminal.Terminal, args ...string) error {
+func (k *kill) Run(tty io.ReadWriter, args ...string) error {
 
 	if len(args) != 1 {
 		return fmt.Errorf(k.Help(false))
