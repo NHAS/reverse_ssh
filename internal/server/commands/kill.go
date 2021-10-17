@@ -51,6 +51,7 @@ func killClient(controllableClients *sync.Map, k logger.Logger, id string) error
 	//If connection was closed, causing WantReply to fail
 	if err == io.EOF {
 		isClosed <- true
+		return fmt.Errorf("connection has been killed")
 	}
 
 	return err
@@ -74,9 +75,7 @@ func (k *kill) Run(tty io.ReadWriter, args ...string) error {
 		return fmt.Errorf("%d connections killed", killedClients)
 	}
 
-	killClient(k.controllableClients, k.log, args[0])
-
-	return fmt.Errorf("connection has been killed")
+	return killClient(k.controllableClients, k.log, args[0])
 }
 
 func (k *kill) Expect(sections []string) []string {

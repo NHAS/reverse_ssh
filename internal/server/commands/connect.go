@@ -26,6 +26,10 @@ type connect struct {
 }
 
 func (c *connect) Run(tty io.ReadWriter, args ...string) error {
+	if c.user.Pty == nil {
+		return fmt.Errorf("Connect requires a pty")
+	}
+
 	if len(args) != 1 {
 		return fmt.Errorf(c.Help(false))
 	}
@@ -41,8 +45,9 @@ func (c *connect) Run(tty io.ReadWriter, args ...string) error {
 
 		c.log.Info("Disconnected from remote host %s (%s)", controlClient.RemoteAddr(), controlClient.ClientVersion())
 
-		c.defaultHandle.Start() // Re-enable the default handler if the client isnt connected to a remote host
-
+		if c.defaultHandle != nil {
+			c.defaultHandle.Start() // Re-enable the default handler if the client isnt connected to a remote host
+		}
 	}()
 
 	//Attempt to connect to remote host and send inital pty request and screen size
@@ -54,7 +59,9 @@ func (c *connect) Run(tty io.ReadWriter, args ...string) error {
 		return err
 	}
 
-	c.defaultHandle.Stop()
+	if c.defaultHandle != nil {
+		c.defaultHandle.Stop()
+	}
 
 	c.log.Info("Connected to %s", controlClient.RemoteAddr().String())
 

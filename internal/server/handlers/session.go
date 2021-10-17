@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/commands"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
@@ -43,32 +45,42 @@ func Session(controllableClients *sync.Map, clientSysinfo map[string]string, aut
 				}
 
 				parts := strings.Split(command.Cmd, " ")
-				if len(parts) > 1 {
-					if parts[0] != "scp" {
-						log.Warning("Human client tried to execute something other than SCP: %s\n", parts[0])
+				if len(parts) > 0 {
+					c := commands.GetCommands(user, connection, requests, controllableClients, autoCompleteClients, log)
+
+					if m, ok := c[parts[0]]; ok {
+
+						req.Reply(true, nil)
+						err := m.Run(connection, parts[1:]...)
+						if err != nil {
+							fmt.Fprintf(connection, "%s", err.Error())
+						}
 						return
 					}
 
-					//Find what the target file path is, essentially ignore anything that is a flag '-t'
-					loc := -1
-					mode := ""
-					for i := 1; i < len(parts); i++ {
-						if mode == "" && (parts[i] == "-t" || parts[i] == "-f") {
-							mode = parts[i]
-							continue
+					if parts[0] == "scp" {
+
+						//Find what the target file path is, essentially ignore anything that is a flag '-t'
+						loc := -1
+						mode := ""
+						for i := 1; i < len(parts); i++ {
+							if mode == "" && (parts[i] == "-t" || parts[i] == "-f") {
+								mode = parts[i]
+								continue
+							}
+
+							if len(parts[i]) > 0 && parts[i][0] != '-' {
+								loc = i
+								break
+							}
 						}
 
-						if len(parts[i]) > 0 && parts[i][0] != '-' {
-							loc = i
-							break
+						if loc != -1 {
+							req.Reply(true, nil)
+							scp(connection, requests, mode, strings.Join(parts[loc:], " "), controllableClients)
 						}
+						return
 					}
-
-					if loc != -1 {
-						req.Reply(true, nil)
-						scp(connection, requests, mode, strings.Join(parts[loc:], " "), controllableClients)
-					}
-					return
 				}
 				req.Reply(false, nil)
 				return

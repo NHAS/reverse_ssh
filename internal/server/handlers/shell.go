@@ -26,7 +26,6 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	term.AddValueAutoComplete(constants.RemoteId, autoCompleteClients)
 
 	defaultHandle := commands.NewWindowSizeChangeHandler(user, term)
-
 	term.AddCommand("ls", commands.List(controllableClients))
 	term.AddCommand("help", commands.Help())
 	term.AddCommand("exit", commands.Exit())
