@@ -103,7 +103,7 @@ func Session(controllableClients *sync.Map, clientSysinfo map[string]string, aut
 					req.Reply(false, nil)
 					return
 				}
-
+				user.ShellRequests = requests
 				user.Pty = &pty
 
 				req.Reply(true, nil)

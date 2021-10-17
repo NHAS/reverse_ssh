@@ -16,9 +16,6 @@ import (
 
 func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, autoCompleteClients *trie.Trie, log logger.Logger) error {
 
-	user.ShellConnection = connection
-	user.ShellRequests = requests
-
 	term := terminal.NewAdvancedTerminal(connection, "catcher$ ")
 
 	term.SetSize(int(user.Pty.Columns), int(user.Pty.Rows))
@@ -26,6 +23,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	term.AddValueAutoComplete(constants.RemoteId, autoCompleteClients)
 
 	defaultHandle := commands.NewWindowSizeChangeHandler(user, term)
+
 	term.AddCommand("ls", commands.List(controllableClients))
 	term.AddCommand("help", commands.Help())
 	term.AddCommand("exit", commands.Exit())

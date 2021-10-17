@@ -18,8 +18,7 @@ type User struct {
 	ServerConnection ssh.Conn
 
 	//What the client input is currently being sent to
-	ShellConnection ssh.Channel
-	ShellRequests   <-chan *ssh.Request
+	ShellRequests <-chan *ssh.Request
 
 	ProxyConnection ssh.Conn
 
@@ -60,9 +59,6 @@ func RemoveUser(idStr string) {
 			us.ServerConnection.Close()
 		}
 
-		if us.ShellConnection != nil {
-			us.ShellConnection.Close()
-		}
 	}
 
 	delete(allUsers, idStr)
