@@ -15,6 +15,10 @@ type help struct {
 }
 
 func (h *help) Run(tty io.ReadWriter, args ...string) error {
+	if h.term == nil {
+		return fmt.Errorf("Help is only available from within pty")
+	}
+
 	if len(args) < 1 {
 
 		t, err := table.NewTable("Commands", "Function", "Purpose")
