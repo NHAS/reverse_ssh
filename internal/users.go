@@ -2,6 +2,7 @@ package internal
 
 import (
 	"errors"
+	"log"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -41,28 +42,44 @@ func EnableForwarding(dst string, sources ...string) error {
 	forwardRulesGuard.Lock()
 	defer forwardRulesGuard.Unlock()
 
-	u := allUsers[dst]
-	for _, rf := range u.SupportedRemoteForwards {
+	forwards := allUsers[dst].SupportedRemoteForwards
 
-		rules, ok := userToForwards[userIdStr]
+	log.Println(forwards, dst, sources)
+
+	for _, src := range sources {
+
+		s, ok := interfaces[src]
 		if !ok {
-			userToForwards[userIdStr] = append(userToForwards[userIdStr], rf)
-			return nil
-		}
-
-		if _, ok := forwardsToUser[rf]; ok {
-			return errors.New("Forward already exists in table")
-		}
-
-		forwardsToUser[rf] = userIdStr
-
-		for _, v := range rules {
-			if rf == v {
-				return nil // Already exists
+			s = interfaceRules{
+				make(map[RemoteForwardRequest]string),
+				make(map[string][]RemoteForwardRequest),
 			}
 		}
 
-		userToForwards[userIdStr] = append(userToForwards[userIdStr], rf)
+	Outer:
+		for _, rf := range forwards {
+
+			if _, ok := s.forwardsToUser[rf]; ok {
+				return errors.New("Forward already exists in table")
+			}
+			s.forwardsToUser[rf] = dst
+
+			rules, ok := s.userToForwards[dst]
+			if !ok {
+				s.userToForwards[dst] = append(s.userToForwards[dst], rf)
+				continue
+			}
+
+			for _, v := range rules {
+				if rf == v {
+					continue Outer
+				}
+			}
+
+			s.userToForwards[dst] = append(s.userToForwards[dst], rf)
+		}
+
+		interfaces[src] = s
 	}
 
 	return nil
@@ -74,8 +91,10 @@ func GetDestination(target string, rf RemoteForwardRequest) (ssh.Conn, error) {
 
 	ir, ok := interfaces[target]
 	if !ok {
-		return nil, errors.New("Could not find target: " + target)
+		ir, ok = interfaces["all"] // ALl is essentially a default path
 	}
+
+	log.Println("IR: ", ir, "forwards to user: '", ir.forwardsToUser, "' userToForwards: '", ir.userToForwards, "'")
 
 	idStr, ok := ir.forwardsToUser[rf]
 	if !ok {
@@ -129,10 +148,4 @@ func RemoveUser(idStr string) {
 
 	delete(allUsers, idStr)
 
-	if rf, ok := userToForwards[idStr]; ok {
-		for _, v := range rf {
-			delete(forwardsToUser, v)
-		}
-		delete(userToForwards, idStr)
-	}
 }

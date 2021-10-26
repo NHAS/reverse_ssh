@@ -24,6 +24,8 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 
 	if args[0] == "all" {
 
+		internal.EnableForwarding(rf.user.IdString, "all")
+
 		rf.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
 			id := idStr.(string)
 			cc, ok := rf.controllableClients.Load(id)
@@ -37,7 +39,9 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 				_, _, err := clientConnection.SendRequest("tcpip-forward", true, ssh.Marshal(&forward))
 				if err != nil {
 					fmt.Fprintf(tty, "Unable to start remote forward on %s:%s:%d because %s", id, forward.BindAddr, forward.BindPort, err.Error())
+					continue
 				}
+
 			}
 
 			return true
@@ -62,7 +66,7 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 		}
 	}
 
-	internal.EnableForwarding(rf.user.IdString)
+	internal.EnableForwarding(rf.user.IdString, args...)
 
 	return nil
 }

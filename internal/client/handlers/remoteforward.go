@@ -65,6 +65,8 @@ func StartRemoteForward(r *ssh.Request, sshConn ssh.Conn) {
 }
 
 func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh.Conn) error {
+	defer proxyCon.Close()
+
 	log.Println("Accepted new connection: ", proxyCon.RemoteAddr())
 
 	originatorAddress := proxyCon.LocalAddr().String()
@@ -112,8 +114,6 @@ func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh
 
 		io.Copy(destination, proxyCon)
 	}()
-
-	defer proxyCon.Close()
 
 	_, err = io.Copy(proxyCon, destination)
 	return err

@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -22,6 +23,8 @@ func RegisterRemoteForwardRequest(r *ssh.Request, user *internal.User) {
 		r.Reply(false, []byte("Binding to next avaliable port is not supported sorry!"))
 		return
 	}
+
+	log.Println("adding: ", rf)
 
 	user.SupportedRemoteForwards = append(user.SupportedRemoteForwards, rf)
 
@@ -51,6 +54,8 @@ func remoteForward(targetId string, newChannel ssh.NewChannel, log logger.Logger
 		newChannel.Reject(ssh.ConnectionFailed, err.Error())
 		return
 	}
+
+	log.Warning("Wat: ", dest)
 
 	newChan, reqs, err := dest.OpenChannel(newChannel.ChannelType(), remotePorts)
 	if err != nil {
