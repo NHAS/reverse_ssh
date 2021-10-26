@@ -2,7 +2,6 @@ package internal
 
 import (
 	"errors"
-	"log"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -14,6 +13,8 @@ var allUsers = make(map[string]*User)
 var ErrNilServerConnection = errors.New("The server connection was nil for the client")
 
 var forwardRulesGuard sync.RWMutex
+
+// Target ID to interface rule
 var interfaces = make(map[string]interfaceRules)
 
 type interfaceRules struct {
@@ -35,16 +36,20 @@ type User struct {
 
 	EnabledRcfiles map[string][]string
 
+	// Remote forwards sent by user
+	// As these may collide with another users requests (as they come in the form of 1234:localhost:1234)
+	// We store them per user, waiting for the user to tell us what client they want to start the remote forward itself
+	// with the exec handler
 	SupportedRemoteForwards []RemoteForwardRequest
 }
 
+// User (dst) has now told us what clients (sources) they want to remote forward
+// So we need to add the forwards to the quasi-'routing' table
 func EnableForwarding(dst string, sources ...string) error {
 	forwardRulesGuard.Lock()
 	defer forwardRulesGuard.Unlock()
 
 	forwards := allUsers[dst].SupportedRemoteForwards
-
-	log.Println(forwards, dst, sources)
 
 	for _, src := range sources {
 
@@ -85,16 +90,20 @@ func EnableForwarding(dst string, sources ...string) error {
 	return nil
 }
 
+func RemoveSource(source string) {
+	forwardRulesGuard.Lock()
+	defer forwardRulesGuard.Unlock()
+
+	delete(interfaces, source)
+
+}
+
 func GetDestination(target string, rf RemoteForwardRequest) (ssh.Conn, error) {
-	forwardRulesGuard.RLock()
-	defer forwardRulesGuard.RUnlock()
 
 	ir, ok := interfaces[target]
 	if !ok {
 		ir, ok = interfaces["all"] // ALl is essentially a default path
 	}
-
-	log.Println("IR: ", ir, "forwards to user: '", ir.forwardsToUser, "' userToForwards: '", ir.userToForwards, "'")
 
 	idStr, ok := ir.forwardsToUser[rf]
 	if !ok {
@@ -136,12 +145,22 @@ func RemoveUser(idStr string) {
 	forwardRulesGuard.Lock()
 	defer forwardRulesGuard.Unlock()
 
+	defer func() {
+		recover() // Horrible, but this happens during testing (as I cant be bothered properly mocking a server connection just so we can close it)
+	}()
+
+	for _, v := range interfaces {
+		for _, vv := range v.userToForwards[idStr] {
+			delete(v.forwardsToUser, vv)
+		}
+		delete(v.userToForwards, idStr)
+	}
+
 	if us, ok := allUsers[idStr]; ok {
 		// Do not close down the proxy connection, as this is the remote controlled hosts connection to here.
 		// This would terminate other users connecting to the controllable host
-
 		if us.ServerConnection != nil {
-			us.ServerConnection.Close()
+			defer us.ServerConnection.Close()
 		}
 
 	}

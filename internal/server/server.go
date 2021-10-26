@@ -252,8 +252,10 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			}
 
 			clientLog.Info("SSH client disconnected")
+			//Todo make less bad
 			controllableClients.Delete(s)
-			autoCompleteClients.Remove(idString)
+			autoCompleteClients.Remove(s)
+			internal.RemoveSource(s)
 		}(idString)
 
 	case "proxy":
