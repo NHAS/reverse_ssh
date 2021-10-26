@@ -1,7 +1,7 @@
 //go:build windows
 // +build windows
 
-package client
+package handlers
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ import (
 )
 
 //The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
-func shellChannel(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+func Shell(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	// At this point, we have the opportunity to reject the client's.
 	// request for another logical connection

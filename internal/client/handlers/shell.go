@@ -1,12 +1,16 @@
+//go:build !windows
 // +build !windows
 
-package client
+package handlers
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -16,8 +20,49 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var shells []string
+
+func init() {
+
+	file, err := os.Open("/etc/shells")
+	if err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			if len(line) > 0 && line[0] == '#' || strings.TrimSpace(line) == "" {
+				continue
+			}
+			shells = append(shells, strings.TrimSpace(line))
+		}
+	} else {
+		shells = []string{
+			"/bin/bash",
+			"/bin/sh",
+			"/bin/zsh",
+			"/bin/ash",
+		}
+
+	}
+
+	log.Println("Detected Shells: ")
+	for _, s := range shells {
+
+		if stats, err := os.Stat(s); err != nil && (os.IsNotExist(err) || !stats.IsDir()) {
+
+			fmt.Printf("Rejecting Shell: '%s' Reason: %v\n", s, err)
+			continue
+
+		}
+		shells = append(shells, s)
+		fmt.Println("\t\t", s)
+	}
+
+}
+
 //This basically handles exactly like a SSH server would
-func shellChannel(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+func Shell(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection

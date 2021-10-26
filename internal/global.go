@@ -16,6 +16,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type RemoteForwardRequest struct {
+	BindAddr string
+	BindPort uint32
+}
+
 type ChannelOpenDirectMsg struct {
 	Raddr string
 	Rport uint32
@@ -100,8 +105,6 @@ func RegisterChannelCallbacks(user *User, chans <-chan ssh.NewChannel, log logge
 		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
 		log.Warning("Sent an invalid channel type %q", t)
 	}
-
-	RemoveUser(user.IdString)
 
 	return fmt.Errorf("connection terminated")
 }

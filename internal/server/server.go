@@ -203,21 +203,44 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			return
 		}
 
-		// Since we're handling a shell and dynamic forward, so we expect
-		// channel type of "session" or "direct-tcpip".
-		go internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
-			"session":      handlers.Session(&controllableClients, clientSysInfo, autoCompleteClients),
-			"direct-tcpip": handlers.Proxy,
-		})
+		// Since we're handling a shell, local and remote forward, so we expect
+		// channel type of "session" or "direct-tcpip", "forwarded-tcpip" respectively.
+		go func() {
+			internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
+				"session":      handlers.Session(&controllableClients, clientSysInfo, autoCompleteClients),
+				"direct-tcpip": handlers.LocalForward,
+			})
 
-		// Discard all global out-of-band Requests
-		go ssh.DiscardRequests(reqs)
+			internal.RemoveUser(user.IdString)
+		}()
+
+		// Discard all global out-of-band Requests, except for the tcpip-forward
+		go func(in <-chan *ssh.Request) {
+			for req := range in {
+
+				switch req.Type {
+				case "tcpip-forward":
+					handlers.RegisterRemoteForwardRequest(req, user)
+
+				default:
+					if req.WantReply {
+						req.Reply(false, nil)
+					}
+
+				}
+
+			}
+		}(reqs)
 	case "client":
 		idString := createIdString(sshConn)
 
 		autoCompleteClients.Add(idString)
 
 		controllableClients.Store(idString, sshConn)
+
+		go internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]internal.ChannelHandler{
+			"forwarded-tcpip": handlers.RemoteForward(idString),
+		})
 
 		go func(s string) {
 			for req := range reqs {
@@ -237,7 +260,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 		// Proxy is a special case, we dont want the client to have access to control elements, but want a port to be able to be opened.
 		// I would have liked to wrap this into the callbacks register, however this has different requirements to the channel handlers.
 		go internal.DiscardChannels(sshConn, chans, clientLog)
-		go handlers.RemoteForward(sshConn, reqs)
+		//go handlers.RemoteForward(sshConn, reqs)
 
 	default:
 		sshConn.Close()

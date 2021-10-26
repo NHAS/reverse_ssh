@@ -1,4 +1,4 @@
-package client
+package handlers
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func proxyChannel(user *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
+func Proxy(user *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
 	a := newChannel.ExtraData()
 
 	var drtMsg internal.ChannelOpenDirectMsg

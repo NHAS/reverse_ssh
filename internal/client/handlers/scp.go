@@ -1,4 +1,4 @@
-package client
+package handlers
 
 import (
 	"bufio"
@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func scpChannel(user *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
+func Scp(user *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
 		l.Warning("Could not accept channel (%s)\n", err)

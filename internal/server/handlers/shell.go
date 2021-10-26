@@ -31,6 +31,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	term.AddCommand("kill", commands.Kill(controllableClients, log))
 	term.AddCommand("rc", commands.RC(user, controllableClients))
 	term.AddCommand("proxy", commands.Proxy(user, controllableClients))
+	term.AddCommand("rforward", commands.RemoteForward(user, controllableClients, log))
 
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
 	// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect

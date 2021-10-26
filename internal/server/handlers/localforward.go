@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func Proxy(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+func LocalForward(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	if user.ProxyConnection == nil {
 		newChannel.Reject(ssh.Prohibited, "no remote location to forward traffic to")
