@@ -22,31 +22,20 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 		return fmt.Errorf(rf.Help(false))
 	}
 
+	targets := args
 	if args[0] == "all" {
 
-		internal.EnableForwarding(rf.user.IdString, "all")
-
+		targets = []string{}
 		rf.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
 			id := idStr.(string)
-			cc, _ := rf.controllableClients.Load(id)
-
-			clientConnection := cc.(ssh.Conn)
-
-			for forward, _ := range rf.user.SupportedRemoteForwards {
-				_, _, err := clientConnection.SendRequest("tcpip-forward", true, ssh.Marshal(&forward))
-				if err != nil {
-					fmt.Fprintf(tty, "Unable to start remote forward on %s:%s:%d because %s", id, forward.BindAddr, forward.BindPort, err.Error())
-					continue
-				}
-
-			}
-
+			targets = append(targets, id)
 			return true
 		})
-		return fmt.Errorf(" connections killed")
 	}
 
-	for _, id := range args {
+	failed := []string{}
+
+	for _, id := range targets {
 
 		cc, ok := rf.controllableClients.Load(id)
 		if !ok {
@@ -57,16 +46,28 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 		clientConnection := cc.(ssh.Conn)
 
 		for forward, _ := range rf.user.SupportedRemoteForwards {
-			_, _, err := clientConnection.SendRequest("tcpip-forward", true, ssh.Marshal(&forward))
-			if err != nil {
-				fmt.Fprintf(tty, "Unable to start remote forward on %s:%s:%d because %s", id, forward.BindAddr, forward.BindPort, err.Error())
+			ok, res, err := clientConnection.SendRequest("tcpip-forward", true, ssh.Marshal(&forward))
+			if err != nil || !ok {
+
+				reason := string(res)
+				if err != nil {
+					reason = err.Error()
+				}
+
+				failed = append(failed, fmt.Sprintf("%s:%d : Error %s", forward.BindAddr, forward.BindPort, reason))
 			}
 		}
+
 	}
 
-	internal.EnableForwarding(rf.user.IdString, args...)
+	userRemoteForwards := len(rf.user.SupportedRemoteForwards)
 
-	return nil
+	fmt.Fprintf(tty, "Requested %d/%d forward/s successfully!\n", userRemoteForwards-len(failed), userRemoteForwards)
+	for _, v := range failed {
+		fmt.Fprintf(tty, "\t%s\n", v)
+	}
+
+	return internal.EnableForwarding(rf.user.IdString, args...)
 }
 
 func (rf *remoteForward) Expect(sections []string) []string {

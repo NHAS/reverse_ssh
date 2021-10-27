@@ -2,6 +2,7 @@ package internal
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -68,7 +69,7 @@ func EnableForwarding(dst string, sources ...string) error {
 		for rf := range forwards {
 
 			if _, ok := s.forwardsToUser[rf]; ok {
-				return errors.New("Forward already exists in table")
+				return fmt.Errorf("Forward %v already exists in table", rf)
 			}
 			s.forwardsToUser[rf] = dst
 			s.userToForwards[dst][rf] = true
