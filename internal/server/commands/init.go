@@ -6,11 +6,10 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
-	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
 
-func GetCommands(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, autoCompleteClients *trie.Trie, log logger.Logger) map[string]terminal.Command {
+func GetCommands(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, log logger.Logger) map[string]terminal.Command {
 
 	o := make(map[string]terminal.Command)
 
