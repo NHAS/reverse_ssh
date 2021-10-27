@@ -11,7 +11,29 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var CurrentRemoteForwards = map[string]net.Listener{}
+var currentRemoteForwards = map[internal.RemoteForwardRequest]net.Listener{}
+
+func StopRemoteForward(r *ssh.Request) {
+	var rf internal.RemoteForwardRequest
+
+	err := ssh.Unmarshal(r.Payload, &rf)
+	if err != nil {
+		r.Reply(false, []byte(fmt.Sprintf("Unable to unmarshal remote forward request in order to stop it: %s", err.Error())))
+		return
+	}
+
+	if _, ok := currentRemoteForwards[rf]; !ok {
+		r.Reply(false, []byte(fmt.Sprintf("Unable to find remote forward request")))
+
+		return
+	}
+
+	r.Reply(true, nil)
+	currentRemoteForwards[rf].Close()
+	delete(currentRemoteForwards, rf)
+
+	log.Println("Closed remote forward")
+}
 
 func StartRemoteForward(r *ssh.Request, sshConn ssh.Conn) {
 
@@ -19,18 +41,11 @@ func StartRemoteForward(r *ssh.Request, sshConn ssh.Conn) {
 
 	err := ssh.Unmarshal(r.Payload, &rf)
 	if err != nil {
-		log.Println(err)
 		r.Reply(false, []byte(fmt.Sprintf("Unable to open remote forward: %s", err.Error())))
 		return
 	}
 
-	address := fmt.Sprintf("%s:%d", rf.BindAddr, rf.BindPort)
-
-	if _, ok := CurrentRemoteForwards[address]; ok && rf.BindPort != 0 {
-		r.Reply(true, nil)
-	}
-
-	l, err := net.Listen("tcp", address)
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", rf.BindAddr, rf.BindPort))
 	if err != nil {
 		log.Println(err)
 		r.Reply(false, []byte(fmt.Sprintf("Unable to open remote forward: %s", err.Error())))
@@ -47,11 +62,9 @@ func StartRemoteForward(r *ssh.Request, sshConn ssh.Conn) {
 	}
 	r.Reply(true, responseData)
 
-	address = fmt.Sprintf("%s:%d", rf.BindAddr, rf.BindPort)
+	log.Println("Started listening on: ", l.Addr())
 
-	log.Println("Started listening on: ", address)
-
-	CurrentRemoteForwards[address] = l
+	currentRemoteForwards[rf] = l
 
 	for {
 

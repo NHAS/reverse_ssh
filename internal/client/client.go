@@ -164,6 +164,8 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 				switch r.Type {
 				case "tcpip-forward":
 					go handlers.StartRemoteForward(r, sshConn)
+				case "cancel-tcpip-forward":
+					go handlers.StopRemoteForward(r)
 				case "kill":
 					l.Info("Kill command sent, dying")
 					os.Exit(0)
