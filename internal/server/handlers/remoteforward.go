@@ -54,9 +54,11 @@ func remoteForward(targetId string, newChannel ssh.NewChannel, log logger.Logger
 
 	newChan, reqs, err := dest.OpenChannel(newChannel.ChannelType(), remotePorts)
 	if err != nil {
+
 		newChannel.Reject(ssh.ResourceShortage, err.Error())
 		return
 	}
+	defer newChan.Close()
 
 	go ssh.DiscardRequests(reqs)
 
