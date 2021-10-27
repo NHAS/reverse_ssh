@@ -20,7 +20,7 @@ var allCommands = map[string]terminal.Command{
 	"rforward": &remoteForward{},
 }
 
-func GetCommands(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, log logger.Logger) map[string]terminal.Command {
+func CreateCommands(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, log logger.Logger) map[string]terminal.Command {
 
 	var o = map[string]terminal.Command{
 		"ls":       List(controllableClients),

@@ -403,17 +403,15 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 	return utf8.RuneError, b
 }
 
-func (t *Terminal) AddCommand(name string, command Command) error {
+func (t *Terminal) AddCommands(m map[string]Command) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	if _, ok := t.functions[name]; ok {
-		return ErrTrample
+	t.functions = m
+
+	for k := range t.functions {
+		t.functionsAutoComplete.Add(k)
 	}
-
-	t.functionsAutoComplete.Add(name)
-
-	t.functions[name] = command
 
 	return nil
 }

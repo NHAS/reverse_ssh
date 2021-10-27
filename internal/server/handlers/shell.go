@@ -24,21 +24,16 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 
 	defaultHandle := commands.NewWindowSizeChangeHandler(user, term)
 
-	term.AddCommand("ls", commands.List(controllableClients))
-	term.AddCommand("help", commands.Help())
-	term.AddCommand("exit", commands.Exit())
-	term.AddCommand("connect", commands.Connect(user, controllableClients, defaultHandle, log, term.EnableRaw, term.DisableRaw))
-	term.AddCommand("kill", commands.Kill(controllableClients, log))
-	term.AddCommand("rc", commands.RC(user, controllableClients))
-	term.AddCommand("proxy", commands.Proxy(user, controllableClients))
-	term.AddCommand("rforward", commands.RemoteForward(user, controllableClients, log))
+	m := commands.CreateCommands(user, connection, requests, controllableClients, log)
+
+	//Connect needs some extra love to work with terminal (due to some language level bugs, so until I think of a better way of doing commands)
+	m["connect"] = commands.Connect(user, controllableClients, defaultHandle, log, term.EnableRaw, term.DisableRaw)
+
+	term.AddCommands(m)
 
 	// Sessions have out-of-band requests such as "shell", "pty-req" and "env"
 	// While we arent passing the requests directly to the remote host consume them with our terminal and store the results to send initialy to the remote on client connect
 	defaultHandle.Start()
-
-	//Send list of controllable remote hosts to human client
-	commands.List(controllableClients).Run(term)
 
 	//Blocking function to handle all the human function calls. Will return io.EOF on exit, otherwise an error is passed up we cant deal with
 	err := term.Run()
