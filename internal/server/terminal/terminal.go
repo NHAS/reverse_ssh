@@ -418,27 +418,6 @@ func (t *Terminal) AddCommand(name string, command Command) error {
 	return nil
 }
 
-func (t *Terminal) GetHelpList() (out map[string]func(t bool) string) {
-
-	out = make(map[string]func(t bool) string)
-
-	for v, k := range t.functions {
-		out[v] = k.Help
-	}
-
-	return
-}
-
-func (t *Terminal) GetHelp(functionName string) (hf func(t bool) string, err error) {
-	f, ok := t.functions[functionName]
-	if !ok {
-		return hf, errors.New("No function by that name")
-	}
-	hf = f.Help
-
-	return
-}
-
 func (t *Terminal) Run() error {
 	for {
 		//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead

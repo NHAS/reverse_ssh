@@ -6,19 +6,13 @@ import (
 	"sort"
 
 	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 )
 
 type help struct {
-	term *terminal.Terminal
 }
 
 func (h *help) Run(tty io.ReadWriter, args ...string) error {
-	if h.term == nil {
-		return fmt.Errorf("Help is only available from within pty")
-	}
-
 	if len(args) < 1 {
 
 		t, err := table.NewTable("Commands", "Function", "Purpose")
@@ -27,17 +21,14 @@ func (h *help) Run(tty io.ReadWriter, args ...string) error {
 		}
 
 		keys := []string{}
-		for funcName := range h.term.GetHelpList() {
+		for funcName := range allCommands {
 			keys = append(keys, funcName)
 		}
 
 		sort.Strings(keys)
 
 		for _, k := range keys {
-			hf, err := h.term.GetHelp(k)
-			if err != nil {
-				return err
-			}
+			hf := allCommands[k].Help
 
 			err = t.AddValues(k, hf(true))
 			if err != nil {
@@ -50,14 +41,14 @@ func (h *help) Run(tty io.ReadWriter, args ...string) error {
 		return nil
 	}
 
-	hf, err := h.term.GetHelp(args[0])
-	if err != nil {
-		return err
+	l, ok := allCommands[args[0]]
+	if !ok {
+		return fmt.Errorf("Command %s not found", args[0])
 	}
 
-	fmt.Fprintf(tty, "\ndescription:\n%s\n", hf(true))
+	fmt.Fprintf(tty, "\ndescription:\n%s\n", l.Help(true))
 
-	fmt.Fprintf(tty, "\nusage:\n%s\n", hf(false))
+	fmt.Fprintf(tty, "\nusage:\n%s\n", l.Help(false))
 
 	return nil
 }
