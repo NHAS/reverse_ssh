@@ -28,10 +28,7 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 
 		rf.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
 			id := idStr.(string)
-			cc, ok := rf.controllableClients.Load(id)
-			if !ok {
-				fmt.Fprintf(tty, "Unknown client %s", id)
-			}
+			cc, _ := rf.controllableClients.Load(id)
 
 			clientConnection := cc.(ssh.Conn)
 
@@ -54,6 +51,7 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 		cc, ok := rf.controllableClients.Load(id)
 		if !ok {
 			fmt.Fprintf(tty, "Unknown client %s", id)
+			continue
 		}
 
 		clientConnection := cc.(ssh.Conn)
