@@ -151,3 +151,29 @@ func TestTargetLeft(t *testing.T) {
 		t.Fatal("Source should be removed")
 	}
 }
+
+func TestRemoveForward(t *testing.T) {
+	conn := ssh.ServerConn{}
+	u, err := AddUser("testRemoveForward", conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	u.SupportedRemoteForwards[RemoteForwardRequest{"localhost", 1222}] = true
+	u.SupportedRemoteForwards[RemoteForwardRequest{"localhost", 1223}] = true
+
+	err = EnableForwarding(u.IdString, "3")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = EnableForwarding(u.IdString, "5")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tc := RemoveFoward(RemoteForwardRequest{"localhost", 1222}, u)
+	if len(tc) != 2 {
+		t.Fatalf("Should have closed forward on 5 and 3, but tc length was %d", len(tc))
+	}
+}
