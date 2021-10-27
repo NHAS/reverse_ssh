@@ -22,7 +22,7 @@ func constructRoutes() error {
 		for ii := 0; ii < 10; ii++ {
 
 			l := RemoteForwardRequest{"localhost", uint32(ii)}
-			u.SupportedRemoteForwards = append(u.SupportedRemoteForwards, l)
+			u.SupportedRemoteForwards[l] = true
 		}
 
 		if i%2 == 0 {
@@ -63,7 +63,7 @@ func TestRouteCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	u.SupportedRemoteForwards = []RemoteForwardRequest{{"localhost", 1}}
+	u.SupportedRemoteForwards[RemoteForwardRequest{"localhost", 1}] = true
 
 	err = EnableForwarding("testCollisionUser", "0")
 	if err == nil {
@@ -111,14 +111,16 @@ func TestUserLeft(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	u.SupportedRemoteForwards = []RemoteForwardRequest{{"localhost", 1222}}
+	rf := RemoteForwardRequest{"localhost", 1222}
+
+	u.SupportedRemoteForwards[rf] = true
 
 	err = EnableForwarding(u.IdString, "3")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	m, err := GetDestination("3", u.SupportedRemoteForwards[0])
+	m, err := GetDestination("3", rf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +131,7 @@ func TestUserLeft(t *testing.T) {
 
 	RemoveUser(u.IdString)
 
-	_, err = GetDestination("3", u.SupportedRemoteForwards[0])
+	_, err = GetDestination("3", rf)
 	if err == nil {
 		t.Fatal("Should fail as user is no longer avaiable as destination")
 	}

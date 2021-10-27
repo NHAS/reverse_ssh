@@ -19,7 +19,7 @@ var interfaces = make(map[string]interfaceRules)
 
 type interfaceRules struct {
 	forwardsToUser map[RemoteForwardRequest]string
-	userToForwards map[string][]RemoteForwardRequest
+	userToForwards map[string]map[RemoteForwardRequest]bool
 }
 
 type User struct {
@@ -40,7 +40,7 @@ type User struct {
 	// As these may collide with another users requests (as they come in the form of 1234:localhost:1234)
 	// We store them per user, waiting for the user to tell us what client they want to start the remote forward itself
 	// with the exec handler
-	SupportedRemoteForwards []RemoteForwardRequest
+	SupportedRemoteForwards map[RemoteForwardRequest]bool //(set)
 }
 
 // User (dst) has now told us what clients (sources) they want to remote forward
@@ -56,38 +56,51 @@ func EnableForwarding(dst string, sources ...string) error {
 		s, ok := interfaces[src]
 		if !ok {
 			s = interfaceRules{
-				make(map[RemoteForwardRequest]string),
-				make(map[string][]RemoteForwardRequest),
+				forwardsToUser: make(map[RemoteForwardRequest]string),
+				userToForwards: make(map[string]map[RemoteForwardRequest]bool),
 			}
 		}
 
-	Outer:
-		for _, rf := range forwards {
+		if _, ok := s.userToForwards[dst]; !ok {
+			s.userToForwards[dst] = make(map[RemoteForwardRequest]bool)
+		}
+
+		for rf := range forwards {
 
 			if _, ok := s.forwardsToUser[rf]; ok {
 				return errors.New("Forward already exists in table")
 			}
 			s.forwardsToUser[rf] = dst
-
-			rules, ok := s.userToForwards[dst]
-			if !ok {
-				s.userToForwards[dst] = append(s.userToForwards[dst], rf)
-				continue
-			}
-
-			for _, v := range rules {
-				if rf == v {
-					continue Outer
-				}
-			}
-
-			s.userToForwards[dst] = append(s.userToForwards[dst], rf)
+			s.userToForwards[dst][rf] = true
 		}
 
 		interfaces[src] = s
 	}
 
 	return nil
+}
+
+func RemoveFoward(rf RemoteForwardRequest, user *User) (toClosed []string) {
+
+	forwardRulesGuard.Lock()
+	defer forwardRulesGuard.Unlock()
+
+	delete(user.SupportedRemoteForwards, rf)
+
+	for key, value := range interfaces {
+		if userId, ok := value.forwardsToUser[rf]; ok && userId == user.IdString {
+			delete(value.forwardsToUser, rf)
+			delete(value.userToForwards[userId], rf)
+
+			if len(value.userToForwards[userId]) == 0 {
+				delete(value.userToForwards, userId)
+			}
+
+			toClosed = append(toClosed, key)
+		}
+
+	}
+	return
 }
 
 func RemoveSource(source string) {
@@ -128,9 +141,10 @@ func AddUser(idStr string, ServerConnection ssh.Conn) (us *User, err error) {
 	}
 
 	us = &User{
-		IdString:         idStr,
-		ServerConnection: ServerConnection,
-		EnabledRcfiles:   make(map[string][]string),
+		IdString:                idStr,
+		ServerConnection:        ServerConnection,
+		EnabledRcfiles:          make(map[string][]string),
+		SupportedRemoteForwards: make(map[RemoteForwardRequest]bool),
 	}
 
 	allUsers[idStr] = us
@@ -142,21 +156,16 @@ func RemoveUser(idStr string) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	forwardRulesGuard.Lock()
-	defer forwardRulesGuard.Unlock()
-
 	defer func() {
 		recover() // Horrible, but this happens during testing (as I cant be bothered properly mocking a server connection just so we can close it)
 	}()
 
-	for _, v := range interfaces {
-		for _, vv := range v.userToForwards[idStr] {
-			delete(v.forwardsToUser, vv)
-		}
-		delete(v.userToForwards, idStr)
-	}
-
 	if us, ok := allUsers[idStr]; ok {
+
+		for k := range us.SupportedRemoteForwards {
+			RemoveFoward(k, us)
+		}
+
 		// Do not close down the proxy connection, as this is the remote controlled hosts connection to here.
 		// This would terminate other users connecting to the controllable host
 		if us.ServerConnection != nil {

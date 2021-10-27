@@ -23,7 +23,7 @@ func RegisterRemoteForwardRequest(r *ssh.Request, user *internal.User) {
 		return
 	}
 
-	user.SupportedRemoteForwards = append(user.SupportedRemoteForwards, rf)
+	user.SupportedRemoteForwards[rf] = true
 
 	r.Reply(true, nil)
 }

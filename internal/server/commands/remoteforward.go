@@ -35,7 +35,7 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 
 			clientConnection := cc.(ssh.Conn)
 
-			for _, forward := range rf.user.SupportedRemoteForwards {
+			for forward, _ := range rf.user.SupportedRemoteForwards {
 				_, _, err := clientConnection.SendRequest("tcpip-forward", true, ssh.Marshal(&forward))
 				if err != nil {
 					fmt.Fprintf(tty, "Unable to start remote forward on %s:%s:%d because %s", id, forward.BindAddr, forward.BindPort, err.Error())
@@ -58,7 +58,7 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 
 		clientConnection := cc.(ssh.Conn)
 
-		for _, forward := range rf.user.SupportedRemoteForwards {
+		for forward, _ := range rf.user.SupportedRemoteForwards {
 			_, _, err := clientConnection.SendRequest("tcpip-forward", true, ssh.Marshal(&forward))
 			if err != nil {
 				fmt.Fprintf(tty, "Unable to start remote forward on %s:%s:%d because %s", id, forward.BindAddr, forward.BindPort, err.Error())
