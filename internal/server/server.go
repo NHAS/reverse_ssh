@@ -220,9 +220,37 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 
 				switch req.Type {
 				case "tcpip-forward":
-					handlers.RegisterRemoteForwardRequest(req, user)
+					go handlers.RegisterRemoteForwardRequest(req, user)
+
+				case "cancel-tcpip-forward":
+
+					go func() {
+
+						var rf internal.RemoteForwardRequest
+						err = ssh.Unmarshal(req.Payload, &rf)
+						if err != nil {
+							req.Reply(false, nil)
+							return
+						}
+
+						toClose := internal.RemoveFoward(rf, user)
+
+						for _, id := range toClose {
+							cc, ok := controllableClients.Load(id)
+							if !ok {
+								continue
+							}
+
+							clientConnection := cc.(ssh.Conn)
+
+							clientConnection.SendRequest("cancel-tcpip-forward", true, ssh.Marshal(&rf))
+						}
+
+						clientLog.Info("Client just closed remote forwarding for %v", toClose)
+					}()
 
 				default:
+					clientLog.Warning("Unhandled request %s", req.Type)
 					if req.WantReply {
 						req.Reply(false, nil)
 					}
