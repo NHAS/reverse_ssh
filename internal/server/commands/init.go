@@ -21,6 +21,7 @@ func GetCommands(user *internal.User, connection ssh.Channel, requests <-chan *s
 	o["kill"] = Kill(controllableClients, log)
 	o["rc"] = RC(user, controllableClients)
 	o["proxy"] = Proxy(user, controllableClients)
+	o["rforward"] = RemoteForward(user, controllableClients, log)
 
 	return o
 }
