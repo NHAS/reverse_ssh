@@ -45,7 +45,7 @@ func (rf *remoteForward) Run(tty io.ReadWriter, args ...string) error {
 
 		clientConnection := cc.(ssh.Conn)
 
-		for forward, _ := range rf.user.SupportedRemoteForwards {
+		for forward := range rf.user.SupportedRemoteForwards {
 			ok, res, err := clientConnection.SendRequest("tcpip-forward", true, ssh.Marshal(&forward))
 			if err != nil || !ok {
 
