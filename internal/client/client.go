@@ -144,7 +144,23 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		}
 		defer sshConn.Close()
 
-		go ssh.DiscardRequests(reqs)
+		go func() {
+			for req := range reqs {
+
+				switch req.Type {
+
+				case "kill":
+					log.Println("Got kill command, goodbye")
+					os.Exit(0)
+
+				default:
+					if req.WantReply {
+						req.Reply(false, nil)
+					}
+				}
+
+			}
+		}()
 
 		for newChannel := range chans {
 			if newChannel.ChannelType() != "jump" {

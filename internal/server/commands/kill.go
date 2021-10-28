@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"time"
 
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
@@ -24,36 +23,9 @@ func killClient(controllableClients *sync.Map, k logger.Logger, id string) error
 
 	controlClient := cc.(ssh.Conn)
 
-	isClosed := make(chan bool, 1)
+	controlClient.SendRequest("kill", false, nil)
 
-	//Essentially a timeout function for killing the client.
-	go func(conn ssh.Conn) {
-		//Just in case a malicious client is told to die, then exactly times a 5 second wait inorder to force double close.
-		//Frankly, such a small chance of this happening. But meh
-		defer func() {
-			if r := recover(); r != nil {
-				k.Info("Client double closed.")
-			}
-		}()
-
-		select {
-		case <-time.After(2 * time.Second):
-			k.Warning("Client failed to exit")
-			controlClient.Close()
-		case <-isClosed:
-			return
-		}
-
-	}(controlClient)
-
-	_, _, err := controlClient.SendRequest("kill", true, nil)
-	//If connection was closed, causing WantReply to fail
-	if err == io.EOF {
-		isClosed <- true
-		return fmt.Errorf("connection has been killed")
-	}
-
-	return err
+	return nil
 }
 
 func (k *kill) Run(tty io.ReadWriter, args ...string) error {
