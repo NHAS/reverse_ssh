@@ -132,13 +132,18 @@ func GetDestination(target string, rf RemoteForwardRequest) (ssh.Conn, error) {
 	return u.ServerConnection, nil
 }
 
-func AddUser(idStr string, ServerConnection ssh.Conn) (us *User, err error) {
+func AddUser(ServerConnection ssh.Conn) (us *User, err error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	if ServerConnection == nil {
 		err = ErrNilServerConnection
 		return
+	}
+
+	idStr, err := RandomString(20)
+	if err != nil {
+		return nil, err
 	}
 
 	us = &User{

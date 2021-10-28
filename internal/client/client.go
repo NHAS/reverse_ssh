@@ -7,9 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"os/user"
-	"runtime"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -127,19 +125,6 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		},
 	}
 
-	sysinfoCmd := []string{"uname", "-rv"}
-	if runtime.GOOS == "windows" {
-		sysinfoCmd = []string{"cmd", "ver"}
-	}
-
-	succeeded := true
-	sysInfo, sysinfoError := exec.Command(sysinfoCmd[0], sysinfoCmd[1:]...).Output()
-	if sysinfoError != nil {
-		succeeded = false
-		sysInfo = []byte(sysinfoError.Error())
-	}
-	sysInfo = bytes.Split(sysInfo, []byte("\n"))[0]
-
 	once := true
 	for ; once || reconnect; once = false { // My take on a golang do {} while loop :P
 		log.Println("Connecting to ", addr)
@@ -159,35 +144,17 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		}
 		defer sshConn.Close()
 
-		go func(in <-chan *ssh.Request) {
-			for r := range in {
-				switch r.Type {
-				case "tcpip-forward":
-					go handlers.StartRemoteForward(r, sshConn)
-				case "cancel-tcpip-forward":
-					go handlers.StopRemoteForward(r)
-				case "kill":
-					l.Info("Kill command sent, dying")
-					os.Exit(0)
-				case "info":
-					r.Reply(succeeded, sysInfo)
-				default:
-					//Ignore any unspecified global requests
-					r.Reply(false, nil)
-				}
-			}
-		}(reqs)
+		go ssh.DiscardRequests(reqs)
 
-		user, err := internal.AddUser("server", sshConn)
-		if err != nil {
-			log.Fatalf("Unable to add user %s\n", err)
+		for newChannel := range chans {
+			if newChannel.ChannelType() != "jump" {
+				newChannel.Reject(ssh.Prohibited, "Channel type "+newChannel.ChannelType()+" not allowed.")
+				continue
+			}
+
+			go HandleNewConnection(newChannel, sshPriv)
 		}
 
-		err = internal.RegisterChannelCallbacks(user, chans, l, map[string]internal.ChannelHandler{
-			"session":      handlers.Shell,
-			"direct-tcpip": handlers.Proxy,
-			"scp":          handlers.Scp,
-		})
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)
 			<-time.After(10 * time.Second)
@@ -196,4 +163,87 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 
 	}
 
+}
+
+func HandleNewConnection(newChannel ssh.NewChannel, sshPriv ssh.Signer) error {
+
+	connection, requests, err := newChannel.Accept()
+	if err != nil {
+		newChannel.Reject(ssh.ResourceShortage, err.Error())
+		return err
+	}
+	go ssh.DiscardRequests(requests)
+	defer connection.Close()
+
+	config := &ssh.ServerConfig{
+		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			return &ssh.Permissions{
+				Extensions: map[string]string{
+					"pubkey-fp": internal.FingerprintSHA1Hex(key),
+				},
+			}, nil
+		},
+	}
+	config.AddHostKey(sshPriv)
+
+	p1, p2 := net.Pipe()
+	go io.Copy(connection, p2)
+	go io.Copy(p2, connection)
+
+	conn, chans, reqs, err := ssh.NewServerConn(p1, config)
+	if err != nil {
+		log.Printf("%s", err.Error())
+		return err
+	}
+	defer conn.Close()
+
+	clientLog := logger.NewLog(conn.RemoteAddr().String())
+	clientLog.Info("New SSH connection, version %s", conn.ClientVersion())
+
+	user, err := internal.AddUser(conn)
+	if err != nil {
+		log.Printf("Unable to add user %s\n", err)
+		return err
+	}
+
+	go func(in <-chan *ssh.Request) {
+		for r := range in {
+			switch r.Type {
+			case "tcpip-forward":
+				go handlers.StartRemoteForward(user, r, conn)
+			case "cancel-tcpip-forward":
+				var rf internal.RemoteForwardRequest
+
+				err := ssh.Unmarshal(r.Payload, &rf)
+				if err != nil {
+					r.Reply(false, []byte(fmt.Sprintf("Unable to unmarshal remote forward request in order to stop it: %s", err.Error())))
+					return
+				}
+
+				go func() {
+					err := handlers.StopRemoteForward(rf)
+					if err != nil {
+						r.Reply(false, []byte(err.Error()))
+						return
+					}
+
+					r.Reply(true, nil)
+				}()
+			default:
+				//Ignore any unspecified global requests
+				r.Reply(false, nil)
+			}
+		}
+	}(reqs)
+
+	err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
+		"session":      handlers.Session,
+		"direct-tcpip": handlers.Proxy,
+	})
+
+	for rf := range user.SupportedRemoteForwards {
+		go handlers.StopRemoteForward(rf)
+	}
+
+	return err
 }

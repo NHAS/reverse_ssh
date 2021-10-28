@@ -123,3 +123,13 @@ func FileExists(path string) bool {
 	s, err := os.Stat(path)
 	return err == nil && s.Mode().IsRegular()
 }
+
+func RandomString(length int) (string, error) {
+	randomData := make([]byte, length)
+	_, err := rand.Read(randomData)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(randomData), nil
+}

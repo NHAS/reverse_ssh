@@ -13,8 +13,7 @@ func constructRoutes() error {
 	for i := 0; i < 10; i++ {
 
 		var s ssh.Conn = ssh.ServerConn{}
-		userId := fmt.Sprintf("user%d", i)
-		u, err := AddUser(userId, s)
+		u, err := AddUser(s)
 		if err != nil {
 			return err
 		}
@@ -26,7 +25,7 @@ func constructRoutes() error {
 		}
 
 		if i%2 == 0 {
-			err = EnableForwarding(userId, fmt.Sprintf("%d", i))
+			err = EnableForwarding(u.IdString, fmt.Sprintf("%d", i))
 			if err != nil {
 				return err
 			}
@@ -58,24 +57,24 @@ func TestRouteCollision(t *testing.T) {
 		t.Fatalf("This should error as there is a collision")
 	}
 
-	u, err := AddUser("testCollisionUser", ssh.ServerConn{})
+	u, err := AddUser(ssh.ServerConn{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	u.SupportedRemoteForwards[RemoteForwardRequest{"localhost", 1}] = true
 
-	err = EnableForwarding("testCollisionUser", "0")
+	err = EnableForwarding(u.IdString, "0")
 	if err == nil {
 		t.Fatalf("Enabling forwarding for new user that collides with another users forwards should fail")
 	}
 
-	err = EnableForwarding("testCollisionUser", "1")
+	err = EnableForwarding(u.IdString, "1")
 	if err != nil {
 		t.Fatalf("Enabling forwarding should work as table 1 has no entries")
 	}
 
-	err = EnableForwarding("testCollisionUser", "1")
+	err = EnableForwarding(u.IdString, "1")
 	if err == nil {
 		t.Fatalf("Enabling user twice should fail")
 	}
@@ -106,7 +105,7 @@ func TestGetDestination(t *testing.T) {
 
 func TestUserLeft(t *testing.T) {
 	conn := ssh.ServerConn{}
-	u, err := AddUser("testRemoveUser", conn)
+	u, err := AddUser(conn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +153,7 @@ func TestTargetLeft(t *testing.T) {
 
 func TestRemoveForward(t *testing.T) {
 	conn := ssh.ServerConn{}
-	u, err := AddUser("testRemoveForward", conn)
+	u, err := AddUser(conn)
 	if err != nil {
 		t.Fatal(err)
 	}

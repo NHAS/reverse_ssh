@@ -13,29 +13,19 @@ import (
 
 var currentRemoteForwards = map[internal.RemoteForwardRequest]net.Listener{}
 
-func StopRemoteForward(r *ssh.Request) {
-	var rf internal.RemoteForwardRequest
-
-	err := ssh.Unmarshal(r.Payload, &rf)
-	if err != nil {
-		r.Reply(false, []byte(fmt.Sprintf("Unable to unmarshal remote forward request in order to stop it: %s", err.Error())))
-		return
-	}
+func StopRemoteForward(rf internal.RemoteForwardRequest) error {
 
 	if _, ok := currentRemoteForwards[rf]; !ok {
-		r.Reply(false, []byte(fmt.Sprintf("Unable to find remote forward request")))
-
-		return
+		return fmt.Errorf("Unable to find remote forward request")
 	}
 
-	r.Reply(true, nil)
 	currentRemoteForwards[rf].Close()
 	delete(currentRemoteForwards, rf)
 
-	log.Println("Closed remote forward")
+	return nil
 }
 
-func StartRemoteForward(r *ssh.Request, sshConn ssh.Conn) {
+func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 
 	var rf internal.RemoteForwardRequest
 
@@ -51,6 +41,8 @@ func StartRemoteForward(r *ssh.Request, sshConn ssh.Conn) {
 		return
 	}
 	defer l.Close()
+
+	user.SupportedRemoteForwards[rf] = true
 
 	//https://datatracker.ietf.org/doc/html/rfc4254
 	responseData := []byte{}

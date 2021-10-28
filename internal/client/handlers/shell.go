@@ -62,15 +62,7 @@ func init() {
 }
 
 //This basically handles exactly like a SSH server would
-func Shell(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
-
-	// At this point, we have the opportunity to reject the client's
-	// request for another logical connection
-	connection, requests, err := newChannel.Accept()
-	if err != nil {
-		log.Warning("Could not accept channel (%s)", err)
-		return
-	}
+func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
 	var ptyreq internal.PtyReq
 PtyListener:
@@ -83,6 +75,7 @@ PtyListener:
 			break PtyListener
 		default:
 			log.Warning("Unknown message: '%s'", req.Type)
+			req.Reply(false, nil)
 		}
 	}
 

@@ -2,8 +2,6 @@ package server
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -196,7 +194,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 
 	switch sshConn.Permissions.Extensions["type"] {
 	case "user":
-		user, err := internal.AddUser(createIdString(sshConn), sshConn)
+		user, err := internal.AddUser(sshConn)
 		if err != nil {
 			sshConn.Close()
 			log.Println(err)
@@ -261,7 +259,12 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			}
 		}(reqs)
 	case "client":
-		idString := createIdString(sshConn)
+		idString, err := internal.RandomString(20)
+		if err != nil {
+			sshConn.Close()
+			log.Println(err)
+			return
+		}
 
 		autoCompleteClients.Add(idString)
 
@@ -297,12 +300,4 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 		sshConn.Close()
 		clientLog.Warning("Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
 	}
-}
-
-func createIdString(sshServerConn *ssh.ServerConn) string {
-	b := sha1.Sum([]byte(fmt.Sprintf("%s@%s", sshServerConn.Permissions.Extensions["pubkey-fp"], sshServerConn.RemoteAddr())))
-
-	fingerPrint := hex.EncodeToString(b[:])
-	return fingerPrint
-
 }

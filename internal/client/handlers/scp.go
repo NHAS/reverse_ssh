@@ -17,37 +17,43 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func Scp(user *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
-	connection, requests, err := newChannel.Accept()
-	if err != nil {
-		l.Warning("Could not accept channel (%s)\n", err)
-		return
+func scp(commandParts []string, connection ssh.Channel, log logger.Logger) error {
+
+	//Find what the target file path is, essentially ignore anything that is a flag '-t'
+	loc := -1
+	mode := ""
+	for i := 1; i < len(commandParts); i++ {
+		if mode == "" && (commandParts[i] == "-t" || commandParts[i] == "-f") {
+			mode = commandParts[i]
+			continue
+		}
+
+		if len(commandParts[i]) > 0 && commandParts[i][0] != '-' {
+			loc = i
+			break
+		}
 	}
-	defer connection.Close()
-	go ssh.DiscardRequests(requests)
 
-	var scpInfo internal.Scp
+	path := strings.Join(commandParts[loc:], " ")
 
-	err = ssh.Unmarshal(newChannel.ExtraData(), &scpInfo)
-	if err != nil {
-		l.Warning("Unable to unmarshal scpInfo (%s)\n", err)
-		return
-	}
-
-	l.Info("Mode: %s %s\n", scpInfo.Mode, scpInfo.Path)
-	switch scpInfo.Mode {
+	log.Info("Mode: %s %s\n", mode, path)
+	switch mode {
 	case "-t":
-		err = to(scpInfo.Path, connection)
+		err := to(path, connection)
 		if err != nil {
-			l.Warning("Error copying to: %s\n", err)
+			log.Warning("Error copying to: %s\n", err)
 			internal.ScpError(2, fmt.Sprintf("error: %s", err), connection)
+			return err
+
 		}
 	case "-f":
-		from(scpInfo.Path, connection)
+		from(path, connection)
 
 	default:
-		l.Warning("Unknown mode.")
+		log.Warning("Unknown mode.")
 	}
+
+	return nil
 
 }
 
