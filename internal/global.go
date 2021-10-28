@@ -109,16 +109,6 @@ func RegisterChannelCallbacks(user *User, chans <-chan ssh.NewChannel, log logge
 	return fmt.Errorf("connection terminated")
 }
 
-func DiscardChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel, log logger.Logger) {
-	for newChannel := range chans {
-		t := newChannel.ChannelType()
-
-		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
-		log.Info("Sent channel request to discarded channel handler %q", t)
-	}
-
-}
-
 func FileExists(path string) bool {
 	s, err := os.Stat(path)
 	return err == nil && s.Mode().IsRegular()

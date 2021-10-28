@@ -12,10 +12,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
+
+func scpError(severity int, reason string, connection io.Writer) {
+	connection.Write([]byte{byte(severity)})
+	connection.Write([]byte(reason + "\n"))
+}
 
 func scp(commandParts []string, connection ssh.Channel, log logger.Logger) error {
 
@@ -42,7 +46,7 @@ func scp(commandParts []string, connection ssh.Channel, log logger.Logger) error
 		err := to(path, connection)
 		if err != nil {
 			log.Warning("Error copying to: %s\n", err)
-			internal.ScpError(2, fmt.Sprintf("error: %s", err), connection)
+			scpError(2, fmt.Sprintf("error: %s", err), connection)
 			return err
 
 		}
@@ -213,13 +217,13 @@ func to(tocreate string, connection ssh.Channel) error {
 func from(todownload string, connection ssh.Channel) {
 	clientReady, _ := readAck(connection)
 	if clientReady != 0 {
-		internal.ScpError(2, "client didnt acknowledge", connection)
+		scpError(2, "client didnt acknowledge", connection)
 		return
 	}
 
 	fileinfo, err := os.Stat(todownload)
 	if err != nil {
-		internal.ScpError(1, err.Error(), connection)
+		scpError(1, err.Error(), connection)
 		return
 	}
 
@@ -235,13 +239,13 @@ func from(todownload string, connection ssh.Channel) {
 	}
 
 	if err != nil {
-		internal.ScpError(1, err.Error(), connection)
+		scpError(1, err.Error(), connection)
 	}
 
 	connection.Write([]byte("E\n"))
 	success, _ := readAck(connection)
 	if success != 0 {
-		internal.ScpError(2, "failed to ack final write", connection)
+		scpError(2, "failed to ack final write", connection)
 		return
 	}
 
@@ -274,14 +278,14 @@ func scpTransferDirectory(path string, mode fs.FileInfo, connection ssh.Channel)
 		if file.IsDir() {
 			err := scpTransferDirectory(filepath.Join(path, file.Name()), file, connection)
 			if err != nil {
-				internal.ScpError(1, err.Error(), connection)
+				scpError(1, err.Error(), connection)
 			}
 			continue
 		}
 
 		err := scpTransferFile(filepath.Join(path, file.Name()), file, connection)
 		if err != nil {
-			internal.ScpError(1, err.Error(), connection)
+			scpError(1, err.Error(), connection)
 		}
 	}
 

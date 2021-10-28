@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"fmt"
+	"io"
+	"os/exec"
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -38,16 +41,44 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 				return
 			}
 
+			req.Reply(true, nil)
+
 			parts := strings.Split(command.Cmd, " ")
 			if len(parts) > 0 {
 				if parts[0] == "scp" {
-					req.Reply(true, nil)
+
 					scp(parts, connection, log)
 
 					return
 				}
+
+				cmd := exec.Command(parts[0], parts[1:]...)
+
+				stdout, err := cmd.StdoutPipe()
+				if err != nil {
+					fmt.Fprintf(connection, "%s", err.Error())
+					return
+				}
+
+				cmd.Stderr = cmd.Stdout
+
+				stdin, err := cmd.StdinPipe()
+				if err != nil {
+					fmt.Fprintf(connection, "%s", err.Error())
+					return
+				}
+
+				err = cmd.Start()
+				if err != nil {
+					fmt.Fprintf(connection, "%s", err.Error())
+					return
+				}
+
+				go io.Copy(stdin, connection)
+				io.Copy(connection, stdout)
+
 			}
-			req.Reply(false, nil)
+
 			return
 		case "shell":
 			// We only accept the default shell

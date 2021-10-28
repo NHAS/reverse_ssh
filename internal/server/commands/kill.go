@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -76,15 +75,6 @@ func (k *kill) Run(tty io.ReadWriter, args ...string) error {
 	}
 
 	return killClient(k.controllableClients, k.log, args[0])
-}
-
-func (k *kill) Expect(sections []string) []string {
-
-	if len(sections) == 1 {
-		return []string{constants.RemoteId}
-	}
-
-	return nil
 }
 
 func (k *kill) Help(explain bool) string {

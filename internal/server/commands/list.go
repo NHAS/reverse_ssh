@@ -5,7 +5,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/NHAS/reverse_ssh/internal/server/commands/constants"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 	"golang.org/x/crypto/ssh"
 )
@@ -52,15 +51,6 @@ func (l *list) Run(tty io.ReadWriter, args ...string) error {
 
 	return nil
 }
-
-func (l *list) Expect(sections []string) []string {
-	if len(sections) == 1 {
-		return []string{constants.RemoteId}
-	}
-
-	return nil
-}
-
 func (l *list) Help(explain bool) string {
 	if explain {
 		return "List connected controllable hosts."

@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/creack/pty"
 	"golang.org/x/crypto/ssh"
@@ -64,57 +63,27 @@ func init() {
 //This basically handles exactly like a SSH server would
 func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
-	var ptyreq internal.PtyReq
-PtyListener:
-	for req := range requests {
-		switch req.Type {
-		case "pty-req":
-			ptyreq, _ = internal.ParsePtyReq(req.Payload)
-
-			req.Reply(true, nil)
-			break PtyListener
-		default:
-			log.Warning("Unknown message: '%s'", req.Type)
-			req.Reply(false, nil)
-		}
+	if user.Pty == nil {
+		fmt.Fprintf(connection, "Shell without pty not allowed.")
+		return
 	}
 
 	path := ""
-	if len(shells) == 0 {
-		term := terminal.NewTerminal(connection, "> ")
-		fmt.Fprintln(term, "Unable to determine shell to execute")
-		for {
-			line, err := term.ReadLine()
-			if err != nil {
-				log.Warning("Unable to handle input")
-				return
-			}
-
-			if stats, err := os.Stat(line); !os.IsExist(err) || stats.IsDir() {
-				fmt.Fprintln(term, "Unsuitable selection: ", err)
-				continue
-			}
-			path = line
-			break
-
-		}
-	} else {
+	if len(shells) != 0 {
 		path = shells[0]
 	}
 
 	// Fire up a shell for this session
 	shell := exec.Command(path)
 	shell.Env = os.Environ()
-	shell.Env = append(shell.Env, "TERM="+ptyreq.Term)
-
-	// Prepare teardown function
+	shell.Env = append(shell.Env, "TERM="+user.Pty.Term)
 
 	close := func() {
-		connection.Close() // Not a fan of this
+		connection.Close()
 		if shell.Process != nil {
-			_, err := shell.Process.Wait()
+			err := shell.Process.Kill()
 			if err != nil {
-				log.Warning("Failed to exit bash (%s)", err)
+				log.Warning("Failed to kill shell(%s)", err)
 			}
 		}
 
@@ -130,6 +99,13 @@ PtyListener:
 		return
 	}
 
+	err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(user.Pty.Columns), Rows: uint16(user.Pty.Rows)})
+	if err != nil {
+		log.Error("Unable to set terminal size %s", err)
+		fmt.Fprintf(connection, "Unable to set term size")
+		return
+	}
+
 	//pipe session to bash and visa-versa
 	var once sync.Once
 	go func() {
@@ -142,25 +118,20 @@ PtyListener:
 	}()
 	defer once.Do(close)
 
-	err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(ptyreq.Columns), Rows: uint16(ptyreq.Rows)})
-	if err != nil {
-		log.Error("Unable to set terminal size %s", err)
-		fmt.Fprintf(connection, "Unable to set term size")
-	}
-
 	for req := range requests {
-		log.Info("Got request: %s", req.Type)
 		switch req.Type {
-		case "shell":
-			// We only accept the default shell
-			// (i.e. no command in the Payload)
-			req.Reply(true, []byte(path))
 
 		case "window-change":
 			w, h := internal.ParseDims(req.Payload)
 			err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
 			if err != nil {
 				log.Warning("Unable to set terminal size: %s", err)
+			}
+
+		default:
+			log.Warning("Unknown request %s", req.Type)
+			if req.WantReply {
+				req.Reply(false, nil)
 			}
 		}
 	}

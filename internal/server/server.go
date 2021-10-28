@@ -14,13 +14,10 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
-	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
 
 var controllableClients sync.Map
-var clientSysInfo map[string]string = make(map[string]string)
-var autoCompleteClients *trie.Trie
 
 func ReadPubKeys(path string) (m map[string]bool, err error) {
 	authorizedKeysBytes, err := ioutil.ReadFile(path)
@@ -165,8 +162,6 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 		log.Fatalf("Failed to listen on %s (%s)", addr, err)
 	}
 
-	autoCompleteClients = trie.NewTrie()
-
 	// Accept all connections
 	log.Printf("Listening on %s...\n", addr)
 	for {
@@ -205,7 +200,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 		// channel type of "session" or "direct-tcpip", "forwarded-tcpip" respectively.
 		go func() {
 			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
-				"session":      handlers.Session(&controllableClients, clientSysInfo, autoCompleteClients),
+				"session":      handlers.Session(&controllableClients),
 				"direct-tcpip": handlers.LocalForward(&controllableClients),
 			})
 			clientLog.Info("User disconnected: %s", err.Error())
@@ -214,50 +209,8 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 		}()
 
 		// Discard all global out-of-band Requests, except for the tcpip-forward
-		go func(in <-chan *ssh.Request) {
-			for req := range in {
+		go ssh.DiscardRequests(reqs)
 
-				switch req.Type {
-				case "tcpip-forward":
-					go handlers.RegisterRemoteForwardRequest(req, user)
-
-				case "cancel-tcpip-forward":
-
-					go func() {
-
-						var rf internal.RemoteForwardRequest
-						err = ssh.Unmarshal(req.Payload, &rf)
-						if err != nil {
-							req.Reply(false, nil)
-							return
-						}
-
-						toClose := internal.RemoveFoward(rf, user)
-
-						for _, id := range toClose {
-							cc, ok := controllableClients.Load(id)
-							if !ok {
-								continue
-							}
-
-							clientConnection := cc.(ssh.Conn)
-
-							clientConnection.SendRequest("cancel-tcpip-forward", true, ssh.Marshal(&rf))
-						}
-
-						clientLog.Info("Client just closed remote forwarding for %v", toClose)
-					}()
-
-				default:
-					clientLog.Warning("Unhandled request %s", req.Type)
-					if req.WantReply {
-						req.Reply(false, nil)
-					}
-
-				}
-
-			}
-		}(reqs)
 	case "client":
 		idString, err := internal.RandomString(20)
 		if err != nil {
@@ -266,19 +219,11 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			return
 		}
 
-		autoCompleteClients.Add(idString)
-
 		controllableClients.Store(idString, sshConn)
-
-		go internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]internal.ChannelHandler{
-			"forwarded-tcpip": handlers.RemoteForward(idString),
-		})
 
 		go func(s string) {
 			for req := range reqs {
-				if req.Type == "sysinfo" {
-					clientSysInfo[idString] = string(req.Payload)
-				} else if req.WantReply {
+				if req.WantReply {
 					req.Reply(false, nil)
 				}
 			}
@@ -286,15 +231,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			clientLog.Info("SSH client disconnected")
 			//Todo make less bad
 			controllableClients.Delete(s)
-			autoCompleteClients.Remove(s)
-			internal.RemoveSource(s)
 		}(idString)
-
-	case "proxy":
-		// Proxy is a special case, we dont want the client to have access to control elements, but want a port to be able to be opened.
-		// I would have liked to wrap this into the callbacks register, however this has different requirements to the channel handlers.
-		go internal.DiscardChannels(sshConn, chans, clientLog)
-		//go handlers.RemoteForward(sshConn, reqs)
 
 	default:
 		sshConn.Close()

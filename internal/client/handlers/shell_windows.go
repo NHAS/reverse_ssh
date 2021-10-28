@@ -13,23 +13,14 @@ import (
 
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/terminal"
+	"github.com/NHAS/reverse_ssh/internal/client/term"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sys/windows"
 )
 
 //The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
-func shell(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
-
-	// At this point, we have the opportunity to reject the client's.
-	// request for another logical connection
-	connection, requests, err := newChannel.Accept()
-	if err != nil {
-		log.Error("Could not accept channel (%s)", err)
-		return
-	}
-	defer connection.Close()
+func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
 	for req := range requests {
 		log.Info("Got request: %s", req.Type)
@@ -49,7 +40,7 @@ func shell(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 				basicShell(requests, connection, log)
 			} else {
 				ptyreq, _ := internal.ParsePtyReq(req.Payload)
-				err = conptyShell(requests, connection, log, ptyreq)
+				err := conptyShell(requests, connection, log, ptyreq)
 				if err != nil {
 					log.Error("%v", err)
 				}
@@ -155,7 +146,7 @@ func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Log
 		return
 	}
 
-	term := terminal.NewTerminal(connection, "")
+	terminal := term.NewTerminal(connection, "")
 	// Dynamically handle resizes of terminal window
 	go func() {
 		for req := range reqs {
@@ -163,7 +154,7 @@ func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Log
 
 			case "window-change":
 				w, h := internal.ParseDims(req.Payload)
-				term.SetSize(int(w), int(h))
+				terminal.SetSize(int(w), int(h))
 
 			}
 
@@ -186,7 +177,7 @@ func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Log
 			}
 
 			//This should ignore the echo'd result from cmd.exe on newline, this isnt super thread safe, but should be okay.
-			_, err = term.Write(buf[ignoredByes:n])
+			_, err = terminal.Write(buf[ignoredByes:n])
 			if err != nil {
 				log.Error("%s", err)
 				return
@@ -201,17 +192,17 @@ func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Log
 
 		for {
 			//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
-			line, err := term.ReadLine()
-			if err != nil && err != terminal.ErrCtrlC {
+			line, err := terminal.ReadLine()
+			if err != nil && err != term.ErrCtrlC {
 				log.Error("%s", err)
 				return
 			}
 
-			if err == terminal.ErrCtrlC {
+			if err == term.ErrCtrlC {
 				expected <- true
 				err := sendCtrlC(cmd.Process.Pid)
 				if err != nil {
-					fmt.Fprintf(term, "Failed to send Ctrl+C sorry! You are most likely trapped: %s", err)
+					fmt.Fprintf(terminal, "Failed to send Ctrl+C sorry! You are most likely trapped: %s", err)
 					log.Error("%s", err)
 				}
 			}
@@ -219,7 +210,7 @@ func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Log
 			if err == nil {
 				_, err := stdin.Write([]byte(line + "\r\n"))
 				if err != nil {
-					fmt.Fprintf(term, "Error writing to STDIN: %s", err)
+					fmt.Fprintf(terminal, "Error writing to STDIN: %s", err)
 					log.Error("%s", err)
 				}
 				ignoredByes = len(line)
