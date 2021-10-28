@@ -16,9 +16,10 @@ type Command interface {
 //This is used for help, so we can generate the nice table
 // I would prefer if we could do some sort of autoregistration process for these
 var allCommands = map[string]Command{
-	"ls":   &List{},
-	"help": &help{},
-	"kill": &kill{},
+	"ls":    &List{},
+	"help":  &help{},
+	"kill":  &kill{},
+	"watch": &Watch{},
 }
 
 func CreateCommands(user *internal.User,
@@ -27,9 +28,10 @@ func CreateCommands(user *internal.User,
 	log logger.Logger) map[string]Command {
 
 	var o = map[string]Command{
-		"ls":   &List{},
-		"help": Help(),
-		"kill": Kill(log),
+		"ls":    &List{},
+		"watch": &Watch{},
+		"help":  Help(),
+		"kill":  Kill(log),
 	}
 
 	return o

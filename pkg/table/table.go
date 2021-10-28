@@ -94,14 +94,14 @@ func (t *Table) Print() {
 
 func (t *Table) Fprint(w io.Writer) {
 
-	for _, line := range t.OutputString() {
-		fmt.Fprint(w, line)
+	for _, line := range t.OutputStrings() {
+		fmt.Fprint(w, line+"\n")
 	}
 }
 
-func (t *Table) OutputString() (output []string) {
+func (t *Table) OutputStrings() (output []string) {
 
-	seperator := t.seperator() + "\n"
+	seperator := t.seperator()
 
 	for n, line := range t.line {
 		// X Y
@@ -121,14 +121,14 @@ func (t *Table) OutputString() (output []string) {
 				m += fmt.Sprintf(" %-"+fmt.Sprintf("%d", t.cellMaxWidth[x])+"s |", val)
 			}
 
-			output = append(output, m+"\n")
+			output = append(output, m)
 
 		}
 
 		output = append(output, seperator)
 	}
 
-	output = append([]string{fmt.Sprintf("%"+fmt.Sprintf("%d", len(output[0])/2)+"s\n", t.name), seperator}, output...)
+	output = append([]string{fmt.Sprintf("%"+fmt.Sprintf("%d", len(output[0])/2)+"s", t.name), seperator}, output...)
 
 	return
 
