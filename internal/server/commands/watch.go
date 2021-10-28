@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"time"
 
@@ -30,7 +31,17 @@ func (w *Watch) Run(tty io.ReadWriter, args ...string) error {
 		textcolor_fg(tty, 7) // Text white
 
 		t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address")
-		for id, conn := range clients.GetAll() {
+
+		ids := []string{}
+		clients := clients.GetAll()
+		for id := range clients {
+			ids = append(ids, id)
+		}
+
+		sort.Strings(ids)
+
+		for _, id := range ids {
+			conn := clients[id]
 			t.AddValues(id, conn.User(), conn.RemoteAddr().String())
 		}
 

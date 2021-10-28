@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/pkg/table"
@@ -57,7 +58,17 @@ func (l *List) Run(tty io.ReadWriter, args ...string) error {
 	var toReturn []displayItem
 
 	clients := clients.GetAll()
-	for id, conn := range clients {
+
+	ids := []string{}
+	for id := range clients {
+		ids = append(ids, id)
+	}
+
+	sort.Strings(ids)
+
+	for _, id := range ids {
+
+		conn := clients[id]
 
 		if filter == "" {
 			toReturn = append(toReturn, displayItem{id: id, sc: conn})
