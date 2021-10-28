@@ -47,14 +47,11 @@ func (w *Watch) Run(tty io.ReadWriter, args ...string) error {
 
 		out := t.OutputStrings()
 		for _, line := range out {
-			tty.Write([]byte(line + "\n"))
-			//move(tty, 1, 1) // Move down one, once
+			fmt.Fprintln(tty, line)
 		}
 
 		time.Sleep(time.Duration(updatePeriod) * time.Second)
 	}
-
-	return nil
 }
 
 func erase_line(tty io.Writer, n int) {
