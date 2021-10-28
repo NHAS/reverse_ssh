@@ -46,8 +46,8 @@ func LocalForward(controllableClients *sync.Map) internal.ChannelHandler {
 		defer connection.Close()
 		go ssh.DiscardRequests(requests)
 
-		go io.Copy(targetConnection, connection)
-		io.Copy(connection, targetConnection)
+		go io.Copy(connection, targetConnection)
+		io.Copy(targetConnection, connection)
 
 	}
 }

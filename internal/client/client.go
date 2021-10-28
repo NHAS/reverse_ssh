@@ -204,7 +204,12 @@ func HandleNewConnection(newChannel ssh.NewChannel, sshPriv ssh.Signer) error {
 
 	p1, p2 := net.Pipe()
 	go io.Copy(connection, p2)
-	go io.Copy(p2, connection)
+	go func() {
+		io.Copy(p2, connection)
+
+		p2.Close()
+		p1.Close()
+	}()
 
 	conn, chans, reqs, err := ssh.NewServerConn(p1, config)
 	if err != nil {
