@@ -94,9 +94,14 @@ func (t *Table) Print() {
 
 func (t *Table) Fprint(w io.Writer) {
 
-	firstLine := true
+	for _, line := range t.OutputString() {
+		fmt.Fprint(w, line)
+	}
+}
 
-	seperator := t.seperator()
+func (t *Table) OutputString() (output []string) {
+
+	seperator := t.seperator() + "\n"
 
 	for n, line := range t.line {
 		// X Y
@@ -105,8 +110,6 @@ func (t *Table) Fprint(w io.Writer) {
 			values[x] = m.parts
 		}
 
-		drawnLines := []string{}
-		max := 0
 		for y := 0; y < t.lineMaxHeight[n]; y++ {
 
 			m := "|"
@@ -118,28 +121,17 @@ func (t *Table) Fprint(w io.Writer) {
 				m += fmt.Sprintf(" %-"+fmt.Sprintf("%d", t.cellMaxWidth[x])+"s |", val)
 			}
 
-			if max < len(m) {
-				max = len(m)
-			}
-
-			drawnLines = append(drawnLines, m)
+			output = append(output, m+"\n")
 
 		}
 
-		if firstLine {
-			firstLine = false
-			fmt.Fprintf(w, "%"+fmt.Sprintf("%d", max/2)+"s\n", t.name)
-
-			fmt.Fprintln(w, seperator)
-		}
-
-		for _, l := range drawnLines {
-			fmt.Fprintln(w, l)
-		}
-
-		fmt.Fprintln(w, seperator)
-
+		output = append(output, seperator)
 	}
+
+	output = append([]string{fmt.Sprintf("%"+fmt.Sprintf("%d", len(output[0])/2)+"s\n", t.name), seperator}, output...)
+
+	return
+
 }
 
 func NewTable(name string, columnNames ...string) (t Table, err error) {
