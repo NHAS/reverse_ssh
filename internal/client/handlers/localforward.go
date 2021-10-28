@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func Proxy(user *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
+func LocalForward(user *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
 	a := newChannel.ExtraData()
 
 	var drtMsg internal.ChannelOpenDirectMsg
