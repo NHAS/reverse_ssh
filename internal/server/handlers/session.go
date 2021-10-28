@@ -19,7 +19,7 @@ func Session(controllableClients *sync.Map, clientSysinfo map[string]string, aut
 
 	return func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
-		defer log.Info("Human disconnected, client version %s", user.ServerConnection.ClientVersion())
+		defer log.Info("Session disconnected: %s", user.ServerConnection.ClientVersion())
 
 		// At this point, we have the opportunity to reject the client's
 		// request for another logical connection
@@ -54,6 +54,7 @@ func Session(controllableClients *sync.Map, clientSysinfo map[string]string, aut
 						err := m.Run(connection, parts[1:]...)
 						if err != nil {
 							fmt.Fprintf(connection, "%s", err.Error())
+							return
 						}
 						return
 					}

@@ -153,7 +153,7 @@ func attachSession(newSession ssh.Channel, currentClientSession io.ReadWriter, c
 	defer once.Do(close)
 
 	go func() {
-		//dst <- src
+
 		io.Copy(newSession, currentClientSession)
 		once.Do(close)
 

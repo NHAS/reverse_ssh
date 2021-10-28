@@ -24,10 +24,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 
 	defaultHandle := commands.NewWindowSizeChangeHandler(user, term)
 
-	m := commands.CreateCommands(user, connection, requests, controllableClients, log)
-
-	//Connect needs some extra love to work with terminal (due to some language level bugs, so until I think of a better way of doing commands)
-	m["connect"] = commands.Connect(user, controllableClients, defaultHandle, log, term.EnableRaw, term.DisableRaw)
+	m := commands.CreateCommands(user, connection, requests, controllableClients, log, defaultHandle, term.EnableRaw, term.DisableRaw)
 
 	term.AddCommands(m)
 

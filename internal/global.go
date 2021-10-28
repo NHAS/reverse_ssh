@@ -96,7 +96,7 @@ func RegisterChannelCallbacks(user *User, chans <-chan ssh.NewChannel, log logge
 	// Service the incoming Channel channel in go routine
 	for newChannel := range chans {
 		t := newChannel.ChannelType()
-
+		log.Info("Handling channel: %s", t)
 		if callBack, ok := handlers[t]; ok {
 			go callBack(user, newChannel, log)
 			continue

@@ -75,7 +75,6 @@ func Shell(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 	var ptyreq internal.PtyReq
 PtyListener:
 	for req := range requests {
-
 		switch req.Type {
 		case "pty-req":
 			ptyreq, _ = internal.ParsePtyReq(req.Payload)

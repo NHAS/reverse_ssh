@@ -28,14 +28,14 @@ func CreateCommands(user *internal.User,
 	controllableClients *sync.Map,
 	log logger.Logger,
 	defaultHandle *WindowSizeChangeHandler,
-	initFunc func(),
-	teardownFunc func()) map[string]terminal.Command {
+	connectInitFunc func(),
+	connectTeardownFunc func()) map[string]terminal.Command {
 
 	var o = map[string]terminal.Command{
 		"ls":       List(controllableClients),
 		"help":     Help(),
 		"exit":     Exit(),
-		"connect":  Connect(user, controllableClients, nil, log, nil, nil),
+		"connect":  Connect(user, controllableClients, defaultHandle, log, connectInitFunc, connectTeardownFunc),
 		"kill":     Kill(controllableClients, log),
 		"rc":       RC(user, controllableClients),
 		"proxy":    Proxy(user, controllableClients),

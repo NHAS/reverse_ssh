@@ -206,10 +206,11 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 		// Since we're handling a shell, local and remote forward, so we expect
 		// channel type of "session" or "direct-tcpip", "forwarded-tcpip" respectively.
 		go func() {
-			internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
+			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
 				"session":      handlers.Session(&controllableClients, clientSysInfo, autoCompleteClients),
-				"direct-tcpip": handlers.LocalForward,
+				"direct-tcpip": handlers.LocalForward(&controllableClients),
 			})
+			clientLog.Info("User disconnected: %s", err.Error())
 
 			internal.RemoveUser(user.IdString)
 		}()
