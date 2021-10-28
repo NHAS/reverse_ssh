@@ -61,7 +61,7 @@ func (l *list) Run(tty io.ReadWriter, args ...string) error {
 		sc := value.(ssh.Conn)
 		id := fmt.Sprintf("%s", idStr)
 
-		if filter == "" || flags['a'] {
+		if filter == "" {
 			toReturn = append(toReturn, displayItem{id: id, sc: sc})
 			return true
 		}
@@ -92,31 +92,40 @@ func (l *list) Run(tty io.ReadWriter, args ...string) error {
 		return nil
 	}
 
-	sep := " "
+	sep := ", "
 	if flags['l'] {
 		sep = "\n"
 	}
 
-	for _, tr := range toReturn {
+	for i, tr := range toReturn {
 
 		if !flags['n'] && !flags['i'] && !flags['a'] {
-			fmt.Fprintf(tty, "%s%s", tr.id, sep)
+			fmt.Fprint(tty, tr.id)
+			if i != len(toReturn) {
+				fmt.Fprint(tty, sep)
+			}
 			continue
 		}
 
 		if flags['a'] {
-			fmt.Fprintf(tty, "%s", tr.id)
+			fmt.Fprint(tty, tr.id)
 		}
 
 		if flags['n'] || flags['a'] {
-			fmt.Fprintf(tty, " %s", tr.sc.User())
+			fmt.Fprint(tty, " "+tr.sc.User())
 		}
 
 		if flags['i'] || flags['a'] {
-			fmt.Fprintf(tty, " %s", tr.sc.RemoteAddr().String())
+			fmt.Fprint(tty, " "+tr.sc.RemoteAddr().String())
 		}
 
-		fmt.Fprintf(tty, "%s", sep)
+		if i != len(toReturn) {
+			fmt.Fprint(tty, sep)
+		}
+	}
+
+	if !flags['l'] {
+		fmt.Fprint(tty, "\n")
 	}
 
 	return nil
@@ -129,7 +138,7 @@ func (l *list) Help(explain bool) string {
 	return makeHelpText(
 		"ls [OPTION] [FILTER]",
 		"Filter uses glob matching against all attributes of a target (hostname, ip, id)",
-		"\t-a\tShow all attributes of all hosts",
+		"\t-a\tShow all attributes",
 		"\t-n\tShow only hostnames",
 		"\t-i\tShow only IP",
 		"\t-t\tPrint all attributes in pretty table",
