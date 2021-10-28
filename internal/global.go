@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"os"
 
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
@@ -107,11 +106,6 @@ func RegisterChannelCallbacks(user *User, chans <-chan ssh.NewChannel, log logge
 	}
 
 	return fmt.Errorf("connection terminated")
-}
-
-func FileExists(path string) bool {
-	s, err := os.Stat(path)
-	return err == nil && s.Mode().IsRegular()
 }
 
 func RandomString(length int) (string, error) {

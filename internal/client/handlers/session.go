@@ -99,7 +99,6 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 				req.Reply(false, nil)
 				return
 			}
-			user.ShellRequests = requests
 			user.Pty = &pty
 
 			req.Reply(true, nil)

@@ -17,19 +17,9 @@ type User struct {
 	// This is the users connection to the server itself, creates new channels and whatnot. NOT to get io.Copy'd
 	ServerConnection ssh.Conn
 
-	//What the client input is currently being sent to
-	ShellRequests <-chan *ssh.Request
-
-	ProxyConnection ssh.Conn
-
 	Pty *PtyReq
 
-	EnabledRcfiles map[string][]string
-
 	// Remote forwards sent by user
-	// As these may collide with another users requests (as they come in the form of 1234:localhost:1234)
-	// We store them per user, waiting for the user to tell us what client they want to start the remote forward itself
-	// with the exec handler
 	SupportedRemoteForwards map[RemoteForwardRequest]bool //(set)
 }
 
@@ -50,7 +40,6 @@ func AddUser(ServerConnection ssh.Conn) (us *User, err error) {
 	us = &User{
 		IdString:                idStr,
 		ServerConnection:        ServerConnection,
-		EnabledRcfiles:          make(map[string][]string),
 		SupportedRemoteForwards: make(map[RemoteForwardRequest]bool),
 	}
 

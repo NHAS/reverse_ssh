@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
@@ -21,49 +22,21 @@ func LocalForward(controllableClients *sync.Map) internal.ChannelHandler {
 			return
 		}
 
-		log.Info("%v", drtMsg.Raddr)
-
-		if c, ok := controllableClients.Load(drtMsg.Raddr); ok {
-
-			target := c.(ssh.Conn)
-
-			go func() {
-
-				targetConnection, targetRequests, err := target.OpenChannel("jump", nil)
-				if err != nil {
-					newChannel.Reject(ssh.ConnectionFailed, err.Error())
-					return
-				}
-				defer targetConnection.Close()
-				go ssh.DiscardRequests(targetRequests)
-
-				connection, requests, err := newChannel.Accept()
-				if err != nil {
-					newChannel.Reject(ssh.ConnectionFailed, err.Error())
-					return
-				}
-				defer connection.Close()
-				go ssh.DiscardRequests(requests)
-
-				go io.Copy(targetConnection, connection)
-				io.Copy(connection, targetConnection)
-
-			}()
-
+		c, ok := controllableClients.Load(drtMsg.Raddr)
+		if !ok {
+			newChannel.Reject(ssh.Prohibited, fmt.Sprintf("Target %s not found, use ls to list clients", drtMsg.Raddr))
 			return
 		}
 
-		if user.ProxyConnection == nil {
-			newChannel.Reject(ssh.Prohibited, "no remote location to forward traffic to")
-			return
-		}
+		target := c.(ssh.Conn)
 
-		proxyDest, proxyRequests, err := user.ProxyConnection.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
+		targetConnection, targetRequests, err := target.OpenChannel("jump", nil)
 		if err != nil {
 			newChannel.Reject(ssh.ConnectionFailed, err.Error())
 			return
 		}
-		defer proxyDest.Close()
+		defer targetConnection.Close()
+		go ssh.DiscardRequests(targetRequests)
 
 		connection, requests, err := newChannel.Accept()
 		if err != nil {
@@ -71,23 +44,10 @@ func LocalForward(controllableClients *sync.Map) internal.ChannelHandler {
 			return
 		}
 		defer connection.Close()
-
 		go ssh.DiscardRequests(requests)
 
-		log.Info("Human client proxying to: %s:%d", drtMsg.Raddr, drtMsg.Rport)
-
-		go ssh.DiscardRequests(proxyRequests)
-
-		go func() {
-			defer proxyDest.Close()
-			defer connection.Close()
-
-			io.Copy(connection, proxyDest)
-		}()
-
-		io.Copy(proxyDest, connection)
-
-		log.Info("ENDED: %s:%d", drtMsg.Raddr, drtMsg.Rport)
+		go io.Copy(targetConnection, connection)
+		io.Copy(connection, targetConnection)
 
 	}
 }
