@@ -9,6 +9,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+//This is used for help, so we can generate the nice table
+// I would prefer if we could do some sort of autoregistration process for these
 var allCommands = map[string]terminal.Command{
 	"ls":       &list{},
 	"help":     &help{},
@@ -20,7 +22,14 @@ var allCommands = map[string]terminal.Command{
 	"rforward": &remoteForward{},
 }
 
-func CreateCommands(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, controllableClients *sync.Map, log logger.Logger) map[string]terminal.Command {
+func CreateCommands(user *internal.User,
+	connection ssh.Channel,
+	requests <-chan *ssh.Request,
+	controllableClients *sync.Map,
+	log logger.Logger,
+	defaultHandle *WindowSizeChangeHandler,
+	initFunc func(),
+	teardownFunc func()) map[string]terminal.Command {
 
 	var o = map[string]terminal.Command{
 		"ls":       List(controllableClients),

@@ -46,7 +46,7 @@ func Session(controllableClients *sync.Map, clientSysinfo map[string]string, aut
 
 				parts := strings.Split(command.Cmd, " ")
 				if len(parts) > 0 {
-					c := commands.CreateCommands(user, connection, requests, controllableClients, log)
+					c := commands.CreateCommands(user, connection, requests, controllableClients, log, nil, nil, nil)
 
 					if m, ok := c[parts[0]]; ok {
 
