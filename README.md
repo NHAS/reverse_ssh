@@ -46,19 +46,22 @@ cp ~/.ssh/id_ed25519.pub authorized_keys
 ssh localhost -p 3232 help
 
 # See clients
-ssh localhost -p 3232 ls
+ssh localhost -p 3232 ls -t
 
                                 Targets
 +------------------------------------------+------------+-------------+
 | ID                                       | Hostname   | IP Address  |
 +------------------------------------------+------------+-------------+
-| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root@wombo | [::1]:45150 |
+| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root.wombo | [::1]:45150 |
 +------------------------------------------+------------+-------------+
 
 
 # Connect to full shell
 ssh -J localhost:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac
 
+# Or using hostname 
+
+ssh -J localhost:3232 root.wombo
 
 ```
 
@@ -103,7 +106,7 @@ ssh yourserver.com -p 3232 ls
 +------------------------------------------+------------+-------------+
 | ID                                       | Hostname   | IP Address  |
 +------------------------------------------+------------+-------------+
-| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root@wombo | [::1]:45150 |
+| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root.wombo | [::1]:45150 |
 +------------------------------------------+------------+-------------+
 
 ```
@@ -112,19 +115,19 @@ Then typical ssh commands work, just specify your rssh server as a jump host.
 
 ```sh
 # Connect to full shell
-ssh -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac
+ssh -J youserver.com:3232 root.wombo
 
 # Run a command without pty
-ssh -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac ls
+ssh -J youserver.com:3232 root.wombo ls
 
 # Start remote forward 
-ssh -R 1234:localhost:1234 -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac ls
+ssh -R 1234:localhost:1234 -J youserver.com:3232 root.wombo ls
 
 # Start dynamic forward 
-ssh -D 9050 -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac ls
+ssh -D 9050 -J youserver.com:3232 root.wombo ls
 
 # SCP 
-scp -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac:/etc/passwd .
+scp -J youserver.com:3232 root.wombo:/etc/passwd .
 
 ```
 
