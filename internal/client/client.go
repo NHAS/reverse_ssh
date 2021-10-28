@@ -259,7 +259,7 @@ func HandleNewConnection(newChannel ssh.NewChannel, sshPriv ssh.Signer) error {
 
 	err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
 		"session":      handlers.Session,
-		"direct-tcpip": handlers.Proxy,
+		"direct-tcpip": handlers.LocalForward,
 	})
 
 	for rf := range user.SupportedRemoteForwards {
