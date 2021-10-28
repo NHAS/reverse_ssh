@@ -2,7 +2,6 @@ package commands
 
 import (
 	"io"
-	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -17,7 +16,7 @@ type Command interface {
 //This is used for help, so we can generate the nice table
 // I would prefer if we could do some sort of autoregistration process for these
 var allCommands = map[string]Command{
-	"ls":   &list{},
+	"ls":   &List{},
 	"help": &help{},
 	"kill": &kill{},
 }
@@ -25,13 +24,12 @@ var allCommands = map[string]Command{
 func CreateCommands(user *internal.User,
 	connection ssh.Channel,
 	requests <-chan *ssh.Request,
-	controllableClients *sync.Map,
 	log logger.Logger) map[string]Command {
 
 	var o = map[string]Command{
-		"ls":   List(controllableClients),
+		"ls":   &List{},
 		"help": Help(),
-		"kill": Kill(controllableClients, log),
+		"kill": Kill(log),
 	}
 
 	return o

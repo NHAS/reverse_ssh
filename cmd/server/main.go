@@ -15,6 +15,7 @@ func printHelp() {
 	fmt.Println("\t\taddress\tThe network address the server will listen on")
 	fmt.Println("\t\t--key\tPath to the ssh private key the server will use when talking with clients")
 	fmt.Println("\t\t--authorizedkeys\tPath to the authorized_keys file or a given public key that control which users can talk to the server")
+	fmt.Println("\t\t--insecure\tIgnore authorized_controllee_keys and allow any controllable client to connect")
 
 }
 

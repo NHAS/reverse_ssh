@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"sync"
 
+	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 	"golang.org/x/crypto/ssh"
 )
 
-type list struct {
-	controllableClients *sync.Map
+type List struct {
 }
 
 type displayItem struct {
@@ -29,7 +28,7 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 	t.Fprint(tty)
 }
 
-func (l *list) Run(tty io.ReadWriter, args ...string) error {
+func (l *List) Run(tty io.ReadWriter, args ...string) error {
 
 	filter := ""
 	flags := map[byte]bool{}
@@ -57,35 +56,32 @@ func (l *list) Run(tty io.ReadWriter, args ...string) error {
 
 	var toReturn []displayItem
 
-	l.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
-		sc := value.(ssh.Conn)
-		id := fmt.Sprintf("%s", idStr)
+	clients := clients.GetAll()
+	for id, conn := range clients {
 
 		if filter == "" {
-			toReturn = append(toReturn, displayItem{id: id, sc: sc})
-			return true
+			toReturn = append(toReturn, displayItem{id: id, sc: conn})
+			continue
 		}
 
 		match, _ := filepath.Match(filter, id)
 		if match {
-			toReturn = append(toReturn, displayItem{id: id, sc: sc})
-			return true
+			toReturn = append(toReturn, displayItem{id: id, sc: conn})
+			continue
 		}
 
-		match, _ = filepath.Match(filter, sc.User())
+		match, _ = filepath.Match(filter, conn.User())
 		if match {
-			toReturn = append(toReturn, displayItem{id: id, sc: sc})
-			return true
+			toReturn = append(toReturn, displayItem{id: id, sc: conn})
+			continue
 		}
 
-		match, _ = filepath.Match(filter, sc.RemoteAddr().String())
+		match, _ = filepath.Match(filter, conn.RemoteAddr().String())
 		if match {
-			toReturn = append(toReturn, displayItem{id: id, sc: sc})
-			return true
+			toReturn = append(toReturn, displayItem{id: id, sc: conn})
+			continue
 		}
-
-		return true
-	})
+	}
 
 	if flags['t'] {
 		fancyTable(tty, toReturn)
@@ -130,7 +126,7 @@ func (l *list) Run(tty io.ReadWriter, args ...string) error {
 
 	return nil
 }
-func (l *list) Help(explain bool) string {
+func (l *List) Help(explain bool) string {
 	if explain {
 		return "List connected controllable hosts."
 	}
@@ -145,8 +141,4 @@ func (l *list) Help(explain bool) string {
 		"\t-l\tPrint with newline rather than space",
 		"\t-h\tPrint help",
 	)
-}
-
-func List(controllableClients *sync.Map) *list {
-	return &list{controllableClients}
 }

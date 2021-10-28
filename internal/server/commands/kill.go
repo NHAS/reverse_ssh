@@ -3,29 +3,13 @@ package commands
 import (
 	"fmt"
 	"io"
-	"sync"
 
+	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
-	"golang.org/x/crypto/ssh"
 )
 
 type kill struct {
-	controllableClients *sync.Map
-	log                 logger.Logger
-}
-
-func killClient(controllableClients *sync.Map, k logger.Logger, id string) error {
-
-	cc, ok := controllableClients.Load(id)
-	if !ok {
-		return fmt.Errorf("unknown connection host")
-	}
-
-	controlClient := cc.(ssh.Conn)
-
-	controlClient.SendRequest("kill", false, nil)
-
-	return nil
+	log logger.Logger
 }
 
 func (k *kill) Run(tty io.ReadWriter, args ...string) error {
@@ -36,17 +20,22 @@ func (k *kill) Run(tty io.ReadWriter, args ...string) error {
 
 	if args[0] == "all" {
 		killedClients := 0
-		k.controllableClients.Range(func(idStr interface{}, value interface{}) bool {
-			killClient(k.controllableClients, k.log, idStr.(string))
-
+		allClients := clients.GetAll()
+		for _, v := range allClients {
+			v.SendRequest("kill", false, nil)
 			killedClients++
-
-			return true
-		})
+		}
 		return fmt.Errorf("%d connections killed", killedClients)
 	}
 
-	return killClient(k.controllableClients, k.log, args[0])
+	conn, err := clients.Get(args[0])
+	if err != nil {
+		return err
+	}
+
+	_, _, err = conn.SendRequest("kill", false, nil)
+
+	return err
 }
 
 func (k *kill) Help(explain bool) string {
@@ -60,9 +49,8 @@ func (k *kill) Help(explain bool) string {
 	)
 }
 
-func Kill(controllableClients *sync.Map, log logger.Logger) *kill {
+func Kill(log logger.Logger) *kill {
 	return &kill{
-		controllableClients,
-		log,
+		log: log,
 	}
 }

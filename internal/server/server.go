@@ -9,15 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
-
-var controllableClients sync.Map
 
 func ReadPubKeys(path string) (m map[string]bool, err error) {
 	authorizedKeysBytes, err := ioutil.ReadFile(path)
@@ -52,11 +50,6 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 	_, err := ReadPubKeys(publicKeyPath)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	_, err = ReadPubKeys("proxy_keys")
-	if err != nil {
-		log.Println(err) // Not a fatal error, as you can just want *No* proxiers
 	}
 
 	_, err = ReadPubKeys("authorized_controllee_keys")
@@ -189,7 +182,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 
 	switch sshConn.Permissions.Extensions["type"] {
 	case "user":
-		user, err := internal.AddUser(sshConn)
+		user, err := internal.CreateUser(sshConn)
 		if err != nil {
 			sshConn.Close()
 			log.Println(err)
@@ -200,38 +193,33 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 		// channel type of "session" or "direct-tcpip", "forwarded-tcpip" respectively.
 		go func() {
 			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
-				"session":      handlers.Session(&controllableClients),
-				"direct-tcpip": handlers.LocalForward(&controllableClients),
+				"session":      handlers.Session,
+				"direct-tcpip": handlers.LocalForward,
 			})
 			clientLog.Info("User disconnected: %s", err.Error())
 
-			internal.RemoveUser(user.IdString)
+			internal.DeleteUser(user)
 		}()
 
 		// Discard all global out-of-band Requests, except for the tcpip-forward
 		go ssh.DiscardRequests(reqs)
 
 	case "client":
-		idString, err := internal.RandomString(20)
+
+		id, err := clients.Add(sshConn)
 		if err != nil {
+			clientLog.Error("Unable to add new client %s", err)
+
 			sshConn.Close()
-			log.Println(err)
 			return
 		}
 
-		controllableClients.Store(idString, sshConn)
-
-		go func(s string) {
-			for req := range reqs {
-				if req.WantReply {
-					req.Reply(false, nil)
-				}
-			}
+		go func() {
+			ssh.DiscardRequests(reqs)
 
 			clientLog.Info("SSH client disconnected")
-			//Todo make less bad
-			controllableClients.Delete(s)
-		}(idString)
+			clients.Remove(id)
+		}()
 
 	default:
 		sshConn.Close()

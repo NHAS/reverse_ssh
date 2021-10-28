@@ -107,7 +107,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 	}
 
 	config := &ssh.ClientConfig{
-		User: fmt.Sprintf("%s@%s", username, hostname),
+		User: fmt.Sprintf("%s.%s", username, hostname),
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(sshPriv),
 		},
@@ -221,7 +221,7 @@ func HandleNewConnection(newChannel ssh.NewChannel, sshPriv ssh.Signer) error {
 	clientLog := logger.NewLog(conn.RemoteAddr().String())
 	clientLog.Info("New SSH connection, version %s", conn.ClientVersion())
 
-	user, err := internal.AddUser(conn)
+	user, err := internal.CreateUser(conn)
 	if err != nil {
 		log.Printf("Unable to add user %s\n", err)
 		return err
