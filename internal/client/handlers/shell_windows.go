@@ -22,40 +22,27 @@ import (
 //The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
 func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
-	for req := range requests {
-		log.Info("Got request: %s", req.Type)
-		switch req.Type {
+	if user.Pty == nil {
+		fmt.Fprintln(connection, "You need a pty to be able to use terminal")
+		return
+	}
 
-		case "shell":
-			// We only accept the default shell
-			// (i.e. no command in the Payload)
-			req.Reply(len(req.Payload) == 0, nil)
-
-		case "pty-req":
-			req.Reply(true, nil)
-
-			vsn := windows.RtlGetVersion()
-			if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
-				log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
-				basicShell(requests, connection, log)
-			} else {
-				ptyreq, _ := internal.ParsePtyReq(req.Payload)
-				err := conptyShell(requests, connection, log, ptyreq)
-				if err != nil {
-					log.Error("%v", err)
-				}
-			}
-
-			connection.Close()
-
-		default:
-			req.Reply(false, nil)
+	vsn := windows.RtlGetVersion()
+	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
+		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
+		basicShell(connection, requests, log)
+	} else {
+		err := conptyShell(connection, requests, log, *user.Pty)
+		if err != nil {
+			log.Error("%v", err)
 		}
 	}
 
+	connection.Close()
+
 }
 
-func conptyShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Logger, ptyReq internal.PtyReq) error {
+func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq) error {
 
 	cpty, err := conpty.New(int16(ptyReq.Columns), int16(ptyReq.Rows))
 	if err != nil {
@@ -106,7 +93,7 @@ func conptyShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Lo
 	return nil
 }
 
-func basicShell(reqs <-chan *ssh.Request, connection ssh.Channel, log logger.Logger) {
+func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger) {
 
 	c := make(chan os.Signal, 1)
 	expected := make(chan bool, 1)
