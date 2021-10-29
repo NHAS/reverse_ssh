@@ -18,13 +18,11 @@ func LocalForward(user *internal.User, newChannel ssh.NewChannel, log logger.Log
 		log.Warning("Unable to unmarshal proxy destination: %s", err)
 		return
 	}
-	log.Info("Before")
 	target, err := clients.Get(drtMsg.Raddr)
 	if err != nil {
 		newChannel.Reject(ssh.Prohibited, err.Error())
 		return
 	}
-	log.Info("After")
 
 	targetConnection, targetRequests, err := target.OpenChannel("jump", nil)
 	if err != nil {
