@@ -134,6 +134,8 @@ func shellhostShell(connection ssh.Channel, reqs <-chan *ssh.Request) error {
 	go io.Copy(stdin, connection)
 	io.Copy(connection, stdout)
 
+	end <- true
+
 	if cmd.ProcessState.ExitCode() == 1 {
 		return errors.New("Shell host client failed with error")
 	}
