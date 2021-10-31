@@ -119,6 +119,8 @@ func shellhostShell(connection ssh.Channel, reqs <-chan *ssh.Request) error {
 
 	stdout, _ := cmd.StdoutPipe()
 	stdin, _ := cmd.StdinPipe()
+	defer stdout.Close()
+	defer stdin.Close()
 
 	cmd.Stderr = cmd.Stdout
 

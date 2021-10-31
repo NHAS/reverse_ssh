@@ -80,8 +80,10 @@ func Get(identifier string) (ssh.Conn, error) {
 			client := clients[k]
 			matchingHosts += fmt.Sprintf("%s (%s %s)\n", k, client.User(), client.RemoteAddr().String())
 		}
-		matchingHosts = matchingHosts[:len(matchingHosts)-1]
 
+		if len(matchingHosts) > 0 {
+			matchingHosts = matchingHosts[:len(matchingHosts)-1]
+		}
 		return nil, fmt.Errorf("%d connections match alias '%s'\n%s", matches, identifier, matchingHosts)
 
 	}
@@ -94,14 +96,14 @@ func Remove(uniqueId string) {
 	defer lock.Unlock()
 
 	if _, ok := clients[uniqueId]; !ok {
-		//	panic("Somehow a unqiue ID is being removed without being in the set, this is a programming issue guy")
+		panic("Somehow a unqiue ID is being removed without being in the set, this is a programming issue guy")
 	}
 
 	delete(clients, uniqueId)
 
 	if currentAliases, ok := uniqueIdToAllAliases[uniqueId]; ok {
 		for _, alias := range currentAliases {
-			if len(alias) == 1 {
+			if len(alias) <= 1 {
 				delete(aliases, alias)
 				continue
 			}
