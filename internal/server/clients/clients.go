@@ -102,13 +102,13 @@ func Remove(uniqueId string) {
 	delete(clients, uniqueId)
 
 	if currentAliases, ok := uniqueIdToAllAliases[uniqueId]; ok {
-		for _, alias := range currentAliases {
-			if len(alias) <= 1 {
-				delete(aliases, alias)
-				continue
-			}
 
+		for _, alias := range currentAliases {
 			delete(aliases[alias], uniqueId)
+
+			if len(aliases[alias]) <= 1 {
+				delete(aliases, alias)
+			}
 		}
 		delete(uniqueIdToAllAliases, uniqueId)
 	}
