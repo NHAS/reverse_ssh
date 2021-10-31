@@ -98,7 +98,7 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 		l.Warning("Couldnt get username: %s", sysinfoError.Error())
 		username = "Unknown"
 	} else {
-		username = userInfo.Username
+		username = strings.ReplaceAll(userInfo.Username, "\\", ".")
 	}
 
 	hostname, sysinfoError := os.Hostname()
