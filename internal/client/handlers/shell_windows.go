@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -30,7 +31,9 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	vsn := windows.RtlGetVersion()
 	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
 		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
-		basicShell(connection, requests, log)
+		if shellhostShell(connection, requests) != nil {
+			basicShell(connection, requests, log)
+		}
 	} else {
 		err := conptyShell(connection, requests, log, *user.Pty)
 		if err != nil {
@@ -88,6 +91,49 @@ func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Lo
 	_, err = process.Wait()
 	if err != nil {
 		return fmt.Errorf("Error waiting for process: %v", err)
+	}
+
+	return nil
+}
+
+func shellhostShell(connection ssh.Channel, reqs <-chan *ssh.Request) error {
+
+	end := make(chan bool, 1)
+	go func() {
+		for {
+			select {
+			case <-end:
+				return
+			case r := <-reqs:
+				if r.WantReply {
+					r.Reply(false, nil)
+				}
+			}
+		}
+	}()
+	d, _ := os.Executable()
+	cmd := exec.Command(d, "--exec", "powershell.exe")
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow: true,
+	}
+
+	stdout, _ := cmd.StdoutPipe()
+	stdin, _ := cmd.StdinPipe()
+
+	cmd.Stderr = cmd.Stdout
+
+	err := cmd.Start()
+	if err != nil {
+		return err
+
+	}
+	defer cmd.Process.Kill()
+
+	go io.Copy(stdin, connection)
+	io.Copy(connection, stdout)
+
+	if cmd.ProcessState.ExitCode() == 1 {
+		return errors.New("Shell host client failed with error")
 	}
 
 	return nil
