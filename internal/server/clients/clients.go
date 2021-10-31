@@ -2,6 +2,7 @@ package clients
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -23,12 +24,14 @@ func Add(conn *ssh.ServerConn) (string, error) {
 		return "", err
 	}
 
-	if _, ok := aliases[conn.User()]; !ok {
-		aliases[conn.User()] = make(map[string]bool)
+	username := strings.ToLower(conn.User())
+
+	if _, ok := aliases[username]; !ok {
+		aliases[username] = make(map[string]bool)
 	}
 
-	uniqueIdToAllAliases[idString] = append(uniqueIdToAllAliases[idString], conn.User())
-	aliases[conn.User()][idString] = true
+	uniqueIdToAllAliases[idString] = append(uniqueIdToAllAliases[idString], username)
+	aliases[username][idString] = true
 
 	if _, ok := aliases[conn.RemoteAddr().String()]; !ok {
 		aliases[conn.RemoteAddr().String()] = make(map[string]bool)
@@ -83,7 +86,7 @@ func Get(identifier string) (ssh.Conn, error) {
 
 	}
 
-	return nil, fmt.Errorf("Not found. It could be that you are using the 'user@hostname' format, unfortunately due to limitations of ssh we cant do that. Try using 'user.host' instead!")
+	return nil, fmt.Errorf("%s Not found. It could be that you are using the 'user@hostname' format, unfortunately due to limitations of ssh we cant do that. Try using 'user.host' instead!", identifier)
 }
 
 func Remove(uniqueId string) {

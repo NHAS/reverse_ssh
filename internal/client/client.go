@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"strings"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
