@@ -69,12 +69,6 @@ func run(command string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		windows.TerminateProcess(pi.Process, 0)
-
-		windows.CloseHandle(pi.Process)
-		windows.CloseHandle(pi.Thread)
-	}()
 
 	childProcessId = pi.ProcessId
 
@@ -98,12 +92,11 @@ func run(command string) error {
 
 	SendClearScreen()
 
-	u := windows.GetCurrentThreadId()
+	mainProcessThread := windows.GetCurrentThreadId()
 
 	go func() {
 		windows.WaitForSingleObject(pi.Process, windows.INFINITE)
-		PostThreadMessage(uint32(u), WM_APPEXIT, 0, 0)
-
+		PostThreadMessage(mainProcessThread, WM_APPEXIT, 0, 0)
 	}()
 
 	SetConsoleCtrlHandler(true)
@@ -122,13 +115,23 @@ func run(command string) error {
 		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_READ,
 		&sa, windows.OPEN_EXISTING, 0, 0)
 
+	defer windows.CloseHandle(child_in)
+	defer windows.CloseHandle(child_out)
+
 	go ProcessEvents(events, childProcessId, child_out)
-	go ProcessPipes(child_in, windows.Stdin, pi.ThreadId)
+	go ProcessPipes(child_in, windows.Stdin, mainProcessThread)
 
 	err = SizeWindow(child_out)
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		windows.TerminateProcess(pi.Process, 0)
+
+		windows.CloseHandle(pi.Process)
+		windows.CloseHandle(pi.Thread)
+	}()
 
 	var msg Msg
 	for GetMessage(&msg, 0, 0, 0) == nil {
@@ -226,7 +229,7 @@ func ProcessPipes(childIn, stdin windows.Handle, threadId uint32) {
 	buf := make([]byte, 128)
 	for {
 		n, err := windows.Read(stdin, buf)
-		if err != nil {
+		if err != nil || n == 0 {
 			break
 		}
 

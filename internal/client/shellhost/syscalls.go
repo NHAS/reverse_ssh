@@ -16,8 +16,6 @@ var (
 	procSetCurrentConsoleFont = kernel32.NewProc("SetCurrentConsoleFontEx")
 	procAttachConsole         = kernel32.NewProc("AttachConsole")
 
-	procGetStdHandle = kernel32.NewProc("GetStdHandle")
-
 	procGetLargestConsoleWindowSize = kernel32.NewProc("GetLargestConsoleWindowSize")
 	procSetConsoleWindowInfo        = kernel32.NewProc("SetConsoleWindowInfo")
 	procSetConsoleScreenBufferSize  = kernel32.NewProc("SetConsoleScreenBufferSize")
@@ -39,14 +37,8 @@ var (
 
 	procPostThreadMessage = user32.NewProc("PostThreadMessageW")
 	procPostMessage       = user32.NewProc("PostMessageW")
+	procShowCursor        = user32.NewProc("ShowCursor")
 )
-
-func GetStdHandle(handle uint32) uintptr {
-	ret, _, _ := procGetStdHandle.Call(uintptr(handle))
-
-	return ret
-
-}
 
 func GetConsoleWindow() uintptr {
 	ret, _, _ := procGetConsoleWindow.Call()
