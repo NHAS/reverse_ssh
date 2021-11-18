@@ -694,6 +694,13 @@ func SendCharacter(attributes uint16, char uint16) {
 		2*toInt((attributes&(BACKGROUND_GREEN)) != 0) +
 		1*toInt((attributes&(BACKGROUND_RED)) != 0)
 
+	if (foregroundColor - 30) == (backgroundColor - 40) {
+		//Invert colors if they match the background
+		foregroundColor = 30 +
+			4*toInt((attributes&(FOREGROUND_BLUE)) != 1) +
+			2*toInt((attributes&(FOREGROUND_GREEN)) != 1) +
+			1*toInt((attributes&(FOREGROUND_RED)) != 1)
+	}
 	terminalControl := fmt.Sprintf("\033[%d;%d;%d;%d;%d;%dm", forgroundIntensity, backgroundIntensity, underline, reverseVideo, foregroundColor, backgroundColor)
 
 	if attributes != 0 {
