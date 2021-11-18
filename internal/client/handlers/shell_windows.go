@@ -29,11 +29,13 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	}
 
 	vsn := windows.RtlGetVersion()
-	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
+	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 || true {
+
 		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
-		if shellhostShell(connection, requests) != nil {
-			basicShell(connection, requests, log)
-		}
+		basicShell(connection, requests, log)
+
+		// if shellhostShell(connection, requests) != nil {
+		// }
 	} else {
 		err := conptyShell(connection, requests, log, *user.Pty)
 		if err != nil {
@@ -165,7 +167,7 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-WindowStyle", "hidden", "-NoLogo")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
+
 		CreationFlags: syscall.STARTF_USESTDHANDLES,
 	}
 
@@ -198,7 +200,6 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 		}
 	}()
 
-	ignoredByes := 0
 	go func() {
 
 		buf := make([]byte, 128)
@@ -214,13 +215,11 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 			}
 
 			//This should ignore the echo'd result from cmd.exe on newline, this isnt super thread safe, but should be okay.
-			_, err = terminal.Write(buf[ignoredByes:n])
+			_, err = terminal.Write(buf[:n])
 			if err != nil {
 				log.Error("%s", err)
 				return
 			}
-
-			ignoredByes = 0
 
 		}
 	}()
@@ -250,7 +249,6 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 					fmt.Fprintf(terminal, "Error writing to STDIN: %s", err)
 					log.Error("%s", err)
 				}
-				ignoredByes = len(line)
 			}
 
 		}
