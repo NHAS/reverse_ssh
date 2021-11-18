@@ -29,7 +29,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	}
 
 	vsn := windows.RtlGetVersion()
-	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 || true {
+	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
 		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
 		if shellhostShell(connection, requests) != nil {
 			basicShell(connection, requests, log)
@@ -163,7 +163,7 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 		}
 	}()
 
-	cmd := exec.Command("cmd.exe")
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-WindowStyle", "hidden", "-NoLogo")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: syscall.STARTF_USESTDHANDLES,
