@@ -5,6 +5,7 @@ package shellhost
 
 import (
 	"fmt"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -29,6 +30,8 @@ var (
 
 	procGetConsoleWindow = kernel32.NewProc("GetConsoleWindow")
 
+	procSetConsoleCursorInfo = kernel32.NewProc("SetConsoleCursorInfo")
+
 	user32               = windows.NewLazySystemDLL("user32.dll")
 	procGetMessage       = user32.NewProc("GetMessageW")
 	procTranslateMessage = user32.NewProc("TranslateMessage")
@@ -39,6 +42,19 @@ var (
 	procPostMessage       = user32.NewProc("PostMessageW")
 	procShowCursor        = user32.NewProc("ShowCursor")
 )
+
+func SetConsoleCursorInfo(h windows.Handle, info *ConsoleCursorInfo) (err error) {
+	r0, _, e1 := syscall.Syscall(procSetConsoleCursorInfo.Addr(),
+		2, uintptr(h), uintptr(unsafe.Pointer(info)), 0)
+	if int(r0) == 0 {
+		if e1 != 0 {
+			err = error(e1)
+		} else {
+			err = syscall.EINVAL
+		}
+	}
+	return
+}
 
 func GetConsoleWindow() uintptr {
 	ret, _, _ := procGetConsoleWindow.Call()

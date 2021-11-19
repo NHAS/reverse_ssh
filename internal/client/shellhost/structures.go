@@ -5,6 +5,11 @@ package shellhost
 
 import "golang.org/x/sys/windows"
 
+type ConsoleCursorInfo struct {
+	size    uint32
+	visible int32
+}
+
 type CONSOLE_FONT_INFOEX struct {
 	cbSize     uint32
 	nFont      uint32

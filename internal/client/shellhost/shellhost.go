@@ -6,6 +6,7 @@ package shellhost
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"unsafe"
@@ -496,12 +497,9 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			readRect.Left = int16(win.LOWORD(uint32(event.Object)))
 			readRect.Bottom = int16(win.HIWORD(uint32(event.Child)))
 
-			var cb windows.ConsoleScreenBufferInfo
-			windows.GetConsoleScreenBufferInfo(childOutput, &cb)
-
 			readRect.Right = int16(win.LOWORD(uint32(event.Child)))
-			if readRect.Right < cb.Window.Right {
-				readRect.Right = cb.Window.Right
+			if readRect.Right < consoleInfo.Window.Right {
+				readRect.Right = consoleInfo.Window.Right
 			}
 
 			if !bStartup && (readRect.Top == consoleInfo.Window.Top) {
@@ -543,50 +541,35 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 				continue
 			}
 
+			// For more granular writes, open a file for writing.
+			f, _ := os.OpenFile("log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+
+			f.WriteString(fmt.Sprintf("%+v %+v", readRect, consoleInfo))
+			for _, c := range buf {
+				f.WriteString(fmt.Sprintf("[%d] ", c.UnicodeChar))
+			}
+			f.WriteString("\n")
 			/* Set cursor location based on the reported location from the message */
 			CalculateAndSetCursor(readRect.Left, readRect.Top, true)
 
 			// /* Send the entire block */
 			SendBuffer(buf)
+
+			//Set cursor location to actual location
+			CalculateAndSetCursor(consoleInfo.CursorPosition.X, consoleInfo.CursorPosition.Y, true)
 			lastViewPortY = ViewPortY
-			lastLineLength = readRect.Left
 
 		case win.EVENT_CONSOLE_UPDATE_SIMPLE:
+			chUpdate := win.LOWORD(uint32(event.Child))
+			wAttributes := win.HIWORD(uint32(event.Child))
 			wX := win.LOWORD(uint32(event.Object))
 			wY := win.HIWORD(uint32(event.Object))
 
-			var readRect windows.SmallRect
-			readRect.Top = int16(wY)
-			readRect.Bottom = int16(wY)
-			readRect.Left = int16(wX)
+			buf := []CharInfo{
+				{UnicodeChar: chUpdate, Attributes: wAttributes},
+			}
 
-			var cb windows.ConsoleScreenBufferInfo
-			windows.GetConsoleScreenBufferInfo(childOutput, &cb)
-			readRect.Right = int16(cb.Window.Right)
-
-			/* Set cursor location based on the reported location from the message */
 			CalculateAndSetCursor(int16(wX), int16(wY), true)
-
-			var coordBufSize windows.Coord
-
-			coordBufSize.Y = readRect.Bottom - readRect.Top + 1
-			coordBufSize.X = readRect.Right - readRect.Left + 1
-			bufferSize := coordBufSize.X * coordBufSize.Y
-			if bufferSize > MAX_EXPECTED_BUFFER_SIZE {
-				continue
-			}
-
-			/* The top left destination cell of the temporary buffer is row 0, col 0 */
-
-			var coordBufCoord windows.Coord
-
-			/* Copy the block from the screen buffer to the temp. buffer */
-			buf := make([]CharInfo, bufferSize)
-			err = ReadConsoleOutput(childOutput, buf, coordBufSize, coordBufCoord, &readRect)
-			if err != nil {
-				panic(err)
-			}
-
 			SendBuffer(buf)
 
 		case win.EVENT_CONSOLE_UPDATE_SCROLL:
@@ -643,7 +626,7 @@ func CalculateAndSetCursor(x, y int16, scroll bool) {
 		}
 	}
 
-	SendSetCursor(int(x+1), int(y+1))
+	SendSetCursor(int(x), int(y))
 	currentLine = y
 }
 
