@@ -6,7 +6,6 @@ package shellhost
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"os/exec"
 	"strconv"
 	"unsafe"
@@ -120,7 +119,7 @@ func run(command string) error {
 	defer windows.CloseHandle(child_out)
 
 	go ProcessEvents(events, childProcessId, child_out)
-	go ProcessPipes(child_in, windows.Stdin, mainProcessThread)
+	go ProcessPipes(child_in, child_out, windows.Stdin, mainProcessThread)
 
 	err = SizeWindow(child_out)
 	if err != nil {
@@ -226,7 +225,7 @@ func min(x, y int16) int16 {
 	return y
 }
 
-func ProcessPipes(childIn, stdin windows.Handle, threadId uint32) {
+func ProcessPipes(childIn, childOut, stdin windows.Handle, threadId uint32) {
 	buf := make([]byte, 128)
 	for {
 		n, err := windows.Read(stdin, buf)
@@ -235,7 +234,7 @@ func ProcessPipes(childIn, stdin windows.Handle, threadId uint32) {
 		}
 
 		if n > 0 {
-			ProcessIncomingKeys(buf[:n], childIn)
+			ProcessIncomingKeys(buf[:n], childIn, childOut)
 		}
 
 		bStartup = false
@@ -246,7 +245,7 @@ func ProcessPipes(childIn, stdin windows.Handle, threadId uint32) {
 	PostThreadMessage(threadId, WM_APPEXIT, 0, 0)
 }
 
-func ProcessIncomingKeys(buffer []byte, childIn windows.Handle) {
+func ProcessIncomingKeys(buffer []byte, childIn, childOut windows.Handle) {
 
 	ESC_SEQ := []byte("\x1b")
 
@@ -257,6 +256,14 @@ func ProcessIncomingKeys(buffer []byte, childIn windows.Handle) {
 		found, key := CheckKeyTranslations(buffer)
 		if found {
 			SendKeyStroke(childIn, key.vk, int16(key.out), uint32(key.ctrlState))
+			// For more granular writes, open a file for writing.
+			switch key.vk {
+			case win.VK_RIGHT, win.VK_LEFT, win.VK_HOME, win.VK_END:
+				var consoleInfo windows.ConsoleScreenBufferInfo
+				windows.GetConsoleScreenBufferInfo(childOut, &consoleInfo)
+				SendSetCursor(int(consoleInfo.CursorPosition.X), int(consoleInfo.CursorPosition.Y))
+
+			}
 			i += len(key.in)
 			continue
 		}
@@ -297,6 +304,7 @@ func ProcessIncomingKeys(buffer []byte, childIn windows.Handle) {
 				continue
 			}
 			SendKeyStroke(childIn, 0, int16(cha[0]), 0)
+
 		}
 
 		i++
@@ -541,14 +549,6 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 				continue
 			}
 
-			// For more granular writes, open a file for writing.
-			f, _ := os.OpenFile("log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-
-			f.WriteString(fmt.Sprintf("%+v %+v", readRect, consoleInfo))
-			for _, c := range buf {
-				f.WriteString(fmt.Sprintf("[%d] ", c.UnicodeChar))
-			}
-			f.WriteString("\n")
 			/* Set cursor location based on the reported location from the message */
 			CalculateAndSetCursor(readRect.Left, readRect.Top, true)
 
@@ -556,7 +556,7 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			SendBuffer(buf)
 
 			//Set cursor location to actual location
-			CalculateAndSetCursor(consoleInfo.CursorPosition.X, consoleInfo.CursorPosition.Y, true)
+			SendSetCursor(int(consoleInfo.CursorPosition.X), int(consoleInfo.CursorPosition.Y))
 			lastViewPortY = ViewPortY
 
 		case win.EVENT_CONSOLE_UPDATE_SIMPLE:
