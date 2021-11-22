@@ -35,9 +35,10 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 
 		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
 
-		if shellhostShell(connection, requests, *user.Pty) != nil {
-			basicShell(connection, requests, log)
-		}
+		basicShell(connection, requests, log)
+		// if shellhostShell(connection, requests, *user.Pty) != nil {
+
+		// }
 	} else {
 		err := conptyShell(connection, requests, log, *user.Pty)
 		if err != nil {

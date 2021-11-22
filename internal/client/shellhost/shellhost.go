@@ -497,6 +497,14 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			return err
 		}
 
+		f, err := os.OpenFile("log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			panic(err)
+		}
+
+		defer f.Close()
+
+		fmt.Print("\033[?25l")
 		switch event.Event {
 		case win.EVENT_CONSOLE_UPDATE_REGION:
 			var readRect windows.SmallRect
@@ -545,29 +553,17 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 				continue
 			}
 
-			fmt.Print("\033[?25l")
+			b := []uint16{}
+			for _, c := range buf {
+				b = append(b, c.UnicodeChar)
+			}
+			f.WriteString(fmt.Sprintf("Region: \"%s\" %+v %+v\n", windows.UTF16ToString(b), readRect, consoleInfo))
+
 			/* Set cursor location based on the reported location from the message */
 			CalculateAndSetCursor(readRect.Left, readRect.Top, true)
 
 			// /* Send the entire block */
 			SendBuffer(buf)
-			fmt.Print("\033[?25h")
-
-			f, err := os.OpenFile("log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-			if err != nil {
-				panic(err)
-			}
-
-			defer f.Close()
-
-			str := []uint16{}
-			for _, c := range buf {
-				str = append(str, c.UnicodeChar)
-			}
-
-			if _, err = f.WriteString(fmt.Sprintf("Region: %+v : %s\n", readRect, windows.UTF16ToString(str))); err != nil {
-				panic(err)
-			}
 
 			lastViewPortY = ViewPortY
 
@@ -581,22 +577,11 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 				{UnicodeChar: chUpdate, Attributes: wAttributes},
 			}
 
+			f.WriteString(fmt.Sprintf("Simple: %s { X: %d Y: %d } %+v\n", windows.UTF16ToString([]uint16{chUpdate}), wX, wY, consoleInfo))
+
 			//Temporarily disable the cursor so we dont get a bunch of random flickering
-			fmt.Print("\033[?25l")
 			CalculateAndSetCursor(int16(wX), int16(wY), true)
 			SendBuffer(buf)
-			fmt.Print("\033[?25h")
-
-			f, err := os.OpenFile("log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-			if err != nil {
-				panic(err)
-			}
-
-			defer f.Close()
-
-			if _, err = f.WriteString(fmt.Sprintf("Simple: %d %d : %s\n", wX, wY, windows.UTF16ToString([]uint16{chUpdate}))); err != nil {
-				panic(err)
-			}
 
 		case win.EVENT_CONSOLE_UPDATE_SCROLL:
 
@@ -634,6 +619,8 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			}
 			break
 		}
+		fmt.Print("\033[?25h")
+
 		//Update the cursor position
 		SendSetCursor(int(consoleInfo.CursorPosition.X), int(consoleInfo.CursorPosition.Y))
 
@@ -735,11 +722,6 @@ func toInt(b bool) uint32 {
 }
 
 func SendSetCursor(X, Y int) {
-
-	Y = Y % ansiTermY
-	if Y == 0 {
-		SendClearScreen()
-	}
 
 	fmt.Printf("\033[%d;%dH", Y, X)
 }
