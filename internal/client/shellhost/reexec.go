@@ -3,6 +3,6 @@
 
 package shellhost
 
-func ShellHost(args ...string) {
+func ShellHost(exec string, args ...string) {
 	//Dummy for linux and other platforms
 }

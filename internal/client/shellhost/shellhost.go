@@ -5,7 +5,9 @@ package shellhost
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"unsafe"
@@ -22,21 +24,20 @@ const MAX_CTRL_SEQ_LEN = int(7)
 const MIN_CTRL_SEQ_LEN = int(6)
 const WM_APPEXIT = 0x0400 + 1
 
-var inputSi windows.StartupInfo
-
 var (
 	CREATE_NEW_CONSOLE = uint32(0x00000010)
 	STARTF_USEPOSITION = uint32(0x00000004)
 )
 
-func run(command string) error {
+func run(command string, width, height int) error {
 	var (
 		si             windows.StartupInfo
 		pi             windows.ProcessInformation
 		childProcessId uint32
 	)
 
-	err := windows.GetStartupInfo(&inputSi)
+	ansiTermX, ansiTermY = width, height
+
 	FreeConsole()
 
 	events := make(chan Event)
@@ -50,10 +51,6 @@ func run(command string) error {
 	windows.SetHandleInformation(windows.Stdin, windows.HANDLE_FLAG_INHERIT, 0)
 
 	si.Cb = uint32(unsafe.Sizeof(si))
-	si.Flags = STARTF_USEPOSITION | windows.STARTF_USESHOWWINDOW
-	si.X = 0x7FFF
-	si.Y = 0x7FFF
-	si.ShowWindow = windows.SW_HIDE
 
 	cmd, err := exec.LookPath("cmd.exe")
 	if err != nil {
@@ -121,7 +118,7 @@ func run(command string) error {
 	go ProcessEvents(events, childProcessId, child_out)
 	go ProcessPipes(child_in, child_out, windows.Stdin, mainProcessThread)
 
-	err = SizeWindow(child_out)
+	err = SizeWindow(child_out, width, height)
 	if err != nil {
 		return err
 	}
@@ -158,7 +155,7 @@ func run(command string) error {
 	return nil
 }
 
-func SizeWindow(hInput windows.Handle) error {
+func SizeWindow(hInput windows.Handle, width, height int) error {
 
 	/* Set the default font to Consolas */
 	var matchingFont CONSOLE_FONT_INFOEX
@@ -181,31 +178,20 @@ func SizeWindow(hInput windows.Handle) error {
 		return fmt.Errorf("Setting font failed: %s", err)
 	}
 
-	/* This information is the live screen  */
-	var consoleInfo windows.ConsoleScreenBufferInfo
-
-	err = windows.GetConsoleScreenBufferInfo(hInput, &consoleInfo)
-	if err != nil {
-		return fmt.Errorf("Getting the console screen buffer failed: %s", err)
-	}
-
 	/* Get the largest size we can size the console window to */
-	coordScreen := GetLargestConsoleWindowSize(hInput)
+	maxSize := GetLargestConsoleWindowSize(hInput)
 
-	/* Define the new console window size and scroll position */
-	if inputSi.XCountChars == 0 || inputSi.YCountChars == 0 {
-		inputSi.XCountChars = 80
-		inputSi.YCountChars = 25
-	}
 	var srWindowRect windows.SmallRect
-	srWindowRect.Right = min(int16(inputSi.XCountChars), coordScreen.X) - 1
-	srWindowRect.Bottom = min(int16(inputSi.YCountChars), coordScreen.Y) - 1
+	srWindowRect.Right = max(int16(width), maxSize.X)
+	srWindowRect.Bottom = max(int16(height), maxSize.Y)
 	srWindowRect.Left = 0
 	srWindowRect.Top = 0
 
 	/* Define the new console buffer history to be the maximum possible */
-	coordScreen.X = srWindowRect.Right + 1 /* buffer width must be equ window width */
-	coordScreen.Y = 9999
+	coordScreen := windows.Coord{
+		X: srWindowRect.Right,
+		Y: srWindowRect.Bottom,
+	}
 
 	if SetConsoleWindowInfo(hInput, true, &srWindowRect) != nil {
 		SetConsoleScreenBufferSize(hInput, coordScreen)
@@ -214,27 +200,53 @@ func SizeWindow(hInput windows.Handle) error {
 		SetConsoleWindowInfo(hInput, true, &srWindowRect)
 	}
 
+	ansiTermX, ansiTermY = width, height
+
 	return nil
 }
 
-func min(x, y int16) int16 {
+func max(x, y int16) int16 {
 	if x < y {
-		return x
+		return y
 	}
 
-	return y
+	return x
+}
+
+type Message struct {
+	Type    string
+	Content []byte
+	Width   int
+	Height  int
+}
+
+type WindowsReader struct {
+	handle windows.Handle
+}
+
+func (wr *WindowsReader) Read(b []byte) (n int, err error) {
+	return windows.Read(wr.handle, b)
 }
 
 func ProcessPipes(childIn, childOut, stdin windows.Handle, threadId uint32) {
-	buf := make([]byte, 128)
+	defer PostThreadMessage(threadId, WM_APPEXIT, 0, 0)
+
+	wr := WindowsReader{stdin}
+
+	decoder := json.NewDecoder(&wr)
 	for {
-		n, err := windows.Read(stdin, buf)
-		if err != nil || n == 0 {
-			break
+
+		var newMessage Message
+		err := decoder.Decode(&newMessage)
+		if err != nil {
+			return
 		}
 
-		if n > 0 {
-			ProcessIncomingKeys(buf[:n], childIn, childOut)
+		switch newMessage.Type {
+		case "Text":
+			ProcessIncomingKeys(newMessage.Content, childIn, childOut)
+		case "Resize":
+			SizeWindow(childOut, newMessage.Width, newMessage.Height)
 		}
 
 		bStartup = false
@@ -242,7 +254,6 @@ func ProcessPipes(childIn, childOut, stdin windows.Handle, threadId uint32) {
 	}
 
 	//Need to do the whole "Tell everything to die", here
-	PostThreadMessage(threadId, WM_APPEXIT, 0, 0)
 }
 
 func ProcessIncomingKeys(buffer []byte, childIn, childOut windows.Handle) {
@@ -487,18 +498,6 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 		}
 
 		switch event.Event {
-		case win.EVENT_CONSOLE_CARET:
-			co := windows.Coord{X: int16(win.LOWORD(uint32(event.Child))), Y: int16(win.HIWORD(uint32(event.Child)))}
-
-			lastX = co.X
-			lastY = co.Y
-
-			if lastX == 0 && lastY > currentLine {
-				CalculateAndSetCursor(lastX, lastY, true)
-			} else {
-				SendSetCursor(int(lastX+1), int(lastY+1))
-			}
-
 		case win.EVENT_CONSOLE_UPDATE_REGION:
 			var readRect windows.SmallRect
 			readRect.Top = int16(win.HIWORD(uint32(event.Object)))
@@ -506,9 +505,6 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			readRect.Bottom = int16(win.HIWORD(uint32(event.Child)))
 
 			readRect.Right = int16(win.LOWORD(uint32(event.Child)))
-			if readRect.Right < consoleInfo.Window.Right {
-				readRect.Right = consoleInfo.Window.Right
-			}
 
 			if !bStartup && (readRect.Top == consoleInfo.Window.Top) {
 				isClearCommand := (consoleInfo.Size.X == readRect.Right+1) && (consoleInfo.Size.Y == readRect.Bottom+1)
@@ -549,14 +545,30 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 				continue
 			}
 
+			fmt.Print("\033[?25l")
 			/* Set cursor location based on the reported location from the message */
 			CalculateAndSetCursor(readRect.Left, readRect.Top, true)
 
 			// /* Send the entire block */
 			SendBuffer(buf)
+			fmt.Print("\033[?25h")
 
-			//Set cursor location to actual location
-			SendSetCursor(int(consoleInfo.CursorPosition.X), int(consoleInfo.CursorPosition.Y))
+			f, err := os.OpenFile("log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+			if err != nil {
+				panic(err)
+			}
+
+			defer f.Close()
+
+			str := []uint16{}
+			for _, c := range buf {
+				str = append(str, c.UnicodeChar)
+			}
+
+			if _, err = f.WriteString(fmt.Sprintf("Region: %+v : %s\n", readRect, windows.UTF16ToString(str))); err != nil {
+				panic(err)
+			}
+
 			lastViewPortY = ViewPortY
 
 		case win.EVENT_CONSOLE_UPDATE_SIMPLE:
@@ -569,8 +581,22 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 				{UnicodeChar: chUpdate, Attributes: wAttributes},
 			}
 
+			//Temporarily disable the cursor so we dont get a bunch of random flickering
+			fmt.Print("\033[?25l")
 			CalculateAndSetCursor(int16(wX), int16(wY), true)
 			SendBuffer(buf)
+			fmt.Print("\033[?25h")
+
+			f, err := os.OpenFile("log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+			if err != nil {
+				panic(err)
+			}
+
+			defer f.Close()
+
+			if _, err = f.WriteString(fmt.Sprintf("Simple: %d %d : %s\n", wX, wY, windows.UTF16ToString([]uint16{chUpdate}))); err != nil {
+				panic(err)
+			}
 
 		case win.EVENT_CONSOLE_UPDATE_SCROLL:
 
@@ -608,21 +634,28 @@ func ProcessEvents(queue <-chan Event, childProcessId uint32, childOutput window
 			}
 			break
 		}
+		//Update the cursor position
+		SendSetCursor(int(consoleInfo.CursorPosition.X), int(consoleInfo.CursorPosition.Y))
 
 	}
 
 	return nil
 }
 
+var ansiTermX, ansiTermY int
+
 var bStartup = true
 var bFullScreen = false
-var lastX, lastY, currentLine, lastLineLength int16
+var currentLine int16
 var ViewPortY, lastViewPortY, savedViewPortY, savedLastViewPortY uint
 
 func CalculateAndSetCursor(x, y int16, scroll bool) {
-	if scroll && y > currentLine {
-		for n := currentLine; n < y; n++ {
-			SendLF()
+	if scroll {
+
+		if y > currentLine {
+			for n := currentLine; n < y; n++ {
+				SendLF()
+			}
 		}
 	}
 
@@ -702,6 +735,12 @@ func toInt(b bool) uint32 {
 }
 
 func SendSetCursor(X, Y int) {
+
+	Y = Y % ansiTermY
+	if Y == 0 {
+		SendClearScreen()
+	}
+
 	fmt.Printf("\033[%d;%dH", Y, X)
 }
 

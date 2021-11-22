@@ -55,7 +55,8 @@ func main() {
 	})
 
 	if ex && runtime.GOOS == "windows" {
-		shellhost.ShellHost(*toExec)
+		args := flag.Args()
+		shellhost.ShellHost(*toExec, args...)
 		return
 	}
 

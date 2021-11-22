@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/shellhost"
 	"github.com/NHAS/reverse_ssh/internal/client/term"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
@@ -33,10 +35,9 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 
 		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
 
-		basicShell(connection, requests, log)
-		// if shellhostShell(connection, requests) != nil {
-
-		// }
+		if shellhostShell(connection, requests, *user.Pty) != nil {
+			basicShell(connection, requests, log)
+		}
 	} else {
 		err := conptyShell(connection, requests, log, *user.Pty)
 		if err != nil {
@@ -99,23 +100,10 @@ func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Lo
 	return nil
 }
 
-func shellhostShell(connection ssh.Channel, reqs <-chan *ssh.Request) error {
+func shellhostShell(connection ssh.Channel, reqs <-chan *ssh.Request, ptyReq internal.PtyReq) error {
 
-	end := make(chan bool, 1)
-	go func() {
-		for {
-			select {
-			case <-end:
-				return
-			case r := <-reqs:
-				if r.WantReply {
-					r.Reply(false, nil)
-				}
-			}
-		}
-	}()
 	d, _ := os.Executable()
-	cmd := exec.Command(d, "--exec", "powershell.exe")
+	cmd := exec.Command(d, "--exec", "powershell.exe", fmt.Sprintf("%d", ptyReq.Columns), fmt.Sprintf("%d", ptyReq.Rows))
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow: true,
 	}
@@ -124,6 +112,38 @@ func shellhostShell(connection ssh.Channel, reqs <-chan *ssh.Request) error {
 	stdin, _ := cmd.StdinPipe()
 	defer stdout.Close()
 	defer stdin.Close()
+
+	end := make(chan bool, 1)
+	go func() {
+		for {
+			select {
+			case <-end:
+				return
+			case r := <-reqs:
+				if r.Type == "window-change" {
+					w, h := internal.ParseDims(r.Payload)
+
+					msg := shellhost.Message{
+						Type:    "Resize",
+						Content: nil,
+						Width:   int(w),
+						Height:  int(h),
+					}
+
+					out, _ := json.Marshal(&msg)
+					_, err := stdin.Write(out)
+					if err != nil {
+						stdin.Close()
+						connection.Close()
+					}
+				}
+
+				if r.WantReply {
+					r.Reply(false, nil)
+				}
+			}
+		}
+	}()
 
 	cmd.Stderr = cmd.Stdout
 
@@ -134,7 +154,28 @@ func shellhostShell(connection ssh.Channel, reqs <-chan *ssh.Request) error {
 	}
 	defer cmd.Process.Kill()
 
-	go io.Copy(stdin, connection)
+	go func() {
+		buff := make([]byte, 128)
+		for {
+			n, err := connection.Read(buff)
+			if err != nil {
+				stdout.Close()
+				return
+			}
+
+			msg := shellhost.Message{
+				Type:    "Text",
+				Content: buff[:n],
+			}
+
+			out, _ := json.Marshal(&msg)
+			_, err = stdin.Write(out)
+			if err != nil {
+				stdout.Close()
+				connection.Close()
+			}
+		}
+	}()
 	io.Copy(connection, stdout)
 
 	end <- true
