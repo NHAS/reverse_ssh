@@ -40,7 +40,9 @@ func LocalForward(user *internal.User, newChannel ssh.NewChannel, log logger.Log
 	defer connection.Close()
 	go ssh.DiscardRequests(requests)
 
-	go io.Copy(connection, targetConnection)
+	go func() {
+		io.Copy(connection, targetConnection)
+		connection.Close()
+	}()
 	io.Copy(targetConnection, connection)
-
 }
