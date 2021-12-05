@@ -4,8 +4,6 @@
 package handlers
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,8 +13,8 @@ import (
 
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/client/shellhost"
 	"github.com/NHAS/reverse_ssh/internal/client/term"
+	"github.com/NHAS/reverse_ssh/internal/winpty"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sys/windows"
@@ -96,93 +94,6 @@ func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Lo
 	_, err = process.Wait()
 	if err != nil {
 		return fmt.Errorf("Error waiting for process: %v", err)
-	}
-
-	return nil
-}
-
-func shellhostShell(connection ssh.Channel, reqs <-chan *ssh.Request, ptyReq internal.PtyReq) error {
-
-	d, _ := os.Executable()
-	cmd := exec.Command(d, "--exec", "powershell.exe", fmt.Sprintf("%d", ptyReq.Columns), fmt.Sprintf("%d", ptyReq.Rows))
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow: true,
-	}
-
-	stdout, _ := cmd.StdoutPipe()
-	stdin, _ := cmd.StdinPipe()
-	defer stdout.Close()
-	defer stdin.Close()
-
-	end := make(chan bool, 1)
-	go func() {
-		for {
-			select {
-			case <-end:
-				return
-			case r := <-reqs:
-				if r.Type == "window-change" {
-					w, h := internal.ParseDims(r.Payload)
-
-					msg := shellhost.Message{
-						Type:    "Resize",
-						Content: nil,
-						Width:   int(w),
-						Height:  int(h),
-					}
-
-					out, _ := json.Marshal(&msg)
-					_, err := stdin.Write(out)
-					if err != nil {
-						stdin.Close()
-						connection.Close()
-					}
-				}
-
-				if r.WantReply {
-					r.Reply(false, nil)
-				}
-			}
-		}
-	}()
-
-	cmd.Stderr = cmd.Stdout
-
-	err := cmd.Start()
-	if err != nil {
-		return err
-
-	}
-	defer cmd.Process.Kill()
-
-	go func() {
-		buff := make([]byte, 128)
-		for {
-			n, err := connection.Read(buff)
-			if err != nil {
-				stdout.Close()
-				return
-			}
-
-			msg := shellhost.Message{
-				Type:    "Text",
-				Content: buff[:n],
-			}
-
-			out, _ := json.Marshal(&msg)
-			_, err = stdin.Write(out)
-			if err != nil {
-				stdout.Close()
-				connection.Close()
-			}
-		}
-	}()
-	io.Copy(connection, stdout)
-
-	end <- true
-
-	if cmd.ProcessState.ExitCode() == 1 {
-		return errors.New("Shell host client failed with error")
 	}
 
 	return nil

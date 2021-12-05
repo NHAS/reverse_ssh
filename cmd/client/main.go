@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-
-	"github.com/NHAS/reverse_ssh/internal/client/shellhost"
 )
 
 func printHelp() {
@@ -26,10 +23,6 @@ func main() {
 	flag.Bool("foreground", false, "Dont fork to background on start")
 	flag.Bool("no-reconnect", false, "Disable reconnect on disconnection")
 	flag.Bool("detach", true, "(windows only) will force a console detach")
-	var toExec *string
-	if runtime.GOOS == "windows" {
-		toExec = flag.String("exec", "powershell.exe", "")
-	}
 
 	proxyaddress := flag.String("proxy", "", "Sets the HTTP_PROXY enviroment variable so the net library will use it")
 	fingerprint := flag.String("fingerprint", "", "Server public key fingerprint")
@@ -38,13 +31,11 @@ func main() {
 
 	flag.Parse()
 
-	var fg, dt, ex bool
+	var fg, dt bool
 	rc := true
 
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case "exec":
-			ex = true
 		case "no-reconnect":
 			rc = false
 		case "foreground":
@@ -53,12 +44,6 @@ func main() {
 			dt = true
 		}
 	})
-
-	if ex && runtime.GOOS == "windows" {
-		args := flag.Args()
-		shellhost.ShellHost(*toExec, args...)
-		return
-	}
 
 	if len(flag.Arg(0)) == 0 && len(destination) == 0 {
 		fmt.Println("Missing destination (no default present)")
