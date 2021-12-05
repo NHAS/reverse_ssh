@@ -29,14 +29,24 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	}
 
 	vsn := windows.RtlGetVersion()
-	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
+	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 || true {
 
 		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
 
-		basicShell(connection, requests, log)
-		// if shellhostShell(connection, requests, *user.Pty) != nil {
+		winpty, err := winpty.Open("powershell.exe", user.Pty.Columns, user.Pty.Rows)
+		if err != nil {
+			log.Info("Winpty failed. %s", err)
+			basicShell(connection, requests, log)
+			return
+		}
 
-		// }
+		go func() {
+			io.Copy(connection, winpty)
+			connection.Close()
+		}()
+
+		io.Copy(winpty, connection)
+		winpty.Close()
 	} else {
 		err := conptyShell(connection, requests, log, *user.Pty)
 		if err != nil {
