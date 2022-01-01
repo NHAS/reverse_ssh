@@ -178,7 +178,6 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	}
 
 	clientLog := logger.NewLog(sshConn.RemoteAddr().String())
-	clientLog.Info("New SSH connection, version %s", sshConn.ClientVersion())
 
 	switch sshConn.Permissions.Extensions["type"] {
 	case "user":
@@ -201,6 +200,8 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			internal.DeleteUser(user)
 		}()
 
+		clientLog.Info("New User SSH connection, version %s", sshConn.ClientVersion())
+
 		// Discard all global out-of-band Requests, except for the tcpip-forward
 		go ssh.DiscardRequests(reqs)
 
@@ -220,6 +221,8 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			clientLog.Info("SSH client disconnected")
 			clients.Remove(id)
 		}()
+
+		clientLog.Info("New controllable connection")
 
 	default:
 		sshConn.Close()

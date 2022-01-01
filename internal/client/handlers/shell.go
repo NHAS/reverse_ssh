@@ -23,6 +23,7 @@ var shells []string
 
 func init() {
 
+	var potentialShells []string
 	file, err := os.Open("/etc/shells")
 	if err == nil {
 		defer file.Close()
@@ -36,7 +37,7 @@ func init() {
 			shells = append(shells, strings.TrimSpace(line))
 		}
 	} else {
-		shells = []string{
+		potentialShells = []string{
 			"/bin/bash",
 			"/bin/sh",
 			"/bin/zsh",
@@ -46,7 +47,7 @@ func init() {
 	}
 
 	log.Println("Detected Shells: ")
-	for _, s := range shells {
+	for _, s := range potentialShells {
 
 		if stats, err := os.Stat(s); err != nil && (os.IsNotExist(err) || !stats.IsDir()) {
 
