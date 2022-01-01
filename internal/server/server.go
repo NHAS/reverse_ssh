@@ -47,17 +47,23 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 
 	//Taken from the server example, authorized keys are required for controllers
 	log.Printf("Loading authorized keys from: %s\n", publicKeyPath)
-	_, err := ReadPubKeys(publicKeyPath)
+	authorizedControllers, err := ReadPubKeys(publicKeyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = ReadPubKeys("authorized_controllee_keys")
+	clients, err := ReadPubKeys("authorized_controllee_keys")
 	if err != nil {
 		if !insecure {
 			log.Fatal(err)
 		} else {
 			log.Println(err)
+		}
+	}
+
+	for key := range clients {
+		if _, ok := authorizedControllers[key]; ok {
+			log.Fatalf("[ERROR] Key %s is present in both authorized_controllee_keys and authorized_keys. It should only be in one.", key)
 		}
 	}
 
