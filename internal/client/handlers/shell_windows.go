@@ -14,8 +14,8 @@ import (
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/client/term"
-	"github.com/NHAS/reverse_ssh/internal/winpty"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/NHAS/reverse_ssh/pkg/winpty"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sys/windows"
 )
