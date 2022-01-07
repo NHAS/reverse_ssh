@@ -32,6 +32,10 @@ The reverse SSH server lets you catch multiple reverse shells, using the fully s
 ## TL;DR
 
 ```sh
+git clone https://github.com/NHAS/reverse_ssh
+
+cd reverse_ssh
+
 make
 cd bin/
 
