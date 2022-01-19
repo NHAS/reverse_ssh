@@ -6,7 +6,7 @@ Want to use SSH for reverse shells? Now you can.
 - Dynamic, local and remote forwarding with simple jumphost syntax
 - Native SCP implementation for retrieving files from your targets
 - Full windows shell even if the host is not supported by ConPty
-- Mutual client & server authentication to create high trust control channels
+- Mutual client & server authentication to create high trust control channels  
 And more! 
 
 
