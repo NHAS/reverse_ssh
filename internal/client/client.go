@@ -145,6 +145,8 @@ func Run(addr, fingerprint, proxyAddr string, reconnect bool) {
 		}
 		defer sshConn.Close()
 
+		log.Println("Successfully connnected", addr)
+
 		go func() {
 			for req := range reqs {
 
