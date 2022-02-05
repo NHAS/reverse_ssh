@@ -1,21 +1,27 @@
 # Reverse SSH
 
-Ever wanted to use SSH for reverse shells? Well now you can.  
+Want to use SSH for reverse shells? Now you can.  
 
-The reverse SSH server lets you catch multiple reverse shells, using the fully statically compiled reverse shell binary.
+- Manage and connect to reverse shells with native SSH syntax
+- Dynamic, local and remote forwarding with simple jumphost syntax
+- Native SCP implementation for retrieving files from your targets
+- Full windows shell even if the host is not supported by ConPty
+- Mutual client & server authentication to create high trust control channels  
+And more! 
+
 
 ```text
                     +----------------+                 +---------+
                     |                |                 |         |
-                    |                |       +---------+ Shelled |
+                    |                |       +---------+   RSSH  |
                     |    Reverse     |       |         |  Client |
-                    |  Connection    |       |         |         |
-                    |    Catcher     |       |         +---------+
+                    |  SSH server    |       |         |         |
+                    |                |       |         +---------+
 +---------+         |                |       |
 |         |         |                |       |
 | Human   |   SSH   |                |  SSH  |         +---------+
 | Client  +-------->+                <-----------------+         |
-|         |         |                |       |         | Shelled |
+|         |         |                |       |         |   RSSH  |
 +---------+         |                |       |         |  Client |
                     |                |       |         |         |
                     |                |       |         +---------+
@@ -23,7 +29,7 @@ The reverse SSH server lets you catch multiple reverse shells, using the fully s
                     |                |       |
                     +----------------+       |         +---------+
                                              |         |         |
-                                             |         | Shelled |
+                                             |         |   RSSH  |
                                              +---------+  Client |
                                                        |         |
                                                        +---------+
@@ -150,6 +156,11 @@ $ bin/client
 # Behaviour is otherwise normal; will connect to example.com:1234
 $ bin/client example.com:1234
 ```
+
+### Full Windows Shell Support
+
+Most reverse shells for windows struggle to generate a shell environment that supports resizing, copying and pasting and all the other features that we're all very fond of. 
+This project uses conpty on newer versions of windows, and the winpty library (which self unpacks) on older versions. This should mean that almost all versions of windows will net you a nice shell. 
 
 ## Foreground vs Background (Important note about clients)
 
