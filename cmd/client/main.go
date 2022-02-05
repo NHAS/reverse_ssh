@@ -56,5 +56,5 @@ func main() {
 		destination = flag.Arg(0)
 	}
 
-	runOrFork(destination, *proxyaddress, *fingerprint, fg, dt, rc)
+	runOrFork(destination, *fingerprint, *proxyaddress, fg, dt, rc)
 }

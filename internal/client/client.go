@@ -83,7 +83,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	return net.DialTimeout("tcp", addr, timeout)
 }
 
-func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
+func Run(addr, fingerprint, proxyAddr string, reconnect bool) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
 	if sysinfoError != nil {
@@ -113,13 +113,13 @@ func Run(addr, serverPubKey, proxyAddr string, reconnect bool) {
 			ssh.PublicKeys(sshPriv),
 		},
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			if serverPubKey == "" { // If a server key isnt supplied, fail open. Potentially should change this for more paranoid people
+			if fingerprint == "" { // If a server key isnt supplied, fail open. Potentially should change this for more paranoid people
 				l.Warning("No server key specified, allowing connection to %s", addr)
 				return nil
 			}
 
-			if internal.FingerprintSHA256Hex(key) != serverPubKey {
-				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", serverPubKey, internal.FingerprintSHA256Hex(key))
+			if internal.FingerprintSHA256Hex(key) != fingerprint {
+				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", fingerprint, internal.FingerprintSHA256Hex(key))
 			}
 
 			return nil

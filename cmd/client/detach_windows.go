@@ -12,7 +12,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
-func runOrFork(destination, proxyaddress, fingerprint string, fg, dt, rc bool) {
+func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 	if fg || dt {
 		if dt {
 			modkernel32 := syscall.NewLazyDLL("kernel32.dll")
