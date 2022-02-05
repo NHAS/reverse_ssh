@@ -4,6 +4,10 @@ ifdef RSSH_HOMESERVER
 	LDFLAGS += -X main.destination=$(RSSH_HOMESERVER)
 endif
 
+ifdef RSSH_FINGERPRINT
+	LDFLAGS += -X main.fingerprint=$(RSSH_FINGERPRINT)
+endif
+
 LDFLAGS_RELEASE = $(LDFLAGS) -s -w
 
 debug: .generate_keys
@@ -15,11 +19,8 @@ release: .generate_keys
 client: .generate_keys
 	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
-run:
-	./bin/client  $(ADDR)
-	./bin/client $(ADDR)
-	./bin/client  $(ADDR)
-	cd bin; ./server $(ADDR)
+server:
+	go build -ldflags="-s -w" -o bin ./cmd/server
 
 .generate_keys:
 	mkdir -p bin

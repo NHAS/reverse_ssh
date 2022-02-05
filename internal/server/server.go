@@ -17,7 +17,39 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func ReadPubKeys(path string) (m map[string]bool, err error) {
+func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
+	if privateKeyPath == "" {
+		//If we have already created a private key (or there is one in the current directory) dont overwrite/create another one
+		privateKeyPath = "id_ed25519"
+		if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
+
+			privateKeyPem, err := internal.GeneratePrivateKey()
+			if err != nil {
+				return nil, fmt.Errorf("Unable to generate private key, and no private key specified: %s", err)
+			}
+
+			err = ioutil.WriteFile(privateKeyPath, privateKeyPem, 0600)
+			if err != nil {
+				return nil, fmt.Errorf("Unable to write private key to disk: %s", err)
+			}
+		}
+
+	}
+
+	privateBytes, err := ioutil.ReadFile(privateKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to load private key (%s): %s", privateKeyPath, err)
+	}
+
+	private, err := ssh.ParsePrivateKey(privateBytes)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse private key: %s", err)
+	}
+
+	return private, nil
+}
+
+func readPubKeys(path string) (m map[string]bool, err error) {
 	authorizedKeysBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return m, fmt.Errorf("failed to load file %s, err: %v", path, err)
@@ -47,12 +79,12 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 
 	//Taken from the server example, authorized keys are required for controllers
 	log.Printf("Loading authorized keys from: %s\n", publicKeyPath)
-	authorizedControllers, err := ReadPubKeys(publicKeyPath)
+	authorizedControllers, err := readPubKeys(publicKeyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	clients, err := ReadPubKeys("authorized_controllee_keys")
+	clients, err := readPubKeys("authorized_controllee_keys")
 	if err != nil {
 		if !insecure {
 			log.Fatal(err)
@@ -74,17 +106,17 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 
-			authorizedKeysMap, err := ReadPubKeys(publicKeyPath)
+			authorizedKeysMap, err := readPubKeys(publicKeyPath)
 			if err != nil {
 				log.Println("Reloading authorized_keys failed: ", err)
 			}
 
-			authorizedProxiers, err := ReadPubKeys("proxy_keys")
+			authorizedProxiers, err := readPubKeys("proxy_keys")
 			if err != nil && !strings.Contains(err.Error(), "Failed to load file") {
 				log.Println(err)
 			}
 
-			authorizedControllees, err := ReadPubKeys("authorized_controllee_keys")
+			authorizedControllees, err := readPubKeys("authorized_controllee_keys")
 			if err != nil {
 				log.Println("Reloading authorized_controllee_keys failed: ", err)
 			}
@@ -114,24 +146,9 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 		},
 	}
 
-	if privateKeyPath == "" {
-		//If we have already created a private key (or there is one in the current directory) dont overwrite/create another one
-		privateKeyPath = "id_ed25519"
-		if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
-
-			privateKeyPem, err := internal.GeneratePrivateKey()
-			if err != nil {
-				log.Fatalf("Unable to generate private key, and no private key specified: %s", err)
-			}
-
-			err = ioutil.WriteFile(privateKeyPath, privateKeyPem, 0600)
-			if err != nil {
-				log.Fatalf("Unable to write private key to disk: %s", err)
-			}
-
-			log.Println("Auto generated new private key")
-		}
-
+	private, err := CreateOrLoadServerKeys(privateKeyPath)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	s, err := filepath.Abs(privateKeyPath)
@@ -140,17 +157,6 @@ func Run(addr, privateKeyPath string, insecure bool, publicKeyPath string) {
 	}
 
 	log.Printf("Loading private key from: %s (%s)\n", privateKeyPath, s)
-
-	privateBytes, err := ioutil.ReadFile(privateKeyPath)
-	if err != nil {
-		log.Fatalf("Failed to load private key (%s): %s", privateKeyPath, err)
-	}
-
-	private, err := ssh.ParsePrivateKey(privateBytes)
-	if err != nil {
-		log.Fatalf("Failed to parse private key: %s", err)
-	}
-
 	log.Println("Server key fingerprint: ", internal.FingerprintSHA256Hex(private.PublicKey()))
 
 	config.AddHostKey(private)

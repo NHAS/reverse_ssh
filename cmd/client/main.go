@@ -17,6 +17,7 @@ func printHelp() {
 }
 
 var destination string
+var fingerprint string
 
 func main() {
 
@@ -25,7 +26,7 @@ func main() {
 	flag.Bool("detach", true, "(windows only) will force a console detach")
 
 	proxyaddress := flag.String("proxy", "", "Sets the HTTP_PROXY enviroment variable so the net library will use it")
-	fingerprint := flag.String("fingerprint", "", "Server public key fingerprint")
+	fingerprint := flag.String("fingerprint", fingerprint, "Server public key fingerprint")
 
 	flag.Usage = printHelp
 
