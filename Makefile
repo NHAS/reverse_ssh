@@ -20,6 +20,7 @@ client: .generate_keys
 	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
 server:
+	mkdir -p bin
 	go build -ldflags="-s -w" -o bin ./cmd/server
 
 .generate_keys:
