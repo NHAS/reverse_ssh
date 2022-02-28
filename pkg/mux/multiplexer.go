@@ -44,10 +44,10 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 			if err != nil {
 				continue
 			}
-			defer conn.Close()
 
 			l, prefix, err := m.determineProtocol(conn)
 			if err != nil {
+				conn.Close()
 				continue
 			}
 
