@@ -2,15 +2,13 @@ package server
 
 import (
 	"log"
+
+	"github.com/NHAS/reverse_ssh/pkg/mux"
 )
 
 func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure bool) {
 
-	var m Multiplexer
-	err := m.Listen("tcp", addr, MultiplexerConfig{
-		SSH:  true,
-		HTTP: true,
-	})
+	m, err := mux.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen on %s (%s)", addr, err)
 	}
