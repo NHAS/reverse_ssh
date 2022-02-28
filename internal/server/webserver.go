@@ -68,7 +68,7 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 		}
 
 		requestedWindows := false
-		if len(parts) > 0 {
+		if len(parts) > 0 && len(parts[0]) != 0 {
 
 			if _, ok := validPlatforms[parts[0]]; !ok {
 
