@@ -4,12 +4,12 @@ import (
 	"log"
 )
 
-func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure bool, webserver bool) {
+func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure bool) {
 
 	var m Multiplexer
 	err := m.Listen("tcp", addr, MultiplexerConfig{
 		SSH:  true,
-		HTTP: webserver,
+		HTTP: true,
 	})
 	if err != nil {
 		log.Fatalf("Failed to listen on %s (%s)", addr, err)
@@ -18,9 +18,11 @@ func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress 
 
 	log.Printf("Listening on %s\n", addr)
 
-	if webserver {
-		go StartWebServer(m.HTTP(), connectBackAddress, "../")
+	if len(connectBackAddress) == 0 {
+		connectBackAddress = addr
 	}
+
+	go StartWebServer(m.HTTP(), connectBackAddress, "../")
 
 	StartSSHServer(m.SSH(), privateKeyPath, insecure, authorizedKeys)
 

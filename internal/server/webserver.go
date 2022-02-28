@@ -21,7 +21,7 @@ func StartWebServer(webListener net.Listener, connectBackAddress, projectRoot st
 	clientSource := filepath.Join(projectRoot, "/cmd/client")
 	info, err := os.Stat(clientSource)
 	if err != nil || !info.IsDir() {
-		log.Println("Webserver is enabled, but the server doesnt appear to be in the {project_root}/bin")
+		log.Println("The server doesnt appear to be in {project_root}/bin, please put it there.")
 		log.Fatal("Cant find client source directory, ending")
 	}
 

@@ -157,6 +157,20 @@ $ bin/client
 $ bin/client example.com:1234
 ```
 
+### Built in Web Server
+
+RSSH runs an HTTP server which serves client binaries that are compiled on the fly, for whatever platform you specify. 
+
+E.g
+
+If your rssh server is listening on `:8080` doing the following will download a binary compiled for linux. 
+
+```sh
+wget http://localhost:8080/linux 
+chmod +x {filename}
+```
+
+
 ### Full Windows Shell Support
 
 Most reverse shells for windows struggle to generate a shell environment that supports resizing, copying and pasting and all the other features that we're all very fond of. 
