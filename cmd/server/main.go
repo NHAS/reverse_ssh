@@ -14,13 +14,15 @@ import (
 
 func printHelp() {
 
-	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--key] [--authorizedkeys] address")
+	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--key] [--authorizedkeys] listen_address")
 	fmt.Println("\t\taddress\tThe network address the server will listen on")
 	fmt.Println("\t\t--key\tPath to the ssh private key the server will use when talking with clients")
 	fmt.Println("\t\t--authorizedkeys\tPath to the authorized_keys file or a given public key that control which users can talk to the server")
 	fmt.Println("\t\t--insecure\tIgnore authorized_controllee_keys and allow any controllable client to connect")
 	fmt.Println("\t\t--daemonise\tGo to background")
-	fmt.Println("\t\t--fingerprint\tPrint fingerprint and exit. (Will generate key if no key exists)")
+	fmt.Println("\t\t--fingerprint\tPrint fingerprint and exit. (Will generate server key if none exists)")
+	fmt.Println("\t\t--web\tAttach an http server that will build clients on the fly, server must be in project bin directory to work")
+	fmt.Println("\t\t--homeserver_address\tRSSH server location to embed within dynamically compiled clients")
 
 }
 
@@ -28,15 +30,18 @@ func main() {
 
 	privkey_path := flag.String("key", "", "Path to SSH private key, if omitted will generate a key on first use")
 	flag.Bool("insecure", false, "Ignore authorized_controllee_keys and allow any controllable client to connect")
+	flag.Bool("web", false, "Attach an http server that will build clients on the fly, server must be in project bin directory to work")
+	connectBackAddress := flag.String("homeserver_address", "", "RSSH server location to embed within dynamically compiled clients")
 	flag.Bool("daemonise", false, "Go to background")
+
 	flag.Bool("fingerprint", false, "Print fingerprint and exit. (Will generate key if no key exists)")
-	authkey_path := flag.String("authorizedkeys", "authorized_keys", "Path to authorized_keys file or a given public key, if omitted will look for an adjacent 'authorized_keys' file")
+	authorizedKeysPath := flag.String("authorizedkeys", "authorized_keys", "Path to authorized_keys file or a given public key, if omitted will look for an adjacent 'authorized_keys' file")
 
 	flag.Usage = printHelp
 
 	flag.Parse()
 
-	var background, insecure, fingerprint bool
+	var background, insecure, fingerprint, webserver bool
 
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -46,6 +51,8 @@ func main() {
 			background = true
 		case "fingerprint":
 			fingerprint = true
+		case "web":
+			webserver = true
 		}
 	})
 
@@ -72,6 +79,6 @@ func main() {
 		return
 	}
 
-	server.Run(flag.Args()[0], *privkey_path, insecure, *authkey_path)
+	server.Run(flag.Args()[0], *privkey_path, *authorizedKeysPath, *connectBackAddress, insecure, webserver)
 
 }
