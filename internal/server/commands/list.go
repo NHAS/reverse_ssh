@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 	"golang.org/x/crypto/ssh"
 )
@@ -137,6 +138,15 @@ func (l *List) Run(tty io.ReadWriter, args ...string) error {
 
 	return nil
 }
+
+func (l *List) Expect(sections []string) []string {
+	if len(sections) == 1 {
+		return []string{autocomplete.RemoteId}
+	}
+
+	return nil
+}
+
 func (l *List) Help(explain bool) string {
 	if explain {
 		return "List connected controllable hosts."

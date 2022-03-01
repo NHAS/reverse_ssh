@@ -26,6 +26,8 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 	}
 	defer connection.Close()
 
+	user.ShellRequests = requests
+
 	for req := range requests {
 		log.Info("Session got request: %q", req.Type)
 		switch req.Type {
@@ -42,7 +44,7 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 
 			parts := strings.Split(command.Cmd, " ")
 			if len(parts) > 0 {
-				c := commands.CreateCommands(user, connection, requests, log)
+				c := commands.CreateCommands(user, log)
 
 				if m, ok := c[parts[0]]; ok {
 
@@ -57,6 +59,28 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			}
 			req.Reply(false, []byte("Unknown RSSH command"))
 			return
+		case "shell":
+			// We only accept the default shell
+			// (i.e. no command in the Payload)
+			req.Reply(len(req.Payload) == 0, nil)
+
+			//This blocks so will keep the channel from defer closing
+			shell(user, connection, log)
+
+			return
+			//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actuall proceeds all of them
+		case "pty-req":
+
+			//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
+			pty, err := internal.ParsePtyReq(req.Payload)
+			if err != nil {
+				log.Warning("Got undecodable pty request: %s", err)
+				req.Reply(false, nil)
+				return
+			}
+			user.Pty = &pty
+
+			req.Reply(true, nil)
 		default:
 			log.Warning("Unsupported request %s", req.Type)
 			if req.WantReply {
@@ -64,5 +88,4 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			}
 		}
 	}
-
 }

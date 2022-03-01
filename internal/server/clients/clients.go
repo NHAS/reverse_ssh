@@ -6,11 +6,13 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
 
 var lock sync.RWMutex
 var clients = map[string]*ssh.ServerConn{}
+var AutoCompleteIdentifiers = trie.NewTrie()
 
 var uniqueIdToAllAliases = map[string][]string{}
 var aliases = map[string]map[string]bool{}
@@ -41,6 +43,12 @@ func Add(conn *ssh.ServerConn) (string, error) {
 	aliases[conn.RemoteAddr().String()][idString] = true
 
 	clients[idString] = conn
+
+	AutoCompleteIdentifiers.Add(idString)
+	for _, v := range uniqueIdToAllAliases[idString] {
+		AutoCompleteIdentifiers.Add(v)
+	}
+
 	return idString, nil
 
 }
@@ -88,7 +96,7 @@ func Get(identifier string) (ssh.Conn, error) {
 
 	}
 
-	return nil, fmt.Errorf("%s Not found. It could be that you are using the 'user@hostname' format, unfortunately due to limitations of ssh we cant do that. Try using 'user.host' instead!", identifier)
+	return nil, fmt.Errorf("%s Not found.", identifier)
 }
 
 func Remove(uniqueId string) {
@@ -99,6 +107,7 @@ func Remove(uniqueId string) {
 		panic("Somehow a unqiue ID is being removed without being in the set, this is a programming issue guy")
 	}
 
+	AutoCompleteIdentifiers.Remove(uniqueId)
 	delete(clients, uniqueId)
 
 	if currentAliases, ok := uniqueIdToAllAliases[uniqueId]; ok {
@@ -107,6 +116,7 @@ func Remove(uniqueId string) {
 			delete(aliases[alias], uniqueId)
 
 			if len(aliases[alias]) <= 1 {
+				AutoCompleteIdentifiers.Remove(alias)
 				delete(aliases, alias)
 			}
 		}

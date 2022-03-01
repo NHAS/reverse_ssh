@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
@@ -36,6 +37,15 @@ func (k *kill) Run(tty io.ReadWriter, args ...string) error {
 	_, _, err = conn.SendRequest("kill", false, nil)
 
 	return err
+}
+
+func (k *kill) Expect(sections []string) []string {
+
+	if len(sections) == 1 {
+		return []string{autocomplete.RemoteId}
+	}
+
+	return nil
 }
 
 func (k *kill) Help(explain bool) string {

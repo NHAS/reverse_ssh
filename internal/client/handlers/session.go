@@ -16,7 +16,7 @@ import (
 //This callback just sorts out what the client wants to be doing
 func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
-	defer log.Info("Session disconnected: %s", user.ServerConnection.ClientVersion())
+	defer log.Info("Session disconnected")
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection

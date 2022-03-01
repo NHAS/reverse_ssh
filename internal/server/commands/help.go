@@ -5,6 +5,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 )
 
@@ -49,6 +50,13 @@ func (h *help) Run(tty io.ReadWriter, args ...string) error {
 
 	fmt.Fprintf(tty, "\nusage:\n%s\n", l.Help(false))
 
+	return nil
+}
+
+func (h *help) Expect(sections []string) []string {
+	if len(sections) == 1 {
+		return []string{autocomplete.Functions}
+	}
 	return nil
 }
 

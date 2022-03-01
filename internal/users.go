@@ -14,6 +14,8 @@ type User struct {
 
 	Pty *PtyReq
 
+	ShellRequests <-chan *ssh.Request
+
 	// Remote forwards sent by user
 	SupportedRemoteForwards map[RemoteForwardRequest]bool //(set)
 }
