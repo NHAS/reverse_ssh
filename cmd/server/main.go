@@ -21,6 +21,7 @@ func printHelp() {
 	fmt.Println("\t\t--insecure\tIgnore authorized_controllee_keys and allow any controllable client to connect")
 	fmt.Println("\t\t--daemonise\tGo to background")
 	fmt.Println("\t\t--fingerprint\tPrint fingerprint and exit. (Will generate server key if none exists)")
+	fmt.Println("\t\t--enable_webserver\tEnable multiplexed webserver on RSSH port, will automatically compile new clients on request (requires golang)")
 	fmt.Println("\t\t--homeserver_address\tIf the public address of the RSSH server location is different to the listening address, change this to change the connect back host embedded within dynamically compiled clients served by the HTTP server")
 
 }
@@ -30,6 +31,8 @@ func main() {
 	privkey_path := flag.String("key", "", "Path to SSH private key, if omitted will generate a key on first use")
 	flag.Bool("insecure", false, "Ignore authorized_controllee_keys and allow any controllable client to connect")
 	connectBackAddress := flag.String("homeserver_address", "", "RSSH server location to embed within dynamically compiled clients")
+	flag.Bool("enable_webserver", false, "Start webserver on rssh port")
+
 	flag.Bool("daemonise", false, "Go to background")
 
 	flag.Bool("fingerprint", false, "Print fingerprint and exit. (Will generate key if no key exists)")
@@ -39,7 +42,7 @@ func main() {
 
 	flag.Parse()
 
-	var background, insecure, fingerprint bool
+	var background, insecure, fingerprint, webserver bool
 
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -49,6 +52,8 @@ func main() {
 			background = true
 		case "fingerprint":
 			fingerprint = true
+		case "enable_webserver":
+			webserver = true
 
 		}
 	})
@@ -76,6 +81,6 @@ func main() {
 		return
 	}
 
-	server.Run(flag.Args()[0], *privkey_path, *authorizedKeysPath, *connectBackAddress, insecure)
+	server.Run(flag.Args()[0], *privkey_path, *authorizedKeysPath, *connectBackAddress, insecure, webserver)
 
 }

@@ -89,7 +89,7 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			shell(user, connection, requests, log)
 
 			return
-			//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actuall proceeds all of them
+			//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
 		case "pty-req":
 
 			//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)

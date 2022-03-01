@@ -47,6 +47,7 @@ func StartWebServer(webListener net.Listener, connectBackAddress, projectRoot st
 
 	http.HandleFunc("/", buildAndServe(projectRoot, connectBackAddress, validPlatforms, validArchs))
 
+	log.Println("Started Web Server")
 	log.Fatal(http.Serve(webListener, nil))
 }
 
