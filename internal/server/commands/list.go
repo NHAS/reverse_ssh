@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
@@ -32,23 +33,19 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 
 func (l *List) Run(tty io.ReadWriter, args ...string) error {
 
-	filter := ""
-	flags := map[byte]bool{}
-	for _, arg := range args {
-		if len(arg) > 0 && arg[0] == '-' {
-			for _, c := range arg[1:] {
-				flags[byte(c)] = true
-			}
+	flags, leftover := parseFlags(args...)
+	filter := strings.Join(leftover, " ")
 
-			continue
-		}
-
-		filter = arg
-	}
-
-	if flags['h'] {
+	if isSet("h", flags) {
 		fmt.Fprintf(tty, "%s", l.Help(false))
 		return nil
+	}
+
+	// If we have a single option e.g -a, it can capture the filter so make sure we put it in the right place
+	for _, c := range "tlnai" {
+		if len(flags[string(c)]) > 0 {
+			filter += strings.Join(flags[string(c)], " ")
+		}
 	}
 
 	_, err := filepath.Match(filter, "")
@@ -95,46 +92,44 @@ func (l *List) Run(tty io.ReadWriter, args ...string) error {
 		}
 	}
 
-	if flags['t'] {
+	if isSet("t", flags) {
 		fancyTable(tty, toReturn)
 		return nil
 	}
 
 	sep := ", "
-	if flags['l'] {
+	if isSet("l", flags) {
 		sep = "\n"
 	}
 
 	for i, tr := range toReturn {
 
-		if !flags['n'] && !flags['i'] && !flags['a'] {
+		if !isSet("n", flags) && !isSet("i", flags) && !isSet("a", flags) {
 			fmt.Fprint(tty, tr.id)
-			if i != len(toReturn) {
+			if i != len(toReturn)-1 {
 				fmt.Fprint(tty, sep)
 			}
 			continue
 		}
 
-		if flags['a'] {
+		if isSet("a", flags) {
 			fmt.Fprint(tty, tr.id)
 		}
 
-		if flags['n'] || flags['a'] {
+		if isSet("n", flags) || isSet("a", flags) {
 			fmt.Fprint(tty, " "+tr.sc.User())
 		}
 
-		if flags['i'] || flags['a'] {
+		if isSet("i", flags) || isSet("a", flags) {
 			fmt.Fprint(tty, " "+tr.sc.RemoteAddr().String())
 		}
 
-		if i != len(toReturn) {
+		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)
 		}
 	}
 
-	if !flags['l'] {
-		fmt.Fprint(tty, "\n")
-	}
+	fmt.Fprint(tty, "\n")
 
 	return nil
 }
