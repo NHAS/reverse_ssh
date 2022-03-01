@@ -13,7 +13,7 @@ import (
 
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/client/term"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/winpty"
 	"golang.org/x/crypto/ssh"
@@ -149,7 +149,7 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 		return
 	}
 
-	terminal := term.NewTerminal(connection, "")
+	term := terminal.NewTerminal(connection, "")
 	// Dynamically handle resizes of terminal window
 	go func() {
 		for req := range reqs {
@@ -157,7 +157,7 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 
 			case "window-change":
 				w, h := internal.ParseDims(req.Payload)
-				terminal.SetSize(int(w), int(h))
+				term.SetSize(int(w), int(h))
 
 			}
 
@@ -179,7 +179,7 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 			}
 
 			//This should ignore the echo'd result from cmd.exe on newline, this isnt super thread safe, but should be okay.
-			_, err = terminal.Write(buf[:n])
+			_, err = term.Write(buf[:n])
 			if err != nil {
 				log.Error("%s", err)
 				return
@@ -192,17 +192,17 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 
 		for {
 			//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
-			line, err := terminal.ReadLine()
-			if err != nil && err != term.ErrCtrlC {
+			line, err := term.ReadLine()
+			if err != nil && err != terminal.ErrCtrlC {
 				log.Error("%s", err)
 				return
 			}
 
-			if err == term.ErrCtrlC {
+			if err == terminal.ErrCtrlC {
 				expected <- true
 				err := sendCtrlC(cmd.Process.Pid)
 				if err != nil {
-					fmt.Fprintf(terminal, "Failed to send Ctrl+C sorry! You are most likely trapped: %s", err)
+					fmt.Fprintf(term, "Failed to send Ctrl+C sorry! You are most likely trapped: %s", err)
 					log.Error("%s", err)
 				}
 			}
@@ -210,7 +210,7 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 			if err == nil {
 				_, err := stdin.Write([]byte(line + "\r\n"))
 				if err != nil {
-					fmt.Fprintf(terminal, "Error writing to STDIN: %s", err)
+					fmt.Fprintf(term, "Error writing to STDIN: %s", err)
 					log.Error("%s", err)
 				}
 			}
