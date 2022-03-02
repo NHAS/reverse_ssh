@@ -15,7 +15,7 @@ func parseFlags(args ...string) (flags map[string][]string, leftover []string) {
 		if len(arg) > 1 && arg[0] == '-' {
 			//Enable long option parsing --blah
 			if arg[1] == '-' {
-				if len(args) == 2 {
+				if len(arg) == 2 {
 					//Ignore "--"
 					continue
 				}

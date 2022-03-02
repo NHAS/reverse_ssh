@@ -14,6 +14,7 @@ var allCommands = map[string]terminal.Command{
 	"kill":    &kill{},
 	"connect": &connect{},
 	"exit":    &exit{},
+	"link":    &link{},
 }
 
 func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.Command {
@@ -24,6 +25,7 @@ func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.
 		"kill":    Kill(log),
 		"connect": Connect(user, log),
 		"exit":    &exit{},
+		"link":    &link{},
 	}
 
 	return o

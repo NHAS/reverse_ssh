@@ -3,10 +3,11 @@ package server
 import (
 	"log"
 
+	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/pkg/mux"
 )
 
-func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure, webserver bool) {
+func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure, enabledWebserver bool) {
 
 	m, err := mux.Listen("tcp", addr)
 	if err != nil {
@@ -16,11 +17,11 @@ func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress 
 
 	log.Printf("Listening on %s\n", addr)
 
-	if webserver {
+	if enabledWebserver {
 		if len(connectBackAddress) == 0 {
 			connectBackAddress = addr
 		}
-		go StartWebServer(m.HTTP(), connectBackAddress, "../")
+		go webserver.Start(m.HTTP(), connectBackAddress, "../")
 
 	}
 
