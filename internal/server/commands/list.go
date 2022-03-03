@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -41,49 +40,19 @@ func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return nil
 	}
 
-	_, err := filepath.Match(filter, "")
-	if err != nil {
-		return fmt.Errorf("Filter is not well formed")
-	}
-
 	var toReturn []displayItem
 
-	clients := clients.GetAll()
+	matchingClients, err := clients.Search(filter)
+	if err != nil {
+		return err
+	}
 
 	ids := []string{}
-	for id := range clients {
+	for id := range matchingClients {
 		ids = append(ids, id)
 	}
 
 	sort.Strings(ids)
-
-	for _, id := range ids {
-
-		conn := clients[id]
-
-		if filter == "" {
-			toReturn = append(toReturn, displayItem{id: id, sc: conn})
-			continue
-		}
-
-		match, _ := filepath.Match(filter, id)
-		if match {
-			toReturn = append(toReturn, displayItem{id: id, sc: conn})
-			continue
-		}
-
-		match, _ = filepath.Match(filter, conn.User())
-		if match {
-			toReturn = append(toReturn, displayItem{id: id, sc: conn})
-			continue
-		}
-
-		match, _ = filepath.Match(filter, conn.RemoteAddr().String())
-		if match {
-			toReturn = append(toReturn, displayItem{id: id, sc: conn})
-			continue
-		}
-	}
 
 	if terminal.IsSet("t", line.Flags) {
 		fancyTable(tty, toReturn)

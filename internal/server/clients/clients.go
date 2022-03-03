@@ -2,6 +2,7 @@ package clients
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -65,6 +66,47 @@ func GetAll() map[string]ssh.Conn {
 	}
 
 	return out
+}
+
+type displayItem struct {
+	sc ssh.Conn
+	id string
+}
+
+func Search(filter string) (out map[string]ssh.Conn, err error) {
+	_, err = filepath.Match(filter, "")
+	if err != nil {
+		return nil, fmt.Errorf("Filter is not well formed")
+	}
+
+	out = make(map[string]ssh.Conn)
+
+	for id, conn := range clients {
+		if filter == "" {
+			out[id] = conn
+			continue
+		}
+
+		match, _ := filepath.Match(filter, id)
+		if match {
+			out[id] = conn
+			continue
+		}
+
+		match, _ = filepath.Match(filter, conn.User())
+		if match {
+			out[id] = conn
+			continue
+		}
+
+		match, _ = filepath.Match(filter, conn.RemoteAddr().String())
+		if match {
+			out[id] = conn
+			continue
+		}
+
+	}
+	return
 }
 
 func Get(identifier string) (ssh.Conn, error) {
