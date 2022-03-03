@@ -265,13 +265,7 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 		if !term.autoCompleting {
 			term.startAutoComplete(line, pos)
 		}
-
-		fmt.Println("\n")
-
-		fmt.Printf("Before Parse: '%s'\n", term.autoCompletePendng)
 		parsedLine := ParseLine(term.autoCompletePendng, term.autoCompletePos)
-
-		fmt.Printf("Line: %+v\n", parsedLine)
 
 		var matches []string
 		if parsedLine.Command == nil {
@@ -293,11 +287,10 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 								if trie, ok := term.autoCompleteValues[expected[0]]; ok {
 
 									searchString := ""
+
 									if parsedLine.Focus != nil && parsedLine.Focus.Start() != parsedLine.Section.Start() {
 										searchString = parsedLine.Focus.Value()
 									}
-
-									fmt.Println("search string: ", searchString)
 
 									matches = trie.PrefixMatch(searchString)
 								}
@@ -311,38 +304,15 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 		sort.Strings(matches)
 
-		fmt.Println("matches:", matches)
-		fmt.Printf("Section: %+v\n", parsedLine.Section)
-		fmt.Printf("Focus: %+v\n", parsedLine.Focus)
+		parsedLine = ParseLine(line, pos)
 
 		if len(matches) == 1 {
 			term.resetAutoComplete()
 
-			if parsedLine.Focus == nil {
-				output := line[:term.autoCompletePos]
-				output += matches[0]
-				newPos = len(output)
-				output += line[term.autoCompletePos:]
-
-				return output, term.autoCompletePos, true
-			}
-
-			var output string
-			newPos = 0
-			switch parsedLine.Focus.Type() {
-			case Argument{}.Type():
-				output = line[:parsedLine.Focus.Start()]
-				output += matches[0]
-				newPos = len(output)
-				output += line[parsedLine.Focus.End():]
-			case Flag{}.Type():
-				output = line[:parsedLine.Focus.End()] + " "
-				output += matches[0]
-				newPos = len(output)
-				output += line[parsedLine.Focus.End():]
-
-			default:
-				panic("Unknown type: " + parsedLine.Focus.Type())
+			output, newPos := buildDisplayLine(parsedLine.Focus, line, matches[0], pos)
+			if parsedLine.Focus != nil && parsedLine.Focus.Type() == (Cmd{}.Type()) {
+				output += " "
+				newPos += 1
 			}
 
 			return output, newPos, true
@@ -350,46 +320,46 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 		if len(matches) > 1 {
 
-			parsedLine := ParseLine(line, pos)
-
 			currentMatch := matches[term.autoCompleteIndex]
 
 			term.autoCompleteIndex = (term.autoCompleteIndex + 1) % len(matches)
 
-			if parsedLine.Focus == nil {
-				output := line[:term.autoCompletePos]
-				output += matches[0]
-				newPos = len(output)
-				output += line[term.autoCompletePos:]
-
-				return output, newPos, true
-			}
-
-			var output string
-			newPos = 0
-			switch parsedLine.Focus.Type() {
-			case Argument{}.Type():
-				output = line[:parsedLine.Focus.Start()]
-			case Flag{}.Type():
-				output = line[:parsedLine.Focus.End()] + " "
-			default:
-				panic("Unknown type: " + parsedLine.Focus.Type())
-			}
-
-			output += currentMatch
-			newPos = len(output)
-			output += line[parsedLine.Focus.End():]
-
+			output, newPos := buildDisplayLine(parsedLine.Focus, line, currentMatch, pos)
 			return output, newPos, true
 		}
-
-		return "", 0, false
 
 	} else {
 		term.resetAutoComplete()
 	}
 
 	return "", 0, false
+}
+
+func buildDisplayLine(focus Node, line string, match string, currentPos int) (output string, newPos int) {
+	if focus == nil {
+		output = line[:currentPos]
+		output += match
+		newPos = len(output)
+		output += line[currentPos:]
+
+		return output, newPos
+	}
+
+	switch focus.Type() {
+	case Cmd{}.Type():
+	case Argument{}.Type():
+		output = line[:focus.Start()]
+	case Flag{}.Type():
+		output = line[:focus.End()] + " "
+	default:
+		panic("Unknown type: " + focus.Type())
+	}
+
+	output += match
+	newPos = len(output)
+	output += line[focus.End():]
+
+	return
 }
 
 const (

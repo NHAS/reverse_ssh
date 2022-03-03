@@ -66,7 +66,9 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (c *connect) Expect(line terminal.ParsedLine) []string {
-
+	if len(line.Leftovers) <= 1 {
+		return []string{autocomplete.RemoteId}
+	}
 	return nil
 }
 

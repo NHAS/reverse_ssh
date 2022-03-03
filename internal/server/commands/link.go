@@ -131,7 +131,6 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 func (l *link) Expect(line terminal.ParsedLine) []string {
 	if line.Section != nil {
-		fmt.Println(line.Section)
 		switch line.Section.Value() {
 		case "l", "r":
 			return []string{autocomplete.WebServerFileIds}

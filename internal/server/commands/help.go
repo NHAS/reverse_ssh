@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 )
 
@@ -54,7 +55,9 @@ func (h *help) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (h *help) Expect(line terminal.ParsedLine) []string {
-
+	if len(line.Leftovers) <= 1 {
+		return []string{autocomplete.Functions}
+	}
 	return nil
 }
 

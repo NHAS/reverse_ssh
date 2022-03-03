@@ -6,6 +6,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
@@ -40,7 +41,9 @@ func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (k *kill) Expect(line terminal.ParsedLine) []string {
-
+	if len(line.Leftovers) <= 1 {
+		return []string{autocomplete.RemoteId}
+	}
 	return nil
 }
 

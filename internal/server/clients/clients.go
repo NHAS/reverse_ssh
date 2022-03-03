@@ -12,6 +12,7 @@ import (
 
 var lock sync.RWMutex
 var clients = map[string]*ssh.ServerConn{}
+
 var Autocomplete = trie.NewTrie()
 
 var uniqueIdToAllAliases = map[string][]string{}

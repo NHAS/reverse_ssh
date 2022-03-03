@@ -32,6 +32,14 @@ func (a Argument) Type() string {
 	return "argument"
 }
 
+type Cmd struct {
+	baseNode
+}
+
+func (c Cmd) Type() string {
+	return "command"
+}
+
 type Flag struct {
 	baseNode
 
@@ -59,7 +67,7 @@ type ParsedLine struct {
 
 	Section *Flag
 
-	Command *Argument
+	Command *Cmd
 }
 
 func (pl *ParsedLine) LeftoversStrings() (out []string) {
@@ -203,7 +211,15 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 		}
 
 		if pl.Command == nil && len(args) > 0 {
-			pl.Command = &args[0]
+			pl.Command = new(Cmd)
+			pl.Command.value = args[0].value
+			pl.Command.start = args[0].start
+			pl.Command.end = args[0].end
+
+			if cursorPosition >= pl.Command.start && cursorPosition <= pl.Command.end {
+				pl.Focus = pl.Command
+			}
+
 			args = args[1:]
 		}
 

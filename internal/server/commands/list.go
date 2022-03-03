@@ -9,6 +9,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 	"golang.org/x/crypto/ssh"
 )
@@ -127,7 +128,9 @@ func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (l *List) Expect(line terminal.ParsedLine) []string {
-
+	if len(line.Leftovers) <= 1 {
+		return []string{autocomplete.RemoteId}
+	}
 	return nil
 }
 
