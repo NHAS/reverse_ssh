@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
-	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 	"golang.org/x/crypto/ssh"
 )
@@ -31,21 +31,13 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 	t.Fprint(tty)
 }
 
-func (l *List) Run(tty io.ReadWriter, args ...string) error {
+func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	flags, leftover := parseFlags(args...)
-	filter := strings.Join(leftover, " ")
+	filter := strings.Join(line.LeftoversStrings(), " ")
 
-	if isSet("h", flags) {
+	if terminal.IsSet("h", line.Flags) {
 		fmt.Fprintf(tty, "%s", l.Help(false))
 		return nil
-	}
-
-	// If we have a single option e.g -a, it can capture the filter so make sure we put it in the right place
-	for _, c := range "tlnai" {
-		if len(flags[string(c)]) > 0 {
-			filter += strings.Join(flags[string(c)], " ")
-		}
 	}
 
 	_, err := filepath.Match(filter, "")
@@ -92,19 +84,19 @@ func (l *List) Run(tty io.ReadWriter, args ...string) error {
 		}
 	}
 
-	if isSet("t", flags) {
+	if terminal.IsSet("t", line.Flags) {
 		fancyTable(tty, toReturn)
 		return nil
 	}
 
 	sep := ", "
-	if isSet("l", flags) {
+	if terminal.IsSet("l", line.Flags) {
 		sep = "\n"
 	}
 
 	for i, tr := range toReturn {
 
-		if !isSet("n", flags) && !isSet("i", flags) && !isSet("a", flags) {
+		if !terminal.IsSet("n", line.Flags) && !terminal.IsSet("i", line.Flags) && !terminal.IsSet("a", line.Flags) {
 			fmt.Fprint(tty, tr.id)
 			if i != len(toReturn)-1 {
 				fmt.Fprint(tty, sep)
@@ -112,15 +104,15 @@ func (l *List) Run(tty io.ReadWriter, args ...string) error {
 			continue
 		}
 
-		if isSet("a", flags) {
+		if terminal.IsSet("a", line.Flags) {
 			fmt.Fprint(tty, tr.id)
 		}
 
-		if isSet("n", flags) || isSet("a", flags) {
+		if terminal.IsSet("n", line.Flags) || terminal.IsSet("a", line.Flags) {
 			fmt.Fprint(tty, " "+tr.sc.User())
 		}
 
-		if isSet("i", flags) || isSet("a", flags) {
+		if terminal.IsSet("i", line.Flags) || terminal.IsSet("a", line.Flags) {
 			fmt.Fprint(tty, " "+tr.sc.RemoteAddr().String())
 		}
 
@@ -134,10 +126,7 @@ func (l *List) Run(tty io.ReadWriter, args ...string) error {
 	return nil
 }
 
-func (l *List) Expect(sections []string) []string {
-	if len(sections) == 1 {
-		return []string{autocomplete.RemoteId}
-	}
+func (l *List) Expect(line terminal.ParsedLine) []string {
 
 	return nil
 }

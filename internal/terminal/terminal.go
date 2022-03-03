@@ -178,6 +178,8 @@ func NewAdvancedTerminal(c io.ReadWriter, user *internal.User, prompt string) *T
 		autoCompleteValues:    make(map[string]*trie.Trie),
 	}
 
+	t.AddValueAutoComplete(autocomplete.Functions, t.functionsAutoComplete)
+
 	t.handleWindowSize()
 
 	return t
@@ -230,6 +232,7 @@ func (t *Terminal) AddValueAutoComplete(placement string, trie *trie.Trie) error
 }
 
 func collapse(s string, char byte) string {
+
 	var sb strings.Builder
 	sb.Grow(len(s))
 
@@ -259,79 +262,63 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 	if key == '\t' {
 
-		if !term.autoCompleting {
-			term.startAutoComplete(line)
-		}
+		parsedLine := ParseLine(line, pos)
 
-		line = collapse(term.autoCompletePendng, ' ')
-		if len(line) > 0 && line[0] == ' ' {
-			line = line[1:]
-		}
+		var matches []string
+		if parsedLine.Command == nil {
+			matches = term.functionsAutoComplete.PrefixMatch("")
+		} else {
+			if parsedLine.Focus != nil && parsedLine.Focus.Start() == 0 {
+				matches = term.functionsAutoComplete.PrefixMatch(parsedLine.Command.Value())
+			} else {
+				if function, ok := term.functions[parsedLine.Command.Value()]; ok {
+					expected := function.Expect(parsedLine)
 
-		parts := strings.Split(line, " ")
+					if expected != nil {
 
-		searchString := ""
-		if len(parts) > 0 {
-			searchString = parts[len(parts)-1]
-		}
+						//If the output of expected isnt a autocomplete tag, then its our match
+						matches = expected
 
-		var r []string
-		if len(parts) == 1 {
-			r = term.functionsAutoComplete.PrefixMatch(searchString)
-		}
+						if len(expected) == 1 && len(expected[0]) > 1 {
+							if expected[0][0] == '<' && expected[0][len(expected[0])-1] == '>' {
+								if trie, ok := term.autoCompleteValues[expected[0]]; ok {
 
-		if len(parts) > 1 {
+									searchString := ""
+									if parsedLine.Focus != nil && parsedLine.Focus != parsedLine.Section {
+										searchString = parsedLine.Focus.Value()
+									}
 
-			if function, ok := term.functions[parts[0]]; ok {
-
-				expected := function.Expect(parts[1:])
-
-				if expected != nil {
-
-					r = expected
-
-					if len(expected) == 1 && len(expected[0]) > 1 {
-
-						if expected[0] == autocomplete.Functions {
-							r = term.functionsAutoComplete.PrefixMatch(searchString)
-						} else if expected[0][0] == '<' && expected[0][len(expected[0])-1] == '>' {
-							if trie, ok := term.autoCompleteValues[expected[0]]; ok {
-								r = trie.PrefixMatch(searchString)
+									matches = trie.PrefixMatch(searchString)
+								}
 							}
 						}
 
 					}
-
 				}
 			}
 		}
 
-		if len(r) == 1 {
-			term.resetAutoComplete()
+		sort.Strings(matches)
 
-			output := line + r[0] + " "
-			return output, len(output), true
-		}
+		fmt.Println("matches:", matches)
+		fmt.Printf("Previous Section: %+v\n", parsedLine.Section)
+		fmt.Printf("Focus: %+v\n", parsedLine.Focus)
 
-		if len(r) > 1 {
-			sort.Strings(r)
+		// if len(matches) == 1 {
 
-			output := line + r[term.autoCompleteIndex]
+		// 	return output, pos, true
+		// }
 
-			term.autoCompleteIndex = (term.autoCompleteIndex + 1) % len(r)
+		// if len(matches) > 1 {
+		// 	sort.Strings(matches)
 
-			return output, len(output), true
-		}
+		// 	term.autoCompleteIndex = (term.autoCompleteIndex + 1) % len(matches)
 
-		return "", 0, false
+		// 	return output, len(output), true
+		// }
 
-	} else if term.autoCompleting {
-		term.resetAutoComplete()
-		output := line + " "
-		if key != ' ' {
-			output += string(key)
-		}
-		return output, len(output), true
+		// return "", 0, false
+
 	}
 
 	return "", 0, false
@@ -477,16 +464,16 @@ func (t *Terminal) Run() error {
 			return err
 		}
 
-		commandParts := strings.Split(strings.TrimSpace(line), " ")
+		parsedLine := ParseLine(line, t.pos)
 
-		if len(commandParts) > 0 {
-			f, ok := t.functions[commandParts[0]]
+		if parsedLine.Command != nil {
+			f, ok := t.functions[parsedLine.Command.Value()]
 			if !ok {
-				fmt.Fprintf(t, "Unknown command: %s\n", commandParts[0])
+				fmt.Fprintf(t, "Unknown command: %s\n", parsedLine.Command.Value())
 				continue
 			}
 
-			err = f.Run(t, commandParts[1:]...)
+			err = f.Run(t, parsedLine)
 			if err != nil {
 				if err == io.EOF {
 					return err

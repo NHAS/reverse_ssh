@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/commands"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -42,14 +42,14 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 				return
 			}
 
-			parts := strings.Split(command.Cmd, " ")
-			if len(parts) > 0 {
+			line := terminal.ParseLine(command.Cmd, 0)
+			if len(line.Leftovers) > 0 {
 				c := commands.CreateCommands(user, log)
 
-				if m, ok := c[parts[0]]; ok {
+				if m, ok := c[line.Leftovers[0].Value()]; ok {
 
 					req.Reply(true, nil)
-					err := m.Run(connection, parts[1:]...)
+					err := m.Run(connection, line)
 					if err != nil {
 						fmt.Fprintf(connection, "%s", err.Error())
 						return

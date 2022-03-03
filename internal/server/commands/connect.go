@@ -18,7 +18,7 @@ type connect struct {
 	user *internal.User
 }
 
-func (c *connect) Run(tty io.ReadWriter, args ...string) error {
+func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	if c.user.Pty == nil {
 		return fmt.Errorf("Connect requires a pty")
 	}
@@ -28,11 +28,11 @@ func (c *connect) Run(tty io.ReadWriter, args ...string) error {
 		return fmt.Errorf("connect can only be called from the terminal, if you want to connect to your clients without connecting to the terminal use jumphost syntax -J")
 	}
 
-	if len(args) != 1 {
+	if len(line.Leftovers) != 1 {
 		return fmt.Errorf(c.Help(false))
 	}
 
-	target, err := clients.Get(args[0])
+	target, err := clients.Get(line.Leftovers[0].Value())
 	if err != nil {
 		return err
 	}
@@ -65,11 +65,7 @@ func (c *connect) Run(tty io.ReadWriter, args ...string) error {
 
 }
 
-func (c *connect) Expect(sections []string) []string {
-
-	if len(sections) == 1 {
-		return []string{autocomplete.RemoteId}
-	}
+func (c *connect) Expect(line terminal.ParsedLine) []string {
 
 	return nil
 }

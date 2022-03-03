@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
 
 type file struct {
@@ -23,6 +24,8 @@ type file struct {
 	Goos      string
 	Goarch    string
 }
+
+var Autocomplete = trie.NewTrie()
 
 const cacheDescriptionFile = "description.json"
 
@@ -100,6 +103,8 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress string) (string
 	}
 	cache[id] = f
 
+	Autocomplete.Add(id)
+
 	writeCache()
 
 	return "http://" + connectBackAdress + "/" + id, nil
@@ -172,6 +177,8 @@ func Delete(key string) error {
 
 	writeCache()
 
+	Autocomplete.Remove(key)
+
 	return os.Remove(cacheEntry.Path)
 }
 
@@ -238,6 +245,8 @@ func startBuildManager(cPath string) error {
 		err = json.Unmarshal(contents, &cache)
 		if err == nil {
 			for id, v := range cache {
+				Autocomplete.Add(id)
+
 				if v.Expiry != 0 {
 					v.timer = time.AfterFunc(v.Expiry, func() {
 						Delete(id)

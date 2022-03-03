@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
-	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
@@ -13,13 +13,13 @@ type kill struct {
 	log logger.Logger
 }
 
-func (k *kill) Run(tty io.ReadWriter, args ...string) error {
+func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	if len(args) != 1 {
+	if len(line.Leftovers) != 1 {
 		return fmt.Errorf(k.Help(false))
 	}
 
-	if args[0] == "all" {
+	if line.Leftovers[0].Value() == "all" {
 		killedClients := 0
 		allClients := clients.GetAll()
 		for _, v := range allClients {
@@ -29,7 +29,7 @@ func (k *kill) Run(tty io.ReadWriter, args ...string) error {
 		return fmt.Errorf("%d connections killed", killedClients)
 	}
 
-	conn, err := clients.Get(args[0])
+	conn, err := clients.Get(line.Leftovers[0].Value())
 	if err != nil {
 		return err
 	}
@@ -39,11 +39,7 @@ func (k *kill) Run(tty io.ReadWriter, args ...string) error {
 	return err
 }
 
-func (k *kill) Expect(sections []string) []string {
-
-	if len(sections) == 1 {
-		return []string{autocomplete.RemoteId}
-	}
+func (k *kill) Expect(line terminal.ParsedLine) []string {
 
 	return nil
 }

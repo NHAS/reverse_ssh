@@ -2,16 +2,18 @@ package commands
 
 import (
 	"io"
+
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
 
 type exit struct {
 }
 
-func (e *exit) Run(tty io.ReadWriter, args ...string) error {
+func (e *exit) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	return io.EOF
 }
 
-func (e *exit) Expect(sections []string) []string {
+func (e *exit) Expect(line terminal.ParsedLine) []string {
 	return nil
 }
 

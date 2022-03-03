@@ -12,7 +12,7 @@ import (
 
 var lock sync.RWMutex
 var clients = map[string]*ssh.ServerConn{}
-var AutoCompleteIdentifiers = trie.NewTrie()
+var Autocomplete = trie.NewTrie()
 
 var uniqueIdToAllAliases = map[string][]string{}
 var aliases = map[string]map[string]bool{}
@@ -44,9 +44,9 @@ func Add(conn *ssh.ServerConn) (string, error) {
 
 	clients[idString] = conn
 
-	AutoCompleteIdentifiers.Add(idString)
+	Autocomplete.Add(idString)
 	for _, v := range uniqueIdToAllAliases[idString] {
-		AutoCompleteIdentifiers.Add(v)
+		Autocomplete.Add(v)
 	}
 
 	return idString, nil
@@ -107,7 +107,7 @@ func Remove(uniqueId string) {
 		panic("Somehow a unqiue ID is being removed without being in the set, this is a programming issue guy")
 	}
 
-	AutoCompleteIdentifiers.Remove(uniqueId)
+	Autocomplete.Remove(uniqueId)
 	delete(clients, uniqueId)
 
 	if currentAliases, ok := uniqueIdToAllAliases[uniqueId]; ok {
@@ -116,7 +116,7 @@ func Remove(uniqueId string) {
 			delete(aliases[alias], uniqueId)
 
 			if len(aliases[alias]) <= 1 {
-				AutoCompleteIdentifiers.Remove(alias)
+				Autocomplete.Remove(alias)
 				delete(aliases, alias)
 			}
 		}

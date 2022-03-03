@@ -4,3 +4,4 @@ package autocomplete
 //Is looked up, and then used to auto complete, just gives stuff more context aware autocomplete
 const RemoteId = "<remote_id>"
 const Functions = "<functions>"
+const WebServerFileIds = "<file_ids>"

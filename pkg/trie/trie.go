@@ -66,6 +66,10 @@ func (t *Trie) PrefixMatch(prefix string) (result []string) {
 	}
 
 	if len(prefix) == 0 {
+		if len(t.children) == 0 {
+			return []string{""}
+		}
+
 		for _, child := range t.children {
 			result = append(result, child.getAll()...)
 		}
@@ -73,7 +77,11 @@ func (t *Trie) PrefixMatch(prefix string) (result []string) {
 	}
 
 	if child, ok := t.children[prefix[0]]; ok {
-		return child.PrefixMatch(prefix[1:])
+		c := child.PrefixMatch(prefix[1:])
+		for i := range c {
+			c[i] = string(prefix[0]) + c[i]
+		}
+		return c
 	}
 
 	return []string{} // No matches

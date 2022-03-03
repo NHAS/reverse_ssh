@@ -5,15 +5,15 @@ import (
 	"io"
 	"sort"
 
-	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 )
 
 type help struct {
 }
 
-func (h *help) Run(tty io.ReadWriter, args ...string) error {
-	if len(args) < 1 {
+func (h *help) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+	if len(line.Leftovers) < 1 {
 
 		t, err := table.NewTable("Commands", "Function", "Purpose")
 		if err != nil {
@@ -41,9 +41,9 @@ func (h *help) Run(tty io.ReadWriter, args ...string) error {
 		return nil
 	}
 
-	l, ok := allCommands[args[0]]
+	l, ok := allCommands[line.Leftovers[0].Value()]
 	if !ok {
-		return fmt.Errorf("Command %s not found", args[0])
+		return fmt.Errorf("Command %s not found", line.Leftovers[0].Value())
 	}
 
 	fmt.Fprintf(tty, "\ndescription:\n%s\n", l.Help(true))
@@ -53,10 +53,8 @@ func (h *help) Run(tty io.ReadWriter, args ...string) error {
 	return nil
 }
 
-func (h *help) Expect(sections []string) []string {
-	if len(sections) == 1 {
-		return []string{autocomplete.Functions}
-	}
+func (h *help) Expect(line terminal.ParsedLine) []string {
+
 	return nil
 }
 

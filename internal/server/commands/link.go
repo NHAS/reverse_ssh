@@ -10,23 +10,24 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 )
 
 type link struct {
 }
 
-func (l *link) Run(tty io.ReadWriter, args ...string) error {
-	flags, _ := parseFlags(args...)
+func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	if isSet("h", flags) {
+	if terminal.IsSet("h", line.Flags) {
 		return errors.New(l.Help(false))
 	}
 
-	if toList, ok := flags["l"]; ok {
+	if toList, ok := line.Flags["l"]; ok {
 		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Expires")
 
-		files, err := webserver.List(strings.Join(toList, " "))
+		files, err := webserver.List(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
 			return err
 		}
@@ -54,8 +55,8 @@ func (l *link) Run(tty io.ReadWriter, args ...string) error {
 
 	}
 
-	if toRemove, ok := flags["r"]; ok {
-		for _, id := range toRemove {
+	if toRemove, ok := line.Flags["r"]; ok {
+		for _, id := range toRemove.ArgValues() {
 			err := webserver.Delete(id)
 			if err != nil {
 				fmt.Fprintf(tty, "Unable to remove %s: %s\n", id, err)
@@ -69,46 +70,46 @@ func (l *link) Run(tty io.ReadWriter, args ...string) error {
 	}
 
 	var e time.Duration
-	if lifetime, ok := flags["t"]; ok {
-		if len(lifetime) != 1 {
-			return fmt.Errorf("Time supplied %d arguments, expected 1", len(lifetime))
+	if lifetime, ok := line.Flags["t"]; ok {
+		if len(lifetime.Args) != 1 {
+			return fmt.Errorf("Time supplied %d arguments, expected 1", len(lifetime.Args))
 		}
 
-		mins, err := strconv.Atoi(lifetime[0])
+		mins, err := strconv.Atoi(lifetime.Args[0].Value())
 		if err != nil {
-			return fmt.Errorf("Unable to parse number of minutes (-t): %s", lifetime[0])
+			return fmt.Errorf("Unable to parse number of minutes (-t): %s", lifetime.Args[0].Value())
 		}
 
 		e = time.Duration(mins) * time.Minute
 	}
 
 	var homeserver_address string
-	if cb, ok := flags["s"]; ok {
-		if len(cb) != 1 {
-			return fmt.Errorf("Homeserver connect back address supplied %d arguments, expected 1", len(cb))
+	if cb, ok := line.Flags["s"]; ok {
+		if len(cb.Args) != 1 {
+			return fmt.Errorf("Homeserver connect back address supplied %d arguments, expected 1", len(cb.Args))
 		}
 
-		homeserver_address = cb[0]
+		homeserver_address = cb.Args[0].Value()
 
 	}
 
 	var goos string
-	if cb, ok := flags["goos"]; ok {
-		if len(cb) != 1 {
-			return fmt.Errorf("GOOS supplied %d arguments, expected 1", len(cb))
+	if cb, ok := line.Flags["goos"]; ok {
+		if len(cb.Args) != 1 {
+			return fmt.Errorf("GOOS supplied %d arguments, expected 1", len(cb.Args))
 		}
 
-		goos = cb[0]
+		goos = cb.Args[0].Value()
 
 	}
 
 	var goarch string
-	if cb, ok := flags["goarch"]; ok {
-		if len(cb) != 1 {
-			return fmt.Errorf("GOARCH supplied %d arguments, expected 1", len(cb))
+	if cb, ok := line.Flags["goarch"]; ok {
+		if len(cb.Args) != 1 {
+			return fmt.Errorf("GOARCH supplied %d arguments, expected 1", len(cb.Args))
 		}
 
-		goarch = cb[0]
+		goarch = cb.Args[0].Value()
 
 	}
 
@@ -122,7 +123,15 @@ func (l *link) Run(tty io.ReadWriter, args ...string) error {
 	return nil
 }
 
-func (l *link) Expect(sections []string) []string {
+func (l *link) Expect(line terminal.ParsedLine) []string {
+	if line.Section != nil {
+		fmt.Println(line.Section)
+		switch line.Section.Value() {
+		case "l", "r":
+			return []string{autocomplete.WebServerFileIds}
+		}
+	}
+
 	return nil
 }
 
