@@ -1,11 +1,10 @@
 package terminal
 
-import "fmt"
-
 type Node interface {
 	Value() string
 	Start() int
 	End() int
+	Type() string
 }
 
 type baseNode struct {
@@ -29,11 +28,19 @@ type Argument struct {
 	baseNode
 }
 
+func (a Argument) Type() string {
+	return "argument"
+}
+
 type Flag struct {
 	baseNode
 
 	Args []Argument
 	long bool
+}
+
+func (f Flag) Type() string {
+	return "flag"
 }
 
 func (f *Flag) ArgValues() (out []string) {
@@ -210,15 +217,12 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 
 	var closestLeft *Flag
 
-	fmt.Println(len(pl.FlagsOrdered))
-
 	for i := len(pl.FlagsOrdered) - 1; i >= 0; i-- {
 		if cursorPosition >= pl.FlagsOrdered[i].start && cursorPosition <= pl.FlagsOrdered[i].end {
 			pl.Section = &pl.FlagsOrdered[i]
 			break
 		}
 
-		fmt.Println(pl.FlagsOrdered[i], i, len(pl.FlagsOrdered))
 		if pl.FlagsOrdered[i].end > cursorPosition {
 			continue
 		}

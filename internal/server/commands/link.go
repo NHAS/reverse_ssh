@@ -56,6 +56,12 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if toRemove, ok := line.Flags["r"]; ok {
+		if len(toRemove.Args) == 0 {
+			fmt.Fprintf(tty, "No argument supplied\n")
+
+			return nil
+		}
+
 		for _, id := range toRemove.ArgValues() {
 			err := webserver.Delete(id)
 			if err != nil {

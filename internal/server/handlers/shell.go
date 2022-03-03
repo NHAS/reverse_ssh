@@ -17,6 +17,8 @@ import (
 func shell(user *internal.User, connection ssh.Channel, log logger.Logger) error {
 	term := terminal.NewAdvancedTerminal(connection, user, "catcher$ ")
 
+	term.SetSize(int(user.Pty.Columns), int(user.Pty.Rows))
+
 	term.AddValueAutoComplete(autocomplete.RemoteId, clients.Autocomplete)
 	term.AddValueAutoComplete(autocomplete.WebServerFileIds, webserver.Autocomplete)
 

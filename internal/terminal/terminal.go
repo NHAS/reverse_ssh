@@ -113,9 +113,9 @@ type Terminal struct {
 	// historyPending.
 	historyPending string
 
-	autoCompleteIndex  int
-	autoCompletePendng string
-	autoCompleting     bool
+	autoCompleteIndex, autoCompletePos int
+	autoCompletePendng                 string
+	autoCompleting                     bool
 
 	functions             map[string]Command
 	functionsAutoComplete *trie.Trie
@@ -262,7 +262,16 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 	if key == '\t' {
 
-		parsedLine := ParseLine(line, pos)
+		if !term.autoCompleting {
+			term.startAutoComplete(line, pos)
+		}
+
+		fmt.Println("\n")
+
+		fmt.Printf("Before Parse: '%s'\n", term.autoCompletePendng)
+		parsedLine := ParseLine(term.autoCompletePendng, term.autoCompletePos)
+
+		fmt.Printf("Line: %+v\n", parsedLine)
 
 		var matches []string
 		if parsedLine.Command == nil {
@@ -284,9 +293,11 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 								if trie, ok := term.autoCompleteValues[expected[0]]; ok {
 
 									searchString := ""
-									if parsedLine.Focus != nil && parsedLine.Focus != parsedLine.Section {
+									if parsedLine.Focus != nil && parsedLine.Focus.Start() != parsedLine.Section.Start() {
 										searchString = parsedLine.Focus.Value()
 									}
+
+									fmt.Println("search string: ", searchString)
 
 									matches = trie.PrefixMatch(searchString)
 								}
@@ -301,24 +312,74 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 		sort.Strings(matches)
 
 		fmt.Println("matches:", matches)
-		fmt.Printf("Previous Section: %+v\n", parsedLine.Section)
+		fmt.Printf("Section: %+v\n", parsedLine.Section)
 		fmt.Printf("Focus: %+v\n", parsedLine.Focus)
 
-		// if len(matches) == 1 {
+		if len(matches) == 1 {
+			term.resetAutoComplete()
 
-		// 	return output, pos, true
-		// }
+			if parsedLine.Focus == nil {
+				output := line + " " + matches[0]
 
-		// if len(matches) > 1 {
-		// 	sort.Strings(matches)
+				return output, len(output), true
+			}
 
-		// 	term.autoCompleteIndex = (term.autoCompleteIndex + 1) % len(matches)
+			var output string
+			newPos = 0
+			switch parsedLine.Focus.Type() {
+			case Argument{}.Type():
+				output = line[:parsedLine.Focus.Start()]
+				output += matches[0]
+				newPos = len(output)
+				output += line[parsedLine.Focus.End():]
+			case Flag{}.Type():
+				output = line[:parsedLine.Focus.End()] + " "
+				output += matches[0]
+				newPos = len(output)
+			default:
+				panic("Unknown type: " + parsedLine.Focus.Type())
+			}
 
-		// 	return output, len(output), true
-		// }
+			return output, newPos, true
+		}
 
-		// return "", 0, false
+		if len(matches) > 1 {
 
+			parsedLine := ParseLine(line, pos)
+
+			currentMatch := matches[term.autoCompleteIndex]
+
+			term.autoCompleteIndex = (term.autoCompleteIndex + 1) % len(matches)
+
+			if parsedLine.Focus == nil {
+				output := line + currentMatch
+
+				return output, len(output), true
+			}
+
+			var output string
+			newPos = 0
+			switch parsedLine.Focus.Type() {
+			case Argument{}.Type():
+				output = line[:parsedLine.Focus.Start()]
+				output += currentMatch
+				newPos = len(output)
+				output += line[parsedLine.Focus.End():]
+			case Flag{}.Type():
+				output = line[:parsedLine.Focus.End()] + " "
+				output += currentMatch
+				newPos = len(output)
+			default:
+				panic("Unknown type: " + parsedLine.Focus.Type())
+			}
+
+			return output, newPos, true
+		}
+
+		return "", 0, false
+
+	} else {
+		term.resetAutoComplete()
 	}
 
 	return "", 0, false
@@ -1284,10 +1345,12 @@ func (t *Terminal) resetAutoComplete() {
 	t.autoCompleteIndex = 0
 	t.autoCompletePendng = ""
 	t.autoCompleting = false
+	t.autoCompletePos = 0
 }
 
-func (t *Terminal) startAutoComplete(lineFragment string) {
+func (t *Terminal) startAutoComplete(lineFragment string, pos int) {
 	t.autoCompleteIndex = 0
 	t.autoCompletePendng = lineFragment
 	t.autoCompleting = true
+	t.autoCompletePos = pos
 }
