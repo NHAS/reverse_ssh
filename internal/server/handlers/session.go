@@ -43,10 +43,10 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			}
 
 			line := terminal.ParseLine(command.Cmd, 0)
-			if len(line.Leftovers) > 0 {
+			if line.Command != nil {
 				c := commands.CreateCommands(user, log)
 
-				if m, ok := c[line.Leftovers[0].Value()]; ok {
+				if m, ok := c[line.Command.Value()]; ok {
 
 					req.Reply(true, nil)
 					err := m.Run(connection, line)
