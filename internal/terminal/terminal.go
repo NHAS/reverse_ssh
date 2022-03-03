@@ -319,9 +319,12 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 			term.resetAutoComplete()
 
 			if parsedLine.Focus == nil {
-				output := line + " " + matches[0]
+				output := line[:term.autoCompletePos]
+				output += matches[0]
+				newPos = len(output)
+				output += line[term.autoCompletePos:]
 
-				return output, len(output), true
+				return output, term.autoCompletePos, true
 			}
 
 			var output string
@@ -336,6 +339,8 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 				output = line[:parsedLine.Focus.End()] + " "
 				output += matches[0]
 				newPos = len(output)
+				output += line[parsedLine.Focus.End():]
+
 			default:
 				panic("Unknown type: " + parsedLine.Focus.Type())
 			}
@@ -352,9 +357,12 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 			term.autoCompleteIndex = (term.autoCompleteIndex + 1) % len(matches)
 
 			if parsedLine.Focus == nil {
-				output := line + currentMatch
+				output := line[:term.autoCompletePos]
+				output += matches[0]
+				newPos = len(output)
+				output += line[term.autoCompletePos:]
 
-				return output, len(output), true
+				return output, newPos, true
 			}
 
 			var output string
@@ -362,16 +370,15 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 			switch parsedLine.Focus.Type() {
 			case Argument{}.Type():
 				output = line[:parsedLine.Focus.Start()]
-				output += currentMatch
-				newPos = len(output)
-				output += line[parsedLine.Focus.End():]
 			case Flag{}.Type():
 				output = line[:parsedLine.Focus.End()] + " "
-				output += currentMatch
-				newPos = len(output)
 			default:
 				panic("Unknown type: " + parsedLine.Focus.Type())
 			}
+
+			output += currentMatch
+			newPos = len(output)
+			output += line[parsedLine.Focus.End():]
 
 			return output, newPos, true
 		}
