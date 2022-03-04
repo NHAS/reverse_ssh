@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -40,7 +39,8 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 			return
 		}
 
-		f, err := Get(parts[len(parts)-1])
+		filename := parts[len(parts)-1]
+		f, err := Get(filename)
 		if err != nil {
 			http.NotFound(w, req)
 			return
@@ -53,7 +53,6 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 		}
 		defer file.Close()
 
-		filename := filepath.Base(f.Path)
 		if f.Goos == "windows" {
 			filename += ".exe"
 		}

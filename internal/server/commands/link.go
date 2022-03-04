@@ -25,7 +25,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Expires")
+		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Expires", "Path")
 
 		files, err := webserver.List(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
@@ -46,7 +46,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			if file.Expiry != 0 {
 				expiry = file.Timestamp.Add(file.Expiry).String()
 			}
-			t.AddValues(id, file.Goos, file.Goarch, expiry)
+			t.AddValues(id, file.Goos, file.Goarch, expiry, file.Path)
 		}
 
 		t.Fprint(tty)
@@ -67,13 +67,17 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			return err
 		}
 
-		for id := range files {
+		if len(files) == 0 {
+			return errors.New("No links match")
+		}
+
+		for id, file := range files {
 			err := webserver.Delete(id)
 			if err != nil {
 				fmt.Fprintf(tty, "Unable to remove %s: %s\n", id, err)
 				continue
 			}
-			fmt.Fprintln(tty, "Removed", id)
+			fmt.Fprintf(tty, "Removed %s (%s)\n", id, file.Path)
 		}
 
 		return nil
@@ -83,7 +87,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	var e time.Duration
 	if lifetime, ok := line.Flags["t"]; ok {
 		if len(lifetime.Args) != 1 {
-			return fmt.Errorf("Time supplied %d arguments, expected 1", len(lifetime.Args))
+			return fmt.Errorf("Expected 1 argument for -t (time to live)")
 		}
 
 		mins, err := strconv.Atoi(lifetime.Args[0].Value())
@@ -94,20 +98,10 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		e = time.Duration(mins) * time.Minute
 	}
 
-	var homeserver_address string
-	if cb, ok := line.Flags["s"]; ok {
-		if len(cb.Args) != 1 {
-			return fmt.Errorf("Homeserver connect back address supplied %d arguments, expected 1", len(cb.Args))
-		}
-
-		homeserver_address = cb.Args[0].Value()
-
-	}
-
 	var goos string
 	if cb, ok := line.Flags["goos"]; ok {
 		if len(cb.Args) != 1 {
-			return fmt.Errorf("GOOS supplied %d arguments, expected 1", len(cb.Args))
+			return fmt.Errorf("Expected 1 argument for --goos")
 		}
 
 		goos = cb.Args[0].Value()
@@ -117,14 +111,34 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	var goarch string
 	if cb, ok := line.Flags["goarch"]; ok {
 		if len(cb.Args) != 1 {
-			return fmt.Errorf("GOARCH supplied %d arguments, expected 1", len(cb.Args))
+			return fmt.Errorf("Expected 1 argument for --goarch")
 		}
 
 		goarch = cb.Args[0].Value()
 
 	}
 
-	url, err := webserver.Build(e, goos, goarch, homeserver_address)
+	var homeserver_address string
+	if cb, ok := line.Flags["s"]; ok {
+		if len(cb.Args) != 1 {
+			return fmt.Errorf("Expected 1 argument for -s (set homeserver connect back address)")
+		}
+
+		homeserver_address = cb.Args[0].Value()
+
+	}
+
+	var name string
+	if cb, ok := line.Flags["name"]; ok {
+		if len(cb.Args) != 1 {
+			return fmt.Errorf("Expected 1 argument for --name")
+		}
+
+		name = cb.Args[0].Value()
+
+	}
+
+	url, err := webserver.Build(e, goos, goarch, homeserver_address, name)
 	if err != nil {
 		return err
 	}
@@ -160,6 +174,7 @@ func (e *link) Help(explain bool) string {
 		"\t-r\tRemove download link",
 		"\t--goos\tSet the target build operating system (default to runtime GOOS)",
 		"\t--goarch\tSet the target build architecture (default to runtime GOARCH)",
+		"\t--name\tSet link name",
 	)
 }
 

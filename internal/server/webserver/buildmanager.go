@@ -36,7 +36,7 @@ var c sync.RWMutex
 var cache map[string]file = make(map[string]file) // random id to actual file path
 var cachePath string
 
-func Build(expiry time.Duration, goos, goarch, connectBackAdress string) (string, error) {
+func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("Web server is not enabled.")
 	}
@@ -63,9 +63,15 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress string) (string
 		return "", err
 	}
 
-	id, err := internal.RandomString(16)
-	if err != nil {
-		return "", err
+	if len(name) == 0 {
+		name, err = internal.RandomString(16)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if _, ok := cache[name]; ok {
+		return "", errors.New("This link name is already in use")
 	}
 
 	f.Path = filepath.Join(cachePath, filename)
@@ -98,16 +104,16 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress string) (string
 
 	if expiry > 0 {
 		f.timer = time.AfterFunc(f.Expiry, func() {
-			Delete(id)
+			Delete(name)
 		})
 	}
-	cache[id] = f
+	cache[name] = f
 
-	Autocomplete.Add(id)
+	Autocomplete.Add(name)
 
 	writeCache()
 
-	return "http://" + connectBackAdress + "/" + id, nil
+	return "http://" + connectBackAdress + "/" + name, nil
 }
 
 func Get(key string) (file, error) {
