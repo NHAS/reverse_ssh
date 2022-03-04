@@ -102,7 +102,7 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	for id, client := range matchingClients {
 
 		if !(terminal.IsSet("q", line.Flags) || terminal.IsSet("raw", line.Flags)) {
-			fmt.Fprintln(tty, "\n")
+			fmt.Fprint(tty, "\n\n")
 			fmt.Fprintf(tty, "%s (%s) output:\n", id, client.User()+"@"+client.RemoteAddr().String())
 		}
 
