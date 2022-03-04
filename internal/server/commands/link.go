@@ -62,7 +62,12 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			return nil
 		}
 
-		for _, id := range toRemove.ArgValues() {
+		files, err := webserver.List(strings.Join(toRemove.ArgValues(), " "))
+		if err != nil {
+			return err
+		}
+
+		for id := range files {
 			err := webserver.Delete(id)
 			if err != nil {
 				fmt.Fprintf(tty, "Unable to remove %s: %s\n", id, err)

@@ -288,7 +288,7 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 									searchString := ""
 
-									if parsedLine.Focus != nil && parsedLine.Focus.Start() != parsedLine.Section.Start() {
+									if parsedLine.Focus != nil && parsedLine.Section != nil && parsedLine.Focus.Start() != parsedLine.Section.Start() {
 										searchString = parsedLine.Focus.Value()
 									}
 
