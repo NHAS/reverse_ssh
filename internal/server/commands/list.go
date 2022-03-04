@@ -73,32 +73,11 @@ func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return nil
 	}
 
-	sep := ", "
-	if terminal.IsSet("l", line.Flags) {
-		sep = "\n"
-	}
+	sep := "\n"
 
 	for i, tr := range toReturn {
 
-		if !terminal.IsSet("n", line.Flags) && !terminal.IsSet("i", line.Flags) && !terminal.IsSet("a", line.Flags) {
-			fmt.Fprint(tty, tr.id)
-			if i != len(toReturn)-1 {
-				fmt.Fprint(tty, sep)
-			}
-			continue
-		}
-
-		if terminal.IsSet("a", line.Flags) {
-			fmt.Fprint(tty, tr.id)
-		}
-
-		if terminal.IsSet("n", line.Flags) || terminal.IsSet("a", line.Flags) {
-			fmt.Fprint(tty, " "+tr.sc.User())
-		}
-
-		if terminal.IsSet("i", line.Flags) || terminal.IsSet("a", line.Flags) {
-			fmt.Fprint(tty, " "+tr.sc.RemoteAddr().String())
-		}
+		fmt.Fprintf(tty, "%s %s %s", tr.id, tr.sc.User(), tr.sc.RemoteAddr().String())
 
 		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)
@@ -125,11 +104,7 @@ func (l *List) Help(explain bool) string {
 	return makeHelpText(
 		"ls [OPTION] [FILTER]",
 		"Filter uses glob matching against all attributes of a target (hostname, ip, id)",
-		"\t-a\tShow all attributes",
-		"\t-n\tShow only hostnames",
-		"\t-i\tShow only IP",
 		"\t-t\tPrint all attributes in pretty table",
-		"\t-l\tPrint with newline rather than space",
 		"\t-h\tPrint help",
 	)
 }
