@@ -33,7 +33,13 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 
 func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	filter := strings.Join(line.LeftoversStrings(), " ")
+	filter := ""
+	if len(line.LeftoversStrings()) > 0 {
+		filter = strings.Join(line.LeftoversStrings(), " ")
+	} else if len(line.FlagsOrdered) > 1 {
+		args := line.FlagsOrdered[len(line.FlagsOrdered)-1].Args
+		filter = line.RawLine[args[0].End():]
+	}
 
 	if terminal.IsSet("h", line.Flags) {
 		fmt.Fprintf(tty, "%s", l.Help(false))
@@ -47,12 +53,20 @@ func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
+	if len(matchingClients) == 0 {
+		return fmt.Errorf("Unable to find match for '" + filter + "'")
+	}
+
 	ids := []string{}
 	for id := range matchingClients {
 		ids = append(ids, id)
 	}
 
 	sort.Strings(ids)
+
+	for _, id := range ids {
+		toReturn = append(toReturn, displayItem{id: id, sc: matchingClients[id]})
+	}
 
 	if terminal.IsSet("t", line.Flags) {
 		fancyTable(tty, toReturn)

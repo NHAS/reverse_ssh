@@ -68,18 +68,16 @@ func GetAll() map[string]ssh.Conn {
 	return out
 }
 
-type displayItem struct {
-	sc ssh.Conn
-	id string
-}
-
-func Search(filter string) (out map[string]ssh.Conn, err error) {
+func Search(filter string) (out map[string]*ssh.ServerConn, err error) {
 	_, err = filepath.Match(filter, "")
 	if err != nil {
 		return nil, fmt.Errorf("Filter is not well formed")
 	}
 
-	out = make(map[string]ssh.Conn)
+	out = make(map[string]*ssh.ServerConn)
+
+	lock.RLock()
+	defer lock.RUnlock()
 
 	for id, conn := range clients {
 		if filter == "" {

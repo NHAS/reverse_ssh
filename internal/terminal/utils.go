@@ -68,6 +68,8 @@ type ParsedLine struct {
 	Section *Flag
 
 	Command *Cmd
+
+	RawLine string
 }
 
 func (pl *ParsedLine) LeftoversStrings() (out []string) {
@@ -148,6 +150,7 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 
 	var capture *Flag = nil
 	pl.Flags = make(map[string]Flag)
+	pl.RawLine = line
 
 	for i := 0; i < len(line); i++ {
 		if i < len(line) && line[i] == '-' {

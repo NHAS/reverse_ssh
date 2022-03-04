@@ -59,6 +59,7 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 					fmt.Fprintf(connection, "%s", err.Error())
 					return
 				}
+				defer stdout.Close()
 
 				cmd.Stderr = cmd.Stdout
 
@@ -67,16 +68,16 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 					fmt.Fprintf(connection, "%s", err.Error())
 					return
 				}
+				defer stdin.Close()
 
-				err = cmd.Start()
+				go io.Copy(stdin, connection)
+				go io.Copy(connection, stdout)
+
+				err = cmd.Run()
 				if err != nil {
 					fmt.Fprintf(connection, "%s", err.Error())
 					return
 				}
-
-				go io.Copy(stdin, connection)
-				io.Copy(connection, stdout)
-
 			}
 
 			return
