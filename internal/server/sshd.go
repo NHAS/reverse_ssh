@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
@@ -110,11 +109,6 @@ func StartSSHServer(sshListener net.Listener, privateKeyPath string, insecure bo
 				log.Println("Reloading authorized_keys failed: ", err)
 			}
 
-			authorizedProxiers, err := readPubKeys("proxy_keys")
-			if err != nil && !strings.Contains(err.Error(), "Failed to load file") {
-				log.Println(err)
-			}
-
 			authorizedControllees, err := readPubKeys("authorized_controllee_keys")
 			if err != nil {
 				log.Println("Reloading authorized_controllee_keys failed: ", err)
@@ -126,8 +120,6 @@ func StartSSHServer(sshListener net.Listener, privateKeyPath string, insecure bo
 			//The server effectively ignores channel requests from controllable clients.
 			if authorizedKeysMap[string(key.Marshal())] {
 				clientType = "user"
-			} else if authorizedProxiers[string(key.Marshal())] {
-				clientType = "proxy"
 			} else if insecure || authorizedControllees[string(key.Marshal())] {
 				clientType = "client"
 			} else {
