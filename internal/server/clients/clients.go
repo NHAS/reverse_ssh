@@ -145,7 +145,8 @@ func Remove(uniqueId string) {
 	defer lock.Unlock()
 
 	if _, ok := clients[uniqueId]; !ok {
-		panic("Somehow a unqiue ID is being removed without being in the set, this is a programming issue guy")
+		//If this is already removed then we dont need to remove it again.
+		return
 	}
 
 	Autocomplete.Remove(uniqueId)
