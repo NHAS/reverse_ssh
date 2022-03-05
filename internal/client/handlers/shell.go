@@ -37,11 +37,12 @@ func init() {
 			shells = append(shells, strings.TrimSpace(line))
 		}
 	} else {
+		//If the host did not have a /etc/shells, guess a few common shells
 		potentialShells = []string{
 			"/bin/bash",
-			"/bin/sh",
 			"/bin/zsh",
 			"/bin/ash",
+			"/bin/sh",
 		}
 
 	}
