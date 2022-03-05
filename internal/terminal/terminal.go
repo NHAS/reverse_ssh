@@ -272,7 +272,7 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 			matches = term.functionsAutoComplete.PrefixMatch("")
 		} else {
 			if parsedLine.Focus != nil && parsedLine.Focus.Start() == 0 {
-				matches = term.functionsAutoComplete.PrefixMatch(parsedLine.Command.Value())
+				matches = term.functionsAutoComplete.PrefixMatch(parsedLine.Focus.Value())
 			} else {
 				if function, ok := term.functions[parsedLine.Command.Value()]; ok {
 					expected := function.Expect(parsedLine)
@@ -288,7 +288,7 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 
 									searchString := ""
 
-									if parsedLine.Focus != nil && parsedLine.Section != nil && parsedLine.Focus.Start() != parsedLine.Section.Start() {
+									if parsedLine.Focus != nil && (parsedLine.Section == nil || parsedLine.Focus.Start() != parsedLine.Section.Start()) {
 										searchString = parsedLine.Focus.Value()
 									}
 
@@ -377,6 +377,7 @@ const (
 	keyAltLeft
 	keyAltRight
 	keyHome
+	keyDel
 	keyEnd
 	keyDeleteWord
 	keyDeleteLine
@@ -445,6 +446,8 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 			return keyHome, b[3:]
 		case 'F':
 			return keyEnd, b[3:]
+		case 51:
+			return keyDel, b[4:]
 		}
 	}
 
@@ -778,11 +781,17 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 	}
 
 	switch key {
-	case keyBackspace, keyAltLeft, keyAltRight, keyLeft, keyRight, keyHome, keyEnd, keyUp, keyDown, keyEnter, keyDeleteWord, keyDeleteLine, keyCtrlD, keyCtrlU, keyClearScreen:
+	case keyBackspace, keyAltLeft, keyAltRight, keyLeft, keyRight, keyHome, keyEnd, keyDel, keyUp, keyDown, keyEnter, keyDeleteWord, keyDeleteLine, keyCtrlD, keyCtrlU, keyClearScreen:
 		t.resetAutoComplete()
 	}
 
 	switch key {
+	case keyDel:
+		if t.pos >= len(t.line) || len(t.line) == 0 {
+			return
+		}
+		t.pos += 1
+		t.eraseNPreviousChars(1)
 	case keyBackspace:
 		if t.pos == 0 {
 			return
