@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"net"
+	"time"
 )
 
 type MultiplexerConfig struct {
@@ -45,11 +46,14 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 				continue
 			}
 
+			conn.SetDeadline(time.Now().Add(30 * time.Second))
 			l, prefix, err := m.determineProtocol(conn)
 			if err != nil {
 				conn.Close()
 				continue
 			}
+
+			conn.SetDeadline(time.Time{})
 
 			go func() { l.connections <- &bufferedConn{conn: conn, prefix: prefix} }()
 		}

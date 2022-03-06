@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
@@ -175,6 +176,29 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	}
 
 	clientLog := logger.NewLog(sshConn.RemoteAddr().String())
+
+	go func() {
+		const keepAliveInterval = time.Minute
+		t := time.NewTicker(keepAliveInterval)
+		defer t.Stop()
+		for {
+			deadline := time.Now().Add(keepAliveInterval).Add(15 * time.Second)
+			err := tcpConn.SetDeadline(deadline)
+			if err != nil {
+				clientLog.Error("Failed to set timeout")
+				return
+			}
+			select {
+			case <-t.C:
+				_, _, err = sshConn.SendRequest("keepalive@golang.org", true, nil)
+				if err != nil {
+					clientLog.Error("Failed to send keepalive, assuming client has disconnected")
+					sshConn.Close()
+					return
+				}
+			}
+		}
+	}()
 
 	switch sshConn.Permissions.Extensions["type"] {
 	case "user":
