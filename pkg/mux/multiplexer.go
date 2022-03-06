@@ -3,6 +3,7 @@ package mux
 import (
 	"bytes"
 	"errors"
+	"log"
 	"net"
 	"time"
 )
@@ -50,8 +51,11 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 			l, prefix, err := m.determineProtocol(conn)
 			if err != nil {
 				conn.Close()
+				log.Println("Multiplexing failed: ", err)
 				continue
 			}
+
+			log.Println("Wat: ", err, l, prefix)
 
 			conn.SetDeadline(time.Time{})
 
@@ -80,6 +84,23 @@ func (m *Multiplexer) Close() {
 
 }
 
+func isHttp(b []byte) bool {
+
+	validMethods := [][]byte{
+		[]byte("GET"), []byte("HEAD"), []byte("POST"),
+		[]byte("PUT"), []byte("DELETE"), []byte("CONNECT"),
+		[]byte("OPTIONS"), []byte("TRACE"), []byte("PATCH"),
+	}
+
+	for _, vm := range validMethods {
+		if bytes.Contains(b, vm) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m *Multiplexer) determineProtocol(c net.Conn) (*multiplexerListener, []byte, error) {
 	b := make([]byte, 3)
 	_, err := c.Read(b)
@@ -87,9 +108,11 @@ func (m *Multiplexer) determineProtocol(c net.Conn) (*multiplexerListener, []byt
 		return nil, nil, err
 	}
 
-	proto := "http"
+	proto := ""
 	if bytes.HasPrefix(b, []byte{'S', 'S', 'H'}) {
 		proto = "ssh"
+	} else if isHttp(b) {
+		proto = "http"
 	}
 
 	l, ok := m.protocols[proto]
