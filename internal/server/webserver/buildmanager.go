@@ -85,6 +85,8 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string) (
 		cmd.Env = append(cmd.Env)
 	}
 
+	cmd.Env = append(cmd.Env, "CGO_ENABLED=0")
+
 	f.Goos = runtime.GOOS
 	if len(goos) > 0 {
 		cmd.Env = append(cmd.Env, "GOOS="+goos)

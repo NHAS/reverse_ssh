@@ -159,14 +159,22 @@ $ bin/client example.com:1234
 
 ### Built in Web Server
 
-RSSH runs an HTTP server which serves client binaries that are compiled on the fly, for whatever platform you specify. 
-
-E.g
-
-If your rssh server is listening on `:8080` doing the following will download a binary compiled for linux. 
+The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries that are compiled on the fly, for whatever platform you specify. 
 
 ```sh
-wget http://localhost:8080/linux 
+./server --enable_webserver your.listen.address:port
+
+# Generate an unnamed link
+ssh your.listen.address -p port link
+
+http://your.listen.address:port/483f6d194ed62f889c853725b6a29748
+
+```
+
+Then you can download it as follows
+
+```sh
+wget http://your.listen.address:port/483f6d194ed62f889c853725b6a29748
 chmod +x {filename}
 ```
 

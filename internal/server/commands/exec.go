@@ -35,8 +35,10 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			return fmt.Errorf("Not enough arguments supplied. Needs at least, host|filter command...")
 		}
 
-		filter = args[0].Value()
-		command = line.RawLine[args[0].End():]
+		if len(args) != 0 {
+			filter = args[0].Value()
+			command = line.RawLine[args[0].End():]
+		}
 	}
 
 	command = strings.TrimSpace(command)
