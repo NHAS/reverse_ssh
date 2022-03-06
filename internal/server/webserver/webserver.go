@@ -34,6 +34,7 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 	return func(w http.ResponseWriter, req *http.Request) {
 		parts := strings.Split(req.URL.Path[1:], "/")
 
+		log.Printf("INFO Web Server got hit: %s %s", req.RemoteAddr, req.URL.Path)
 		if len(parts) == 0 { // This should never happen
 			http.Error(w, "Error", 501)
 			return

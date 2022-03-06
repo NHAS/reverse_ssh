@@ -38,7 +38,9 @@ func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		filter = strings.Join(line.LeftoversStrings(), " ")
 	} else if len(line.FlagsOrdered) > 1 {
 		args := line.FlagsOrdered[len(line.FlagsOrdered)-1].Args
-		filter = line.RawLine[args[0].End():]
+		if len(args) != 0 {
+			filter = line.RawLine[args[0].End():]
+		}
 	}
 
 	if terminal.IsSet("h", line.Flags) {
