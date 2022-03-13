@@ -55,8 +55,6 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 				continue
 			}
 
-			log.Println("Wat: ", err, l, prefix)
-
 			conn.SetDeadline(time.Time{})
 
 			go func() { l.connections <- &bufferedConn{conn: conn, prefix: prefix} }()
