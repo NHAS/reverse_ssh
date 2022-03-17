@@ -192,7 +192,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			case <-t.C:
 				_, _, err = sshConn.SendRequest("keepalive@golang.org", true, nil)
 				if err != nil {
-					clientLog.Error("Failed to send keepalive, assuming client has disconnected")
+					clientLog.Info("Failed to send keepalive, assuming client has disconnected")
 					sshConn.Close()
 					return
 				}

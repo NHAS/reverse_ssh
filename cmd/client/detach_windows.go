@@ -26,5 +26,5 @@ func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 	cmd := exec.Command(os.Args[0], append([]string{"--detach"}, os.Args[1:]...)...)
 	cmd.Start()
 	cmd.Process.Release()
-	log.Println("Ending parent")
+	log.Println("Forking")
 }
