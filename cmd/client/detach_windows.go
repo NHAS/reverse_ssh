@@ -19,6 +19,7 @@ func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 			procAttachConsole := modkernel32.NewProc("FreeConsole")
 			syscall.Syscall(procAttachConsole.Addr(), 0, 0, 0, 0)
 		}
+
 		client.Run(destination, fingerprint, proxyaddress, rc)
 		return
 	}

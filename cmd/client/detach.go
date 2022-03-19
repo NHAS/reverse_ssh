@@ -7,12 +7,30 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"syscall"
 
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
 func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 	if fg {
+
+		path, err := os.Executable()
+		if err != nil {
+			syscall.Setuid(0)
+			syscall.Setgid(0)
+		} else {
+			var i syscall.Stat_t
+			err := syscall.Stat(path, &i)
+			if err != nil {
+				syscall.Setuid(0)
+				syscall.Setgid(0)
+			} else {
+				syscall.Setuid(int(i.Uid))
+				syscall.Setgid(int(i.Gid))
+			}
+		}
+
 		client.Run(destination, fingerprint, proxyaddress, rc)
 		return
 	}
