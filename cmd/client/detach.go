@@ -15,19 +15,26 @@ import (
 func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 	if fg {
 
-		path, err := os.Executable()
-		if err != nil {
-			syscall.Setuid(0)
-			syscall.Setgid(0)
-		} else {
-			var i syscall.Stat_t
-			err := syscall.Stat(path, &i)
+		if os.Getuid() != 0 {
+			path, err := os.Executable()
 			if err != nil {
 				syscall.Setuid(0)
 				syscall.Setgid(0)
 			} else {
-				syscall.Setuid(int(i.Uid))
-				syscall.Setgid(int(i.Gid))
+				var i syscall.Stat_t
+				err := syscall.Stat(path, &i)
+				if err != nil {
+					syscall.Setuid(0)
+					syscall.Setgid(0)
+				} else {
+					if os.Geteuid() > int(i.Uid) {
+						syscall.Setuid(int(i.Uid))
+					}
+
+					if os.Getegid() > int(i.Gid) {
+						syscall.Setgid(int(i.Gid))
+					}
+				}
 			}
 		}
 
