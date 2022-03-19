@@ -27,18 +27,8 @@ func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 				syscall.Setuid(0)
 				syscall.Setgid(0)
 			} else {
-
-				if i.Mode&uint32(os.ModeSetuid) != 0 {
-					if syscall.Setuid(int(i.Uid)) != nil {
-						syscall.Setuid(0)
-					}
-				}
-
-				if i.Mode&uint32(os.ModeSetgid) != 0 {
-					if syscall.Setgid(int(i.Gid)) != nil {
-						syscall.Setgid(0)
-					}
-				}
+				syscall.Setuid(int(i.Uid))
+				syscall.Setgid(int(i.Gid))
 			}
 		}
 
