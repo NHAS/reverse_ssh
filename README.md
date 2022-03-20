@@ -77,7 +77,7 @@ ssh -J localhost:3232 root.wombo
 
 ## Setup Instructions
 
-> **NOTE:** reverse_ssh requires Go **1.16** or higher. Please check you have at least this version via `go version`
+> **NOTE:** reverse_ssh requires Go **1.17** or higher. Please check you have at least this version via `go version`
 
 The simplest build command is just:
 
