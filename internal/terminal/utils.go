@@ -112,10 +112,6 @@ func parseSingleArg(line string, startPos int) (arg Argument, endPos int) {
 	for arg.end = startPos; arg.end < len(line); arg.end++ {
 		endPos = arg.end
 
-		if endPos != len(line)-1 && line[endPos+1] == '-' {
-			return
-		}
-
 		if line[endPos] == ' ' {
 			return
 		}
