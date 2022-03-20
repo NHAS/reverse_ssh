@@ -24,7 +24,3 @@ func (e *exit) Help(explain bool) string {
 
 	return makeHelpText("exit")
 }
-
-func Exit() *exit {
-	return &exit{}
-}

@@ -71,7 +71,3 @@ func (h *help) Help(explain bool) string {
 		"help <functions>",
 	)
 }
-
-func Help() *help {
-	return &help{}
-}
