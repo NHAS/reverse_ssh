@@ -56,6 +56,10 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if len(matchingClients) == 0 {
+		if len(filter) == 0 {
+			return fmt.Errorf("No RSSH clients connected")
+		}
+
 		return fmt.Errorf("Unable to find match for '" + filter + "'")
 	}
 
