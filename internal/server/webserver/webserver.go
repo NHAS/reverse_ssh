@@ -9,13 +9,13 @@ import (
 	"strings"
 )
 
-var connectBack string
+var defaultConnectBack string
 var projectRoot string
 var webserverOn bool
 
 func Start(webListener net.Listener, connectBackAddress, projRoot string) {
 	projectRoot = projRoot
-	connectBack = connectBackAddress
+	defaultConnectBack = connectBackAddress
 
 	err := startBuildManager("./cache")
 	if err != nil {

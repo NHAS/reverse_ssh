@@ -38,7 +38,7 @@ var c sync.RWMutex
 var cache map[string]file = make(map[string]file) // random id to actual file path
 var cachePath string
 
-func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string, shared bool) (string, error) {
+func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name, crossCompiler string, shared bool) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("Web server is not enabled.")
 	}
@@ -51,8 +51,8 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string, s
 		return "", fmt.Errorf("GOOS supplied is not valid: " + goos)
 	}
 
-	if len(connectBackAdress) == 0 {
-		connectBackAdress = connectBack
+	if len(suppliedConnectBackAdress) == 0 {
+		suppliedConnectBackAdress = defaultConnectBack
 	}
 
 	c.Lock()
@@ -76,6 +76,16 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string, s
 		return "", errors.New("This link name is already in use")
 	}
 
+	f.Goos = runtime.GOOS
+	if len(goos) > 0 {
+		f.Goos = goos
+	}
+
+	f.Goarch = runtime.GOARCH
+	if len(goarch) > 0 {
+		f.Goarch = goarch
+	}
+
 	f.Path = filepath.Join(cachePath, filename)
 	f.Timestamp = time.Now()
 	f.Expiry = expiry
@@ -84,41 +94,41 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string, s
 	buildArguments := []string{"build"}
 	if shared {
 		buildArguments = append(buildArguments, "-buildmode=c-shared")
+		buildArguments = append(buildArguments, "-tags=cshared")
 		f.FileType = "shared-object"
-		f.Path += ".dll"
+		if f.Goos != "windows" {
+			f.Path += ".so"
+		} else {
+			f.Path += ".dll"
+		}
+
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s", connectBackAdress))
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s", suppliedConnectBackAdress))
 	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command("go", buildArguments...)
 
 	cmd.Env = append(cmd.Env, os.Environ()...)
+	cmd.Env = append(cmd.Env, "GOOS="+f.Goos)
+	cmd.Env = append(cmd.Env, "GOARCH="+f.Goarch)
+	cmd.Env = append(cmd.Env, "RSSH_HOMESERVER="+suppliedConnectBackAdress)
 
-	if len(connectBack) != 0 {
-		cmd.Env = append(cmd.Env)
-	}
-
-	//Building a shared object on windows needs some extra beans
+	//Building a shared object for windows needs some extra beans
 	cgoOn := "0"
-	if shared && goos == "windows" {
-		cmd.Env = append(cmd.Env, "CC=x86_64-w64-mingw32-gcc")
+	if shared {
+
+		if len(crossCompiler) == 0 {
+			if runtime.GOOS == "linux" && f.Goos == "windows" && f.Goarch == "amd64" {
+				crossCompiler = "x86_64-w64-mingw32-gcc"
+			}
+		}
+
+		cmd.Env = append(cmd.Env, "CC="+crossCompiler)
 		cgoOn = "1"
 	}
 
 	cmd.Env = append(cmd.Env, "CGO_ENABLED="+cgoOn)
-
-	f.Goos = runtime.GOOS
-	if len(goos) > 0 {
-		cmd.Env = append(cmd.Env, "GOOS="+goos)
-		f.Goos = goos
-	}
-
-	f.Goarch = runtime.GOARCH
-	if len(goarch) > 0 {
-		cmd.Env = append(cmd.Env, "GOARCH="+goarch)
-		f.Goarch = goarch
-	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -136,7 +146,7 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string, s
 
 	writeCache()
 
-	return "http://" + connectBackAdress + "/" + name, nil
+	return "http://" + suppliedConnectBackAdress + "/" + name, nil
 }
 
 func Get(key string) (file, error) {
