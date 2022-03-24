@@ -12,18 +12,6 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
-import "C"
-
-//export VoidFunc
-func VoidFunc() {
-	client.Run(destination, fingerprint, "", true)
-}
-
-//export OnProcessAttach
-func OnProcessAttach() {
-
-}
-
 func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 	if fg || dt {
 		if dt {

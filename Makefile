@@ -19,6 +19,10 @@ release: .generate_keys
 client: .generate_keys
 	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
+client_dll: .generate_keys
+	test -n "$(RSSH_HOMESERVER)" # Shared objects cannot take arguments, so must have a callback server baked in (define RSSH_HOMESERVER)
+	CGO_ENABLED=1 go build -tags=cshared -buildmode=c-shared -ldflags="$(LDFLAGS_RELEASE)" -o bin/client.dll ./cmd/client
+
 server:
 	mkdir -p bin
 	go build -ldflags="-s -w" -o bin ./cmd/server

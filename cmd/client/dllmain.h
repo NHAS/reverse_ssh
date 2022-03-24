@@ -1,11 +1,11 @@
+
 #include <windows.h>
 
 void OnProcessAttach();
 
-DWORD WINAPI MyThreadFunction(LPVOID lpParam)
+DWORD WINAPI MyThreadFunction()
 {
     OnProcessAttach();
-    free(lpParam);
     return 0;
 }
 

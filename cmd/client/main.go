@@ -57,4 +57,5 @@ func main() {
 	}
 
 	runOrFork(destination, *fingerprint, *proxyaddress, fg, dt, rc)
+
 }
