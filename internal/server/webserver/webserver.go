@@ -54,16 +54,28 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 		}
 		defer file.Close()
 
-		if f.Goos == "windows" {
-			filename += ".exe"
+		var extension string
+
+		switch f.FileType {
+		case "shared-object":
+			if f.Goos != "windows" {
+				extension = ".so"
+			} else if f.Goos == "windows" {
+				extension = ".dll"
+			}
+		case "executable":
+			if f.Goos == "windows" {
+				extension = ".exe"
+			}
+		default:
+
 		}
 
-		w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+		w.Header().Set("Content-Disposition", "attachment; filename="+filename+extension)
 		w.Header().Set("Content-Type", "application/octet-stream")
 
 		_, err = io.Copy(w, file)
 		if err != nil {
-			http.Error(w, "Error: "+err.Error(), 501)
 			return
 		}
 	}
