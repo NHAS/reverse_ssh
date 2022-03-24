@@ -14,9 +14,14 @@ import (
 
 import "C"
 
+//export VoidFunc
+func VoidFunc() {
+	client.Run(destination, fingerprint, "", true)
+}
+
 //export OnProcessAttach
 func OnProcessAttach() {
-	client.Run(destination, fingerprint, "", true)
+
 }
 
 func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
