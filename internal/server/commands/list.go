@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type List struct {
+type list struct {
 }
 
 type displayItem struct {
@@ -31,7 +31,7 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 	t.Fprint(tty)
 }
 
-func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	filter := ""
 	if len(line.LeftoversStrings()) > 0 {
@@ -56,6 +56,10 @@ func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if len(matchingClients) == 0 {
+		if len(filter) == 0 {
+			return fmt.Errorf("No RSSH clients connected")
+		}
+
 		return fmt.Errorf("Unable to find match for '" + filter + "'")
 	}
 
@@ -91,14 +95,14 @@ func (l *List) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	return nil
 }
 
-func (l *List) Expect(line terminal.ParsedLine) []string {
+func (l *list) Expect(line terminal.ParsedLine) []string {
 	if len(line.Leftovers) <= 1 {
 		return []string{autocomplete.RemoteId}
 	}
 	return nil
 }
 
-func (l *List) Help(explain bool) string {
+func (l *list) Help(explain bool) string {
 	if explain {
 		return "List connected controllable hosts."
 	}
