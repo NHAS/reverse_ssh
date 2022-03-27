@@ -90,11 +90,14 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	mins, err := strconv.Atoi(timeStr)
-	if err != nil {
-		return fmt.Errorf("Unable to parse number of minutes (-t): %s", timeStr)
+	if err == nil {
+
+		mins, err := strconv.Atoi(timeStr)
+		if err != nil {
+			return fmt.Errorf("Unable to parse number of minutes (-t): %s", timeStr)
+		}
+		e = time.Duration(mins) * time.Minute
 	}
-	e = time.Duration(mins) * time.Minute
 
 	goos, err := line.GetArgString("goos")
 	if err != nil && err != terminal.ErrFlagNotSet {
