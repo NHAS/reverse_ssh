@@ -85,70 +85,43 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	var e time.Duration
-	if lifetime, ok := line.Flags["t"]; ok {
-		if len(lifetime.Args) != 1 {
-			return fmt.Errorf("Expected 1 argument for -t (time to live)")
-		}
-
-		mins, err := strconv.Atoi(lifetime.Args[0].Value())
-		if err != nil {
-			return fmt.Errorf("Unable to parse number of minutes (-t): %s", lifetime.Args[0].Value())
-		}
-
-		e = time.Duration(mins) * time.Minute
+	timeStr, err := line.GetArgString("t")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
 	}
 
-	var goos string
-	if cb, ok := line.Flags["goos"]; ok {
-		if len(cb.Args) != 1 {
-			return fmt.Errorf("Expected 1 argument for --goos")
-		}
+	mins, err := strconv.Atoi(timeStr)
+	if err != nil {
+		return fmt.Errorf("Unable to parse number of minutes (-t): %s", timeStr)
+	}
+	e = time.Duration(mins) * time.Minute
 
-		goos = cb.Args[0].Value()
-
+	goos, err := line.GetArgString("goos")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
 	}
 
-	var goarch string
-	if cb, ok := line.Flags["goarch"]; ok {
-		if len(cb.Args) != 1 {
-			return fmt.Errorf("Expected 1 argument for --goarch")
-		}
-
-		goarch = cb.Args[0].Value()
-
+	goarch, err := line.GetArgString("goarch")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
 	}
 
-	var homeserver_address string
-	if cb, ok := line.Flags["s"]; ok {
-		if len(cb.Args) != 1 {
-			return fmt.Errorf("Expected 1 argument for -s (set homeserver connect back address)")
-		}
-
-		homeserver_address = cb.Args[0].Value()
-
+	homeserver_address, err := line.GetArgString("s")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
 	}
 
-	var name string
-	if cb, ok := line.Flags["name"]; ok {
-		if len(cb.Args) != 1 {
-			return fmt.Errorf("Expected 1 argument for --name")
-		}
-
-		name = cb.Args[0].Value()
+	name, err := line.GetArgString("name")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
 	}
 
-	var cc string
-	if cb, ok := line.Flags["cross-compiler"]; ok {
-		if len(cb.Args) != 1 {
-			return fmt.Errorf("Expected 1 argument for --cross-compiler")
-		}
-
-		cc = cb.Args[0].Value()
+	cc, err := line.GetArgString("cross-compiler")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
 	}
 
-	_, ok := line.Flags["shared-object"]
-
-	url, err := webserver.Build(e, goos, goarch, homeserver_address, name, cc, ok)
+	url, err := webserver.Build(e, goos, goarch, homeserver_address, name, cc, line.IsSet("shared-object"))
 	if err != nil {
 		return err
 	}

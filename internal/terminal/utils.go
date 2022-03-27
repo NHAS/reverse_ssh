@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+var ErrFlagNotSet = errors.New("Flag not set")
+
 type Node interface {
 	Value() string
 	Start() int
@@ -97,7 +99,7 @@ func (pl *ParsedLine) ExpectArgs(flag string, needs int) ([]Argument, error) {
 		}
 		return f.Args, nil
 	}
-	return nil, errors.New("Flag not set")
+	return nil, ErrFlagNotSet
 }
 
 func (pl *ParsedLine) GetArgs(flag string) ([]Argument, error) {
@@ -105,7 +107,7 @@ func (pl *ParsedLine) GetArgs(flag string) ([]Argument, error) {
 	if ok {
 		return f.Args, nil
 	}
-	return nil, errors.New("Flag not set")
+	return nil, ErrFlagNotSet
 }
 
 func (pl *ParsedLine) GetArgsString(flag string) ([]string, error) {
@@ -113,7 +115,7 @@ func (pl *ParsedLine) GetArgsString(flag string) ([]string, error) {
 	if ok {
 		return f.ArgValues(), nil
 	}
-	return nil, errors.New("Flag not set")
+	return nil, ErrFlagNotSet
 }
 
 func (pl *ParsedLine) GetArg(flag string) (Argument, error) {

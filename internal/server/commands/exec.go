@@ -20,25 +20,15 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return nil
 	}
 
+	if len(line.Arguments) < 2 {
+		return fmt.Errorf("Not enough arguments supplied. Needs at least, host|filter command...")
+	}
+
 	filter := ""
 	command := ""
 	if len(line.ArgumentsAsStrings()) > 0 {
-		if len(line.Arguments) < 2 {
-			return fmt.Errorf("Not enough arguments supplied. Needs at least, host|filter command...")
-		}
-
 		filter = line.ArgumentsAsStrings()[0]
 		command = line.RawLine[line.Arguments[0].End():]
-	} else if len(line.FlagsOrdered) > 0 {
-		args := line.FlagsOrdered[len(line.FlagsOrdered)-1].Args
-		if len(args) < 2 {
-			return fmt.Errorf("Not enough arguments supplied. Needs at least, host|filter command...")
-		}
-
-		if len(args) != 0 {
-			filter = args[0].Value()
-			command = line.RawLine[args[0].End():]
-		}
 	}
 
 	command = strings.TrimSpace(command)
@@ -53,21 +43,6 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if !(line.IsSet("q") || line.IsSet("raw")) {
-		fmt.Fprintln(tty, "Effects:")
-		count := 0
-		for id, client := range matchingClients {
-			if count > 5 {
-				break
-			}
-
-			fmt.Fprintf(tty, "%s (%s)\n", id, client.User()+"@"+client.RemoteAddr().String())
-			count++
-		}
-
-		if count > 5 {
-			fmt.Fprintf(tty, "... %d hosts omitted ...\n", len(matchingClients)-count)
-		}
-
 		if !line.IsSet("y") {
 
 			fmt.Fprintf(tty, "Run command? [N/y] ")
@@ -134,6 +109,8 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 		io.Copy(tty, newChan)
 	}
+
+	fmt.Fprint(tty, "\n")
 
 	return nil
 }

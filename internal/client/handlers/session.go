@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -50,6 +51,11 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 					scp(parts, connection, log)
 
 					return
+				}
+
+				//Set a path if no path is set to search
+				if len(os.Getenv("PATH")) == 0 {
+					os.Setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin")
 				}
 
 				cmd := exec.Command(parts[0], parts[1:]...)
