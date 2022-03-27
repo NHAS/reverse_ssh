@@ -34,8 +34,8 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	filter := ""
-	if len(line.LeftoversStrings()) > 0 {
-		filter = strings.Join(line.LeftoversStrings(), " ")
+	if len(line.ArgumentsAsStrings()) > 0 {
+		filter = strings.Join(line.ArgumentsAsStrings(), " ")
 	} else if len(line.FlagsOrdered) > 1 {
 		args := line.FlagsOrdered[len(line.FlagsOrdered)-1].Args
 		if len(args) != 0 {
@@ -43,7 +43,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		}
 	}
 
-	if terminal.IsSet("h", line.Flags) {
+	if line.IsSet("h") {
 		fmt.Fprintf(tty, "%s", l.Help(false))
 		return nil
 	}
@@ -74,7 +74,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		toReturn = append(toReturn, displayItem{id: id, sc: matchingClients[id]})
 	}
 
-	if terminal.IsSet("t", line.Flags) {
+	if line.IsSet("t") {
 		fancyTable(tty, toReturn)
 		return nil
 	}
@@ -96,7 +96,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (l *list) Expect(line terminal.ParsedLine) []string {
-	if len(line.Leftovers) <= 1 {
+	if len(line.Arguments) <= 1 {
 		return []string{autocomplete.RemoteId}
 	}
 	return nil

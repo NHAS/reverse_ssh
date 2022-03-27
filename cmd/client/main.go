@@ -1,61 +1,63 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
+
+var destination string
+var fingerprint string
 
 func printHelp() {
 
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--foreground] [--fingerprint] destination")
 	fmt.Println("\t\t--foreground\tCauses the client to run without forking to background")
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
-	fmt.Println("\t\t--reconnect\tReconnect on connection failure")
+	fmt.Println("\t\t--no-reconnect\tDisable reconnect on connection failure")
 	fmt.Println("\t\t--proxy\tSets the HTTP_PROXY enviroment variable so the net library will use it")
 }
 
-var destination string
-var fingerprint string
-
 func main() {
 
-	flag.Bool("foreground", false, "Dont fork to background on start")
-	flag.Bool("no-reconnect", false, "Disable reconnect on disconnection")
-	flag.Bool("detach", true, "(windows only) will force a console detach")
+	//Happens if we're executing from a fileless state
+	if len(os.Args) == 0 {
+		runOrFork(destination, fingerprint, "", false, true, true)
+		return
+	}
 
-	proxyaddress := flag.String("proxy", "", "Sets the HTTP_PROXY enviroment variable so the net library will use it")
-	fingerprint := flag.String("fingerprint", fingerprint, "Server public key fingerprint")
+	line := terminal.ParseLine(strings.Join(os.Args, " "), 0)
 
-	flag.Usage = printHelp
-
-	flag.Parse()
-
-	var fg, dt bool
-	rc := true
-
-	flag.Visit(func(f *flag.Flag) {
-		switch f.Name {
-		case "no-reconnect":
-			rc = false
-		case "foreground":
-			fg = true
-		case "detach":
-			dt = true
-		}
-	})
-
-	if len(flag.Arg(0)) == 0 && len(destination) == 0 {
-		fmt.Println("Missing destination (no default present)")
+	if line.IsSet("h") || line.IsSet("help") {
 		printHelp()
 		return
 	}
 
-	if len(flag.Arg(0)) != 0 {
-		destination = flag.Arg(0)
+	if len(line.Arguments) < 1 && len(destination) == 0 {
+		fmt.Println("No destination specified")
+		printHelp()
+		return
 	}
 
-	runOrFork(destination, *fingerprint, *proxyaddress, fg, dt, rc)
+	if len(line.Arguments) > 0 {
+		destination = line.Arguments[len(line.Arguments)-1].Value()
+	}
+
+	fg := line.IsSet("foreground")
+	dt := line.IsSet("detach")
+
+	proxyaddress, _ := line.GetArgString("proxy")
+
+	userSpecifiedFingerprint, err := line.GetArgString("fingerprint")
+	if err == nil {
+		fingerprint = userSpecifiedFingerprint
+	}
+
+	rc := !line.IsSet("no-reconnect")
+
+	runOrFork(destination, fingerprint, proxyaddress, fg, dt, rc)
 
 }

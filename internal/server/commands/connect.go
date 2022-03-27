@@ -28,11 +28,11 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return fmt.Errorf("connect can only be called from the terminal, if you want to connect to your clients without connecting to the terminal use jumphost syntax -J")
 	}
 
-	if len(line.Leftovers) != 1 {
+	if len(line.Arguments) != 1 {
 		return fmt.Errorf(c.Help(false))
 	}
 
-	target, err := clients.Get(line.Leftovers[0].Value())
+	target, err := clients.Get(line.Arguments[0].Value())
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (c *connect) Expect(line terminal.ParsedLine) []string {
-	if len(line.Leftovers) <= 1 {
+	if len(line.Arguments) <= 1 {
 		return []string{autocomplete.RemoteId}
 	}
 	return nil

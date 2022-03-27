@@ -14,7 +14,7 @@ type help struct {
 }
 
 func (h *help) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
-	if len(line.Leftovers) < 1 {
+	if len(line.Arguments) < 1 {
 
 		t, err := table.NewTable("Commands", "Function", "Purpose")
 		if err != nil {
@@ -42,9 +42,9 @@ func (h *help) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return nil
 	}
 
-	l, ok := allCommands[line.Leftovers[0].Value()]
+	l, ok := allCommands[line.Arguments[0].Value()]
 	if !ok {
-		return fmt.Errorf("Command %s not found", line.Leftovers[0].Value())
+		return fmt.Errorf("Command %s not found", line.Arguments[0].Value())
 	}
 
 	fmt.Fprintf(tty, "\ndescription:\n%s\n", l.Help(true))
@@ -55,7 +55,7 @@ func (h *help) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (h *help) Expect(line terminal.ParsedLine) []string {
-	if len(line.Leftovers) <= 1 {
+	if len(line.Arguments) <= 1 {
 		return []string{autocomplete.Functions}
 	}
 	return nil

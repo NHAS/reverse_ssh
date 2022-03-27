@@ -16,11 +16,11 @@ type kill struct {
 
 func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	if len(line.Leftovers) != 1 {
+	if len(line.Arguments) != 1 {
 		return fmt.Errorf(k.Help(false))
 	}
 
-	if line.Leftovers[0].Value() == "all" {
+	if line.Arguments[0].Value() == "all" {
 		killedClients := 0
 		allClients := clients.GetAll()
 		for _, v := range allClients {
@@ -30,7 +30,7 @@ func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return fmt.Errorf("%d connections killed", killedClients)
 	}
 
-	conn, err := clients.Get(line.Leftovers[0].Value())
+	conn, err := clients.Get(line.Arguments[0].Value())
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (k *kill) Expect(line terminal.ParsedLine) []string {
-	if len(line.Leftovers) <= 1 {
+	if len(line.Arguments) <= 1 {
 		return []string{autocomplete.RemoteId}
 	}
 	return nil

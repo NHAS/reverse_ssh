@@ -15,20 +15,20 @@ type exec struct {
 }
 
 func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
-	if terminal.IsSet("h", line.Flags) {
+	if line.IsSet("h") {
 		fmt.Fprintf(tty, "%s", e.Help(false))
 		return nil
 	}
 
 	filter := ""
 	command := ""
-	if len(line.LeftoversStrings()) > 0 {
-		if len(line.Leftovers) < 2 {
+	if len(line.ArgumentsAsStrings()) > 0 {
+		if len(line.Arguments) < 2 {
 			return fmt.Errorf("Not enough arguments supplied. Needs at least, host|filter command...")
 		}
 
-		filter = line.LeftoversStrings()[0]
-		command = line.RawLine[line.Leftovers[0].End():]
+		filter = line.ArgumentsAsStrings()[0]
+		command = line.RawLine[line.Arguments[0].End():]
 	} else if len(line.FlagsOrdered) > 0 {
 		args := line.FlagsOrdered[len(line.FlagsOrdered)-1].Args
 		if len(args) < 2 {
@@ -52,7 +52,7 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return fmt.Errorf("Unable to find match for '" + filter + "'\n")
 	}
 
-	if !(terminal.IsSet("q", line.Flags) || terminal.IsSet("raw", line.Flags)) {
+	if !(line.IsSet("q") || line.IsSet("raw")) {
 		fmt.Fprintln(tty, "Effects:")
 		count := 0
 		for id, client := range matchingClients {
@@ -68,7 +68,7 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			fmt.Fprintf(tty, "... %d hosts omitted ...\n", len(matchingClients)-count)
 		}
 
-		if !terminal.IsSet("y", line.Flags) {
+		if !line.IsSet("y") {
 
 			fmt.Fprintf(tty, "Run command? [N/y] ")
 
@@ -103,13 +103,13 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	for id, client := range matchingClients {
 
-		if !(terminal.IsSet("q", line.Flags) || terminal.IsSet("raw", line.Flags)) {
+		if !(line.IsSet("q") || line.IsSet("raw")) {
 			fmt.Fprint(tty, "\n\n")
 			fmt.Fprintf(tty, "%s (%s) output:\n", id, client.User()+"@"+client.RemoteAddr().String())
 		}
 
 		newChan, r, err := client.OpenChannel("session", nil)
-		if err != nil && !terminal.IsSet("q", line.Flags) {
+		if err != nil && !line.IsSet("q") {
 			fmt.Fprintf(tty, "Failed: %s\n", err)
 			continue
 		}
@@ -117,17 +117,17 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		defer newChan.Close()
 
 		response, err := newChan.SendRequest("exec", true, commandByte)
-		if err != nil && !terminal.IsSet("q", line.Flags) {
+		if err != nil && !line.IsSet("q") {
 			fmt.Fprintf(tty, "Failed: %s\n", err)
 			continue
 		}
 
-		if !response && !terminal.IsSet("q", line.Flags) {
+		if !response && !line.IsSet("q") {
 			fmt.Fprintf(tty, "Failed: client refused\n")
 			continue
 		}
 
-		if terminal.IsSet("q", line.Flags) {
+		if line.IsSet("q") {
 			io.Copy(io.Discard, newChan)
 			continue
 		}
@@ -139,12 +139,7 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (e *exec) Expect(line terminal.ParsedLine) []string {
-
-	if line.Focus == nil {
-		return []string{autocomplete.RemoteId}
-	}
-
-	return nil
+	return []string{autocomplete.RemoteId}
 }
 
 func (e *exec) Help(explain bool) string {

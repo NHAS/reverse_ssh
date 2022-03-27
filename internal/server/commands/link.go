@@ -20,7 +20,7 @@ type link struct {
 
 func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	if terminal.IsSet("h", line.Flags) {
+	if line.IsSet("h") {
 		return errors.New(l.Help(false))
 	}
 

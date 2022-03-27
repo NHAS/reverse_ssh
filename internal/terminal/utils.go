@@ -1,5 +1,10 @@
 package terminal
 
+import (
+	"errors"
+	"fmt"
+)
+
 type Node interface {
 	Value() string
 	Start() int
@@ -62,7 +67,7 @@ type ParsedLine struct {
 	FlagsOrdered []Flag
 	Flags        map[string]Flag
 
-	Leftovers []Argument
+	Arguments []Argument
 	Focus     Node
 
 	Section *Flag
@@ -72,11 +77,61 @@ type ParsedLine struct {
 	RawLine string
 }
 
-func (pl *ParsedLine) LeftoversStrings() (out []string) {
-	for _, v := range pl.Leftovers {
+func (pl *ParsedLine) ArgumentsAsStrings() (out []string) {
+	for _, v := range pl.Arguments {
 		out = append(out, v.Value())
 	}
 	return
+}
+
+func (pl *ParsedLine) IsSet(flag string) bool {
+	_, ok := pl.Flags[flag]
+	return ok
+}
+
+func (pl *ParsedLine) ExpectArgs(flag string, needs int) ([]Argument, error) {
+	f, ok := pl.Flags[flag]
+	if ok {
+		if len(f.Args) != needs {
+			return nil, fmt.Errorf("flag: %s expects %d arguments", flag, needs)
+		}
+		return f.Args, nil
+	}
+	return nil, errors.New("Flag not set")
+}
+
+func (pl *ParsedLine) GetArgs(flag string) ([]Argument, error) {
+	f, ok := pl.Flags[flag]
+	if ok {
+		return f.Args, nil
+	}
+	return nil, errors.New("Flag not set")
+}
+
+func (pl *ParsedLine) GetArgsString(flag string) ([]string, error) {
+	f, ok := pl.Flags[flag]
+	if ok {
+		return f.ArgValues(), nil
+	}
+	return nil, errors.New("Flag not set")
+}
+
+func (pl *ParsedLine) GetArg(flag string) (Argument, error) {
+	arg, err := pl.ExpectArgs(flag, 1)
+	if err != nil {
+		return Argument{}, err
+	}
+
+	return arg[0], nil
+}
+
+func (pl *ParsedLine) GetArgString(flag string) (string, error) {
+	arg, err := pl.ExpectArgs(flag, 1)
+	if err != nil {
+		return "", err
+	}
+
+	return arg[0].Value(), nil
 }
 
 func parseFlag(line string, startPos int) (f Flag, endPos int) {
@@ -195,6 +250,7 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 
 		var args []Argument
 		args, i = parseArgs(line, i)
+		pl.Arguments = append(pl.Arguments, args...)
 
 		for m, arg := range args {
 			if cursorPosition >= arg.start && cursorPosition <= arg.end {
@@ -209,20 +265,6 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 			continue
 		}
 
-		if pl.Command == nil && len(args) > 0 {
-			pl.Command = new(Cmd)
-			pl.Command.value = args[0].value
-			pl.Command.start = args[0].start
-			pl.Command.end = args[0].end
-
-			if cursorPosition >= pl.Command.start && cursorPosition <= pl.Command.end {
-				pl.Focus = pl.Command
-			}
-
-			args = args[1:]
-		}
-
-		pl.Leftovers = append(pl.Leftovers, args...)
 	}
 
 	if capture != nil {
@@ -250,6 +292,19 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 		pl.Section = closestLeft
 	}
 
+	if pl.Command == nil && len(pl.Arguments) > 0 {
+		pl.Command = new(Cmd)
+		pl.Command.value = pl.Arguments[0].value
+		pl.Command.start = pl.Arguments[0].start
+		pl.Command.end = pl.Arguments[0].end
+
+		if cursorPosition >= pl.Command.start && cursorPosition <= pl.Command.end {
+			pl.Focus = pl.Command
+		}
+
+		pl.Arguments = pl.Arguments[1:]
+	}
+
 	return
 
 }
@@ -259,9 +314,4 @@ func absInt(x int) int {
 		return 0 - x
 	}
 	return x - 0
-}
-
-func IsSet(flag string, flagmap map[string]Flag) bool {
-	_, ok := flagmap[flag]
-	return ok
 }
