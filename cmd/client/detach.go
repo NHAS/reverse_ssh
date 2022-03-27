@@ -18,11 +18,13 @@ func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
 		syscall.Setuid(0)
 		syscall.Setgid(0)
 
+		syscall.Setsid()
+
 		client.Run(destination, fingerprint, proxyaddress, rc)
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], append([]string{"--foreground"}, os.Args[1:]...)...)
+	cmd := exec.Command("/proc/self/exe", append([]string{"--foreground"}, os.Args[1:]...)...)
 	cmd.Start()
 	cmd.Process.Release()
 	log.Println("Forking")
