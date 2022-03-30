@@ -37,6 +37,10 @@ func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	_, _, err = conn.SendRequest("kill", false, nil)
 
+	if err == nil {
+		fmt.Fprintf(tty, "%s was killed\n", line.Arguments[0].Value())
+	}
+
 	return err
 }
 
