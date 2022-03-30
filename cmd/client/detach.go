@@ -17,10 +17,9 @@ func setPermissionsAndRun(destination, fingerprint, proxyaddress string, rc bool
 	syscall.Setuid(0)
 	syscall.Setgid(0)
 
-	//Create our own process group, and ignore any  hang up, or child signals
+	//Create our own process group, and ignore any  hang up signals
 	syscall.Setsid()
 	signal.Ignore(syscall.SIGHUP)
-	signal.Ignore(syscall.SIGCHLD)
 
 	client.Run(destination, fingerprint, proxyaddress, rc)
 }
