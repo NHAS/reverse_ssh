@@ -6,7 +6,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/NHAS/reverse_ssh/internal/server/webserver/shellscripts"
 )
 
 var defaultConnectBack string
@@ -34,16 +37,47 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 	return func(w http.ResponseWriter, req *http.Request) {
 		parts := strings.Split(req.URL.Path[1:], "/")
 
-		log.Printf("INFO Web Server got hit: %s %s", req.RemoteAddr, req.URL.Path)
+		log.Printf("[%s] INFO Web Server got hit:  %s\n", req.RemoteAddr, req.URL.Path)
 		if len(parts) == 0 { // This should never happen
 			http.Error(w, "Error", 501)
 			return
 		}
 
-		filename := parts[len(parts)-1]
+		filename := filepath.Base(req.URL.Path)
+		linkExtension := filepath.Ext(filename)
+
+		filename = strings.TrimSuffix(filename, linkExtension)
+
 		f, err := Get(filename)
 		if err != nil {
 			http.NotFound(w, req)
+			return
+		}
+
+		if linkExtension != "" {
+
+			host, port := getHostnameAndPort(defaultConnectBack)
+
+			output, err := shellscripts.MakeTemplate(shellscripts.Args{
+				OS:       f.Goos,
+				Arch:     f.Goarch,
+				Name:     filename,
+				Host:     host,
+				Port:     port,
+				Protocol: "http",
+			}, linkExtension[1:])
+			if err != nil {
+				http.NotFound(w, req)
+				log.Printf("[%s] ERROR failed to get extension:  %v\n", req.RemoteAddr, err)
+
+				return
+			}
+
+			w.Header().Set("Content-Disposition", "attachment; filename="+filename+linkExtension)
+			w.Header().Set("Content-Type", "application/octet-stream")
+
+			w.Write(output)
+
 			return
 		}
 
@@ -79,4 +113,18 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 			return
 		}
 	}
+}
+
+func getHostnameAndPort(address string) (host, port string) {
+	for i := len(address) - 1; i > 0; i-- {
+		if address[i] == ':' {
+			host = address[:i]
+			if i < len(address) {
+				port = address[i+1:]
+			}
+			return
+		}
+	}
+
+	return
 }
