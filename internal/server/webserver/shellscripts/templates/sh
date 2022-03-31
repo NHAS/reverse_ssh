@@ -4,8 +4,6 @@ if which curl >/dev/null; then
 curl {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}} -o {{.Name}}
 elif which wget >/dev/null; then
 wget -O {{.Name}} {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
-else
-{ echo GET /{{.Name}}; echo; } | nc {{.Host}} {{.Port}} > {{.Name}}
 fi
 
 chmod +x {{.Name}}
