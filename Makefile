@@ -12,9 +12,11 @@ LDFLAGS_RELEASE = $(LDFLAGS) -s -w
 
 debug: .generate_keys
 	go build -ldflags="$(LDFLAGS)" -o bin ./...
+	go build -ldflags="$(LDFLAGS)" GOOS=windows GOARCH=amd64 -o bin ./cmd/client
 
 release: .generate_keys
 	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./...
+	go build -ldflags="$(LDFLAGS_RELEASE)" GOOS=windows GOARCH=amd64 -o bin ./cmd/client
 
 client: .generate_keys
 	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
