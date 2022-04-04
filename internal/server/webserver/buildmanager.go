@@ -38,7 +38,7 @@ var c sync.RWMutex
 var cache map[string]file = make(map[string]file) // random id to actual file path
 var cachePath string
 
-func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name, crossCompiler string, shared bool) (string, error) {
+func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name string, shared bool) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("Web server is not enabled.")
 	}
@@ -118,10 +118,9 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name, 
 	cgoOn := "0"
 	if shared {
 
-		if len(crossCompiler) == 0 {
-			if runtime.GOOS == "linux" && f.Goos == "windows" && f.Goarch == "amd64" {
-				crossCompiler = "x86_64-w64-mingw32-gcc"
-			}
+		var crossCompiler string
+		if runtime.GOOS == "linux" && f.Goos == "windows" && f.Goarch == "amd64" {
+			crossCompiler = "x86_64-w64-mingw32-gcc"
 		}
 
 		cmd.Env = append(cmd.Env, "CC="+crossCompiler)

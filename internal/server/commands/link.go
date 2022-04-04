@@ -119,12 +119,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	cc, err := line.GetArgString("cross-compiler")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
-	}
-
-	url, err := webserver.Build(e, goos, goarch, homeserver_address, name, cc, line.IsSet("shared-object"))
+	url, err := webserver.Build(e, goos, goarch, homeserver_address, name, line.IsSet("shared-object"))
 	if err != nil {
 		return err
 	}
@@ -162,7 +157,6 @@ func (e *link) Help(explain bool) string {
 		"\t--goarch\tSet the target build architecture (default to runtime GOARCH)",
 		"\t--name\tSet link name",
 		"\t--shared-object\tGenerate shared object file",
-		"\t--cross-compiler\tSpecify C/C++ cross compiler used for compiling shared objects (currently only DLL, linux -> windows)",
 	)
 }
 

@@ -199,7 +199,7 @@ chmod +x test
 ### Windows DLL Generation 
 
 You can compile the client as a DLL to be loaded with something like [Invoke-ReflectivePEInjection](https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-ReflectivePEInjection.ps1). 
-This will need a cross compiler if you are doing this on linux, I used `mingw-w64-gcc` from the the archlinux main repo.
+This will need a cross compiler if you are doing this on linux, use `mingw-w64-gcc`. 
 
 ```bash
 CC=x86_64-w64-mingw32-gcc GOOS=windows RSSH_HOMESERVER=192.168.1.1:2343 make client_dll
