@@ -25,7 +25,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Type", "Hits", "Expires", "Path")
+		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Type", "Hits", "Expires")
 
 		files, err := webserver.List(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
@@ -46,7 +46,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			if file.Expiry != 0 {
 				expiry = file.Timestamp.Add(file.Expiry).String()
 			}
-			t.AddValues(id, file.Goos, file.Goarch, file.FileType, fmt.Sprintf("%d", file.Hits), expiry, file.Path)
+			t.AddValues(id, file.Goos, file.Goarch, file.FileType, fmt.Sprintf("%d", file.Hits), expiry)
 		}
 
 		t.Fprint(tty)
@@ -71,13 +71,13 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			return errors.New("No links match")
 		}
 
-		for id, file := range files {
+		for id := range files {
 			err := webserver.Delete(id)
 			if err != nil {
 				fmt.Fprintf(tty, "Unable to remove %s: %s\n", id, err)
 				continue
 			}
-			fmt.Fprintf(tty, "Removed %s (%s)\n", id, file.Path)
+			fmt.Fprintf(tty, "Removed %s\n", id)
 		}
 
 		return nil

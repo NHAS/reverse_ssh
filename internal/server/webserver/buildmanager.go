@@ -141,6 +141,8 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name s
 	}
 	cache[name] = f
 
+	os.Chmod(f.Path, 0600)
+
 	Autocomplete.Add(name)
 
 	writeCache()
