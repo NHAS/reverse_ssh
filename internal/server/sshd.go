@@ -243,7 +243,7 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			clients.Remove(id)
 		}()
 
-		clientLog.Info("New controllable connection")
+		clientLog.Info("New controllable connection with id %s", id)
 
 	default:
 		sshConn.Close()
