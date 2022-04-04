@@ -93,7 +93,7 @@ GOOS=linux GOARCH=amd64 make client
 GOOS=windows GOARCH=amd64 make client # will create client.exe
 ```
 
-You will need to create an `authorized_keys` file, containing *your* public key.
+You will need to create an `authorized_keys` file, containing *your* public key (not jump host key!).
 This will allow you to control whatever server catches.
 Alternatively, you can use the --authorizedkeys flag to point to a file.
 
