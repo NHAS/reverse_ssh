@@ -38,7 +38,7 @@ var c sync.RWMutex
 var cache map[string]file = make(map[string]file) // random id to actual file path
 var cachePath string
 
-func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name string, shared bool) (string, error) {
+func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared bool) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("Web server is not enabled.")
 	}
@@ -53,6 +53,10 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name s
 
 	if len(suppliedConnectBackAdress) == 0 {
 		suppliedConnectBackAdress = defaultConnectBack
+	}
+
+	if len(fingerprint) == 0 {
+		fingerprint = defaultFingerPrint
 	}
 
 	c.Lock()
@@ -104,7 +108,7 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name s
 
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s", suppliedConnectBackAdress))
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s", suppliedConnectBackAdress, fingerprint))
 	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command("go", buildArguments...)
@@ -112,7 +116,6 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name s
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, "GOOS="+f.Goos)
 	cmd.Env = append(cmd.Env, "GOARCH="+f.Goarch)
-	cmd.Env = append(cmd.Env, "RSSH_HOMESERVER="+suppliedConnectBackAdress)
 
 	//Building a shared object for windows needs some extra beans
 	cgoOn := "0"

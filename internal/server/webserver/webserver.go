@@ -9,16 +9,20 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver/shellscripts"
+	"golang.org/x/crypto/ssh"
 )
 
 var defaultConnectBack string
+var defaultFingerPrint string
 var projectRoot string
 var webserverOn bool
 
-func Start(webListener net.Listener, connectBackAddress, projRoot string) {
+func Start(webListener net.Listener, connectBackAddress, projRoot string, publicKey ssh.PublicKey) {
 	projectRoot = projRoot
 	defaultConnectBack = connectBackAddress
+	defaultFingerPrint = internal.FingerprintSHA256Hex(publicKey)
 
 	err := startBuildManager("./cache")
 	if err != nil {
