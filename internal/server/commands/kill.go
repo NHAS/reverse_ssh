@@ -56,7 +56,7 @@ func (k *kill) Help(explain bool) string {
 
 	return makeHelpText(
 		"kill <remote_id>",
-		"kill all",
+		"kill <glob pattern>",
 	)
 }
 
