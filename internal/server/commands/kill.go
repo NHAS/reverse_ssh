@@ -31,9 +31,9 @@ func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	killedClients := 0
 	for id, serverConn := range connections {
-		if len(connections) == 1 {
+		serverConn.SendRequest("kill", false, nil)
 
-			serverConn.SendRequest("kill", false, nil)
+		if len(connections) == 1 {
 			return fmt.Errorf("%s killed", id)
 		}
 		killedClients++
