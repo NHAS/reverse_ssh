@@ -158,6 +158,22 @@ $ bin/client
 $ bin/client example.com:1234
 ```
 
+### Server with notifications by Telegram
+
+You can set a telegram bot to receive notifications about new connections (_and more later_).
+For this feature, both `telegram_chat_id` and `telegram_token` **must be set**.
+
+[This documentation explain how to create a new bot and get the token](https://core.telegram.org/bots#6-botfather)
+
+[There is how you can create and get your chatid](https://www.alphr.com/find-chat-id-telegram/)
+
+
+Exemple:
+
+```sh
+./server -telegram_chat_id 123456789 -telegram_token 132645978:AAAAAA-AbCdEfGhIjK12345 0.0.0.0:1234
+```
+
 ### Built in Web Server
 
 The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries.  The server must be placed in the project `bin/` folder, as it needs to find the client source.

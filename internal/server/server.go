@@ -10,6 +10,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/pkg/mux"
+	"github.com/NHAS/reverse_ssh/pkg/telegram"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -45,7 +46,7 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 	return private, nil
 }
 
-func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure, enabledWebserver bool) {
+func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure, enabledWebserver bool, telegramToken string, telegramChatId int) {
 
 	m, err := mux.Listen("tcp", addr)
 	if err != nil {
@@ -77,6 +78,7 @@ func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress 
 
 	}
 
+	telegram.Start(telegramToken, telegramChatId)
+	
 	StartSSHServer(m.SSH(), private, insecure, authorizedKeys)
-
 }

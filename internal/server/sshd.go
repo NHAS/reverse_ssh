@@ -12,6 +12,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/NHAS/reverse_ssh/pkg/telegram"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -196,8 +197,8 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 			clients.Remove(id)
 		}()
 
+		telegram.SendMessage(fmt.Sprintf("== New controllable connection ==%sID: *%s* %sHostname: *%s*%sIP Address: *%s*", "%0a%0a", id, "%0a", sshConn.User(), "%0a", sshConn.RemoteAddr().String()))
 		clientLog.Info("New controllable connection with id %s", id)
-
 	default:
 		sshConn.Close()
 		clientLog.Warning("Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])

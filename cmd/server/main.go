@@ -23,11 +23,11 @@ func printHelp() {
 	fmt.Println("\t\t--fingerprint\tPrint fingerprint and exit. (Will generate server key if none exists)")
 	fmt.Println("\t\t--enable_webserver\tEnable multiplexed webserver on RSSH port, will automatically compile new clients on request (requires golang)")
 	fmt.Println("\t\t--homeserver_address\tIf the public address of the RSSH server location is different to the listening address, change this to change the connect back host embedded within dynamically compiled clients served by the HTTP server")
-
+	fmt.Println("\t\t--telegram_token\tTelegram bot token AND a chat id (telegram_chat_id) are required to send messages to a telegram chat")
+	fmt.Println("\t\t--telegram_chat_id\tTelegram bot token (telegram_token) AND a chat id are required to send messages to a telegram chat")
 }
 
 func main() {
-
 	privkey_path := flag.String("key", "", "Path to SSH private key, if omitted will generate a key on first use")
 	flag.Bool("insecure", false, "Ignore authorized_controllee_keys and allow any controllable client to connect")
 	connectBackAddress := flag.String("homeserver_address", "", "RSSH server location to embed within dynamically compiled clients")
@@ -37,6 +37,9 @@ func main() {
 
 	flag.Bool("fingerprint", false, "Print fingerprint and exit. (Will generate key if no key exists)")
 	authorizedKeysPath := flag.String("authorizedkeys", "authorized_keys", "Path to authorized_keys file or a given public key, if omitted will look for an adjacent 'authorized_keys' file")
+
+	telegramToken := flag.String("telegram_token", "", "Telegram bot token")
+	telegramChatId := flag.Int("telegram_chat_id", 0, "Telegram chat id")
 
 	flag.Usage = printHelp
 
@@ -54,7 +57,6 @@ func main() {
 			fingerprint = true
 		case "enable_webserver":
 			webserver = true
-
 		}
 	})
 
@@ -81,6 +83,6 @@ func main() {
 		return
 	}
 
-	server.Run(flag.Args()[0], *privkey_path, *authorizedKeysPath, *connectBackAddress, insecure, webserver)
+	server.Run(flag.Args()[0], *privkey_path, *authorizedKeysPath, *connectBackAddress, insecure, webserver, *telegramToken, *telegramChatId)
 
 }
