@@ -128,12 +128,16 @@ func (pl *ParsedLine) GetArg(flag string) (Argument, error) {
 }
 
 func (pl *ParsedLine) GetArgString(flag string) (string, error) {
-	arg, err := pl.ExpectArgs(flag, 1)
-	if err != nil {
-		return "", err
+	f, ok := pl.Flags[flag]
+	if !ok {
+		return "", fmt.Errorf("flag not found %s", flag)
 	}
 
-	return arg[0].Value(), nil
+	if len(f.Args) == 0 {
+		return "", fmt.Errorf("flag: %s expects at least 1 argument", flag)
+	}
+	return f.Args[0].Value(), nil
+
 }
 
 func parseFlag(line string, startPos int) (f Flag, endPos int) {

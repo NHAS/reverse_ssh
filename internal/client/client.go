@@ -83,7 +83,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	return net.DialTimeout("tcp", addr, timeout)
 }
 
-func Run(addr, fingerprint, proxyAddr string, reconnect bool) {
+func Run(addr, fingerprint, proxyAddr string) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
 	if sysinfoError != nil {
@@ -126,8 +126,7 @@ func Run(addr, fingerprint, proxyAddr string, reconnect bool) {
 		},
 	}
 
-	once := true
-	for ; once || reconnect; once = false { // My take on a golang do {} while loop :P
+	for { // My take on a golang do {} while loop :P
 		log.Println("Connecting to ", addr)
 		conn, err := Connect(addr, proxyAddr, config.Timeout)
 		if err != nil {

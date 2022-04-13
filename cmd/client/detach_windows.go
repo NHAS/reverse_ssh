@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -11,20 +12,28 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
-func runOrFork(destination, fingerprint, proxyaddress string, fg, dt, rc bool) {
-	if fg || dt {
-		if dt {
-			modkernel32 := syscall.NewLazyDLL("kernel32.dll")
-			procAttachConsole := modkernel32.NewProc("FreeConsole")
-			syscall.Syscall(procAttachConsole.Addr(), 0, 0, 0, 0)
-		}
+func Fork(destination, fingerprint, proxyaddress string) error {
+	log.Println("Forking")
 
-		client.Run(destination, fingerprint, proxyaddress, rc)
-		return
+	modkernel32 := syscall.NewLazyDLL("kernel32.dll")
+	procAttachConsole := modkernel32.NewProc("FreeConsole")
+	syscall.Syscall(procAttachConsole.Addr(), 0, 0, 0, 0)
+
+	path, _ := os.Executable()
+
+	cmd := exec.Command(path, append([]string{"--foreground"}, os.Args[1:]...)...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	err := cmd.Start()
+
+	fmt.Print(err)
+
+	if cmd.Process != nil {
+		cmd.Process.Release()
 	}
 
-	cmd := exec.Command(os.Args[0], append([]string{"--detach"}, os.Args[1:]...)...)
-	cmd.Start()
-	cmd.Process.Release()
-	log.Println("Forking")
+	return err
+}
+
+func Run(destination, fingerprint, proxyaddress string) {
+	client.Run(destination, fingerprint, proxyaddress)
 }

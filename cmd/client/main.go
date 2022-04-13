@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,11 +15,9 @@ var destination string
 var fingerprint string
 
 func printHelp() {
-
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--foreground] [--fingerprint] destination")
 	fmt.Println("\t\t--foreground\tCauses the client to run without forking to background")
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
-	fmt.Println("\t\t--no-reconnect\tDisable reconnect on connection failure")
 	fmt.Println("\t\t--proxy\tSets the HTTP_PROXY enviroment variable so the net library will use it")
 }
 
@@ -25,11 +25,22 @@ func main() {
 
 	//Happens if we're executing from a fileless state
 	if len(os.Args) == 0 {
-		runOrFork(destination, fingerprint, "", false, true, true)
+		Run(destination, fingerprint, "")
 		return
 	}
 
-	line := terminal.ParseLine(strings.Join(os.Args, " "), 0)
+	var argv = strings.Join(os.Args, " ")
+
+	//If we have a fd, it is a pipe which we can read options from and act if we are forked
+	o := os.NewFile(uintptr(3), "pipe")
+	orginialArgv, err := io.ReadAll(o)
+	child := false
+	if err == nil && len(orginialArgv) > 0 {
+		argv = string(orginialArgv)
+		child = true
+	}
+
+	line := terminal.ParseLine(argv, 0)
 
 	if line.IsSet("h") || line.IsSet("help") {
 		printHelp()
@@ -46,8 +57,7 @@ func main() {
 		destination = line.Arguments[len(line.Arguments)-1].Value()
 	}
 
-	fg := line.IsSet("foreground")
-	dt := line.IsSet("detach")
+	fg := line.IsSet("foreground") || child
 
 	proxyaddress, _ := line.GetArgString("proxy")
 
@@ -56,8 +66,15 @@ func main() {
 		fingerprint = userSpecifiedFingerprint
 	}
 
-	rc := !line.IsSet("no-reconnect")
+	if fg {
+		Run(destination, fingerprint, proxyaddress)
+		return
+	}
 
-	runOrFork(destination, fingerprint, proxyaddress, fg, dt, rc)
+	err = Fork(destination, fingerprint, proxyaddress)
+	if err != nil {
+		log.Fatal("Unable to fork: ", err)
+		Run(destination, fingerprint, proxyaddress)
+	}
 
 }
