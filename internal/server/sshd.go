@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -16,38 +14,6 @@ import (
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
-
-func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
-	if privateKeyPath == "" {
-		//If we have already created a private key (or there is one in the current directory) dont overwrite/create another one
-		privateKeyPath = "id_ed25519"
-		if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
-
-			privateKeyPem, err := internal.GeneratePrivateKey()
-			if err != nil {
-				return nil, fmt.Errorf("Unable to generate private key, and no private key specified: %s", err)
-			}
-
-			err = ioutil.WriteFile(privateKeyPath, privateKeyPem, 0600)
-			if err != nil {
-				return nil, fmt.Errorf("Unable to write private key to disk: %s", err)
-			}
-		}
-
-	}
-
-	privateBytes, err := ioutil.ReadFile(privateKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to load private key (%s): %s", privateKeyPath, err)
-	}
-
-	private, err := ssh.ParsePrivateKey(privateBytes)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to parse private key: %s", err)
-	}
-
-	return private, nil
-}
 
 func readPubKeys(path string) (m map[string]bool, err error) {
 	authorizedKeysBytes, err := ioutil.ReadFile(path)
@@ -75,7 +41,7 @@ func readPubKeys(path string) (m map[string]bool, err error) {
 	return
 }
 
-func StartSSHServer(sshListener net.Listener, privateKeyPath string, insecure bool, authorizedKeys string) {
+func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bool, authorizedKeys string) {
 	//Taken from the server example, authorized keys are required for controllers
 	log.Printf("Loading authorized keys from: %s\n", authorizedKeys)
 	authorizedControllers, err := readPubKeys(authorizedKeys)
@@ -138,20 +104,7 @@ func StartSSHServer(sshListener net.Listener, privateKeyPath string, insecure bo
 		},
 	}
 
-	private, err := CreateOrLoadServerKeys(privateKeyPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	s, err := filepath.Abs(privateKeyPath)
-	if err != nil {
-		log.Fatalf("Unable to make absolute path from private key path [%s]: %s", privateKeyPath, err)
-	}
-
-	log.Printf("Loading private key from: %s (%s)\n", privateKeyPath, s)
-	log.Println("Server key fingerprint: ", internal.FingerprintSHA256Hex(private.PublicKey()))
-
-	config.AddHostKey(private)
+	config.AddHostKey(privateKey)
 
 	// Accept all connections
 

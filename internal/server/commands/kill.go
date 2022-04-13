@@ -20,28 +20,26 @@ func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return fmt.Errorf(k.Help(false))
 	}
 
-	if line.Arguments[0].Value() == "all" {
-		killedClients := 0
-		allClients := clients.GetAll()
-		for _, v := range allClients {
-			v.SendRequest("kill", false, nil)
-			killedClients++
-		}
-		return fmt.Errorf("%d connections killed", killedClients)
-	}
-
-	conn, err := clients.Get(line.Arguments[0].Value())
+	connections, err := clients.Search(line.Arguments[0].Value())
 	if err != nil {
 		return err
 	}
 
-	_, _, err = conn.SendRequest("kill", false, nil)
-
-	if err == nil {
-		fmt.Fprintf(tty, "%s was killed\n", line.Arguments[0].Value())
+	if len(connections) == 0 {
+		return fmt.Errorf("No clients matched '%s'", line.Arguments[0].Value())
 	}
 
-	return err
+	killedClients := 0
+	for id, serverConn := range connections {
+		serverConn.SendRequest("kill", false, nil)
+
+		if len(connections) == 1 {
+			return fmt.Errorf("%s killed", id)
+		}
+		killedClients++
+	}
+
+	return fmt.Errorf("%d connections killed", killedClients)
 }
 
 func (k *kill) Expect(line terminal.ParsedLine) []string {
@@ -58,7 +56,7 @@ func (k *kill) Help(explain bool) string {
 
 	return makeHelpText(
 		"kill <remote_id>",
-		"kill all",
+		"kill <glob pattern>",
 	)
 }
 
