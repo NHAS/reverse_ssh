@@ -24,7 +24,7 @@ import (
 func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
 	if user.Pty == nil {
-		fmt.Fprintln(connection, "You need a pty to be able to use terminal")
+		basicShell(connection, requests, log)
 		return
 	}
 
