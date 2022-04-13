@@ -5,13 +5,11 @@ package handlers
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -60,33 +58,6 @@ func init() {
 //This basically handles exactly like a SSH server would
 func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
-	if user.Pty == nil {
-		fmt.Fprintf(connection, "Shell without pty not allowed.")
-		return
-	}
-
-	if os.Getuid() != 0 {
-		path, err := os.Executable()
-		if err != nil {
-
-		} else {
-			var i syscall.Stat_t
-			err := syscall.Stat(path, &i)
-			if err != nil {
-				syscall.Setuid(0)
-				syscall.Setgid(0)
-			} else {
-				if os.Geteuid() > int(i.Uid) {
-					syscall.Setuid(int(i.Uid))
-				}
-
-				if os.Getegid() > int(i.Gid) {
-					syscall.Setgid(int(i.Gid))
-				}
-			}
-		}
-	}
-
 	path := ""
 	if len(shells) != 0 {
 		path = shells[0]
@@ -95,7 +66,6 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	// Fire up a shell for this session
 	shell := exec.Command(path)
 	shell.Env = os.Environ()
-	shell.Env = append(shell.Env, "TERM="+user.Pty.Term)
 
 	close := func() {
 		connection.Close()
@@ -111,22 +81,43 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	}
 
 	// Allocate a terminal for this channel
-	log.Info("Creating pty...")
-	shellf, err := pty.StartWithSize(shell, &pty.Winsize{Cols: uint16(user.Pty.Columns), Rows: uint16(user.Pty.Rows)})
-	if err != nil {
-		log.Info("Could not start pty (%s)", err)
-		close()
-		return
+	var err error
+	var shellIO io.ReadWriteCloser
+
+	if user.Pty != nil {
+		shell.Env = append(shell.Env, "TERM="+user.Pty.Term)
+
+		log.Info("Creating pty...")
+		shellIO, err = pty.StartWithSize(shell, &pty.Winsize{Cols: uint16(user.Pty.Columns), Rows: uint16(user.Pty.Rows)})
+		if err != nil {
+			log.Info("Could not start pty (%s)", err)
+			close()
+			return
+		}
+	} else {
+
+		stdinPipe, err := shell.StdinPipe()
+		stdoutPipe, err := shell.StdoutPipe()
+		shell.Stderr = shell.Stdout
+
+		shellIO = &ReaderWriteCloser{in: stdinPipe, out: stdoutPipe}
+
+		err = shell.Start()
+		if err != nil {
+			log.Info("Could not start shell (%s)", err)
+			close()
+			return
+		}
 	}
 
 	//pipe session to bash and visa-versa
 	var once sync.Once
 	go func() {
-		io.Copy(connection, shellf)
+		io.Copy(connection, shellIO)
 		once.Do(close)
 	}()
 	go func() {
-		io.Copy(shellf, connection)
+		io.Copy(shellIO, connection)
 		once.Do(close)
 	}()
 
@@ -135,10 +126,12 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 			switch req.Type {
 
 			case "window-change":
-				w, h := internal.ParseDims(req.Payload)
-				err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
-				if err != nil {
-					log.Warning("Unable to set terminal size: %s", err)
+				if shellf, ok := shellIO.(*os.File); ok {
+					w, h := internal.ParseDims(req.Payload)
+					err = pty.Setsize(shellf, &pty.Winsize{Cols: uint16(w), Rows: uint16(h)})
+					if err != nil {
+						log.Warning("Unable to set terminal size: %s", err)
+					}
 				}
 
 			default:
@@ -153,4 +146,25 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	defer once.Do(close)
 	shell.Wait()
 
+}
+
+type ReaderWriteCloser struct {
+	in  io.WriteCloser
+	out io.ReadCloser
+}
+
+func (c *ReaderWriteCloser) Read(b []byte) (n int, err error) {
+	return c.out.Read(b)
+}
+
+func (c *ReaderWriteCloser) Write(b []byte) (n int, err error) {
+	return c.in.Write(b)
+}
+
+func (c *ReaderWriteCloser) Close() error {
+	c.in.Close()
+
+	err := c.out.Close()
+
+	return err
 }
