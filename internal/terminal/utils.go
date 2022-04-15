@@ -130,7 +130,7 @@ func (pl *ParsedLine) GetArg(flag string) (Argument, error) {
 func (pl *ParsedLine) GetArgString(flag string) (string, error) {
 	f, ok := pl.Flags[flag]
 	if !ok {
-		return "", fmt.Errorf("flag not found %s", flag)
+		return "", ErrFlagNotSet
 	}
 
 	if len(f.Args) == 0 {
