@@ -91,7 +91,7 @@ func isHttp(b []byte) bool {
 	}
 
 	for _, vm := range validMethods {
-		if bytes.Contains(b, vm) {
+		if bytes.HasPrefix(b, vm) {
 			return true
 		}
 	}
