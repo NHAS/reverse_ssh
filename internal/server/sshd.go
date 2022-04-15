@@ -119,10 +119,12 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 	}
 }
 
-func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
+func acceptConn(c net.Conn, config *ssh.ServerConfig) {
+
+	realConn := &internal.TimeoutConn{c, 60 * time.Second}
 
 	// Before use, a handshake must be performed on the incoming net.Conn.
-	sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
+	sshConn, chans, reqs, err := ssh.NewServerConn(realConn, config)
 	if err != nil {
 		log.Printf("Failed to handshake (%s)", err.Error())
 		return
@@ -131,25 +133,14 @@ func acceptConn(tcpConn net.Conn, config *ssh.ServerConfig) {
 	clientLog := logger.NewLog(sshConn.RemoteAddr().String())
 
 	go func() {
-		const keepAliveInterval = time.Minute
-		t := time.NewTicker(keepAliveInterval)
-		defer t.Stop()
 		for {
-			deadline := time.Now().Add(keepAliveInterval).Add(15 * time.Second)
-			err := tcpConn.SetDeadline(deadline)
+			_, _, err = sshConn.SendRequest("keepalive@golang.org", true, nil)
 			if err != nil {
-				clientLog.Error("Failed to set timeout")
+				clientLog.Info("Failed to send keepalive, assuming client has disconnected")
+				sshConn.Close()
 				return
 			}
-			select {
-			case <-t.C:
-				_, _, err = sshConn.SendRequest("keepalive@golang.org", true, nil)
-				if err != nil {
-					clientLog.Info("Failed to send keepalive, assuming client has disconnected")
-					sshConn.Close()
-					return
-				}
-			}
+			time.Sleep(30 * time.Second)
 		}
 	}()
 

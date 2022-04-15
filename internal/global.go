@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
@@ -116,4 +118,25 @@ func RandomString(length int) (string, error) {
 	}
 
 	return hex.EncodeToString(randomData), nil
+}
+
+type TimeoutConn struct {
+	net.Conn
+	Timeout time.Duration
+}
+
+func (c *TimeoutConn) Read(b []byte) (int, error) {
+	err := c.Conn.SetDeadline(time.Now().Add(c.Timeout))
+	if err != nil {
+		return 0, err
+	}
+	return c.Conn.Read(b)
+}
+
+func (c *TimeoutConn) Write(b []byte) (int, error) {
+	err := c.Conn.SetDeadline(time.Now().Add(c.Timeout))
+	if err != nil {
+		return 0, err
+	}
+	return c.Conn.Write(b)
 }
