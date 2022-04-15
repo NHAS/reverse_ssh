@@ -69,6 +69,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in effect, upgrading the net.Conn
 	// into an ssh.ServerConn
 	config := &ssh.ServerConfig{
+		ServerVersion: "SSH-2.0-OpenSSH_7.4",
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 
 			authorizedKeysMap, err := readPubKeys(authorizedKeys)
