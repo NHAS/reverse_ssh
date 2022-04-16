@@ -3,6 +3,7 @@ package clients
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -15,6 +16,8 @@ var lock sync.RWMutex
 var clients = map[string]*ssh.ServerConn{}
 
 var Autocomplete = trie.NewTrie()
+
+var usernameRegex = regexp.MustCompile(`[^\w]`)
 
 var uniqueIdToAllAliases = map[string][]string{}
 var aliases = map[string]map[string]bool{}
@@ -29,6 +32,8 @@ func Add(conn *ssh.ServerConn) (string, error) {
 	}
 
 	username := strings.ToLower(conn.User())
+
+	username = usernameRegex.ReplaceAllString(username, ".")
 
 	if _, ok := aliases[username]; !ok {
 		aliases[username] = make(map[string]bool)

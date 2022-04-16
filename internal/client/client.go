@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"os/user"
-	"strings"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -98,7 +97,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 		l.Warning("Couldnt get username: %s", sysinfoError.Error())
 		username = "Unknown"
 	} else {
-		username = strings.ReplaceAll(userInfo.Username, "\\", ".")
+		username = userInfo.Username
 	}
 
 	hostname, sysinfoError := os.Hostname()
