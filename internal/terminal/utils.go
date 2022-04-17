@@ -210,7 +210,7 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 	pl.RawLine = line
 
 	for i := 0; i < len(line); i++ {
-		if i < len(line) && line[i] == '-' {
+		if line[i] == '-' {
 
 			if capture != nil {
 
