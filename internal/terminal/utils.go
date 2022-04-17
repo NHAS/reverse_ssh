@@ -213,6 +213,11 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 		if i < len(line) && line[i] == '-' {
 
 			if capture != nil {
+
+				if prev, ok := pl.Flags[capture.Value()]; ok {
+					capture.Args = append(capture.Args, prev.Args...)
+				}
+
 				pl.Flags[capture.Value()] = *capture
 				pl.FlagsOrdered = append(pl.FlagsOrdered, *capture)
 			}
@@ -256,7 +261,6 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 
 		var args []Argument
 		args, i = parseArgs(line, i)
-		pl.Arguments = append(pl.Arguments, args...)
 
 		for m, arg := range args {
 			if cursorPosition >= arg.start && cursorPosition <= arg.end {
@@ -266,6 +270,21 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 			}
 		}
 
+		if pl.Command == nil && len(args) > 0 && capture == nil {
+			pl.Command = new(Cmd)
+			pl.Command.value = args[0].value
+			pl.Command.start = args[0].start
+			pl.Command.end = args[0].end
+
+			if cursorPosition >= pl.Command.start && cursorPosition <= pl.Command.end {
+				pl.Focus = pl.Command
+			}
+
+			continue
+		}
+
+		pl.Arguments = append(pl.Arguments, args...)
+
 		if capture != nil {
 			capture.Args = args
 			continue
@@ -274,6 +293,9 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 	}
 
 	if capture != nil {
+		if prev, ok := pl.Flags[capture.Value()]; ok {
+			capture.Args = append(capture.Args, prev.Args...)
+		}
 		pl.Flags[capture.Value()] = *capture
 		pl.FlagsOrdered = append(pl.FlagsOrdered, *capture)
 	}
@@ -298,26 +320,6 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 		pl.Section = closestLeft
 	}
 
-	if pl.Command == nil && len(pl.Arguments) > 0 {
-		pl.Command = new(Cmd)
-		pl.Command.value = pl.Arguments[0].value
-		pl.Command.start = pl.Arguments[0].start
-		pl.Command.end = pl.Arguments[0].end
-
-		if cursorPosition >= pl.Command.start && cursorPosition <= pl.Command.end {
-			pl.Focus = pl.Command
-		}
-
-		pl.Arguments = pl.Arguments[1:]
-	}
-
 	return
 
-}
-
-func absInt(x int) int {
-	if x < 0 {
-		return 0 - x
-	}
-	return x - 0
 }
