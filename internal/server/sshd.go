@@ -192,6 +192,6 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 
 	default:
 		sshConn.Close()
-		clientLog.Warning("Client connected but type was unknown, terminating: ", sshConn.Permissions.Extensions["type"])
+		clientLog.Warning("Client connected but type was unknown, terminating: %s", sshConn.Permissions.Extensions["type"])
 	}
 }
