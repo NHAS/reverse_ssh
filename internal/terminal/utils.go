@@ -280,7 +280,7 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 				pl.Focus = pl.Command
 			}
 
-			continue
+			args = args[1:]
 		}
 
 		pl.Arguments = append(pl.Arguments, args...)

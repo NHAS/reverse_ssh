@@ -44,6 +44,20 @@ func TestBasicValid(t *testing.T) {
 
 }
 
+func TestNoFlags(t *testing.T) {
+	line := ParseLine("kill 127.0.0.1:49962", 0)
+
+	fmt.Println(line)
+
+	if len(line.Arguments) != 1 {
+		t.Fatalf("Expected one argument, got %d", len(line.Arguments))
+	}
+
+	if line.Arguments[0].Value() != "127.0.0.1:49962" {
+		t.Fatalf("Expected argument to be '127.0.0.1:49962', got %s", line.Arguments[0].Value())
+	}
+}
+
 func TestNoCommand(t *testing.T) {
 	line := ParseLine("--long_arg test -t a", 0)
 
