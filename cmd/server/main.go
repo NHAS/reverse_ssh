@@ -1,65 +1,114 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
 
 func printHelp() {
 
-	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--key] [--authorizedkeys] listen_address")
-	fmt.Println("\t\taddress\tThe network address the server will listen on")
-	fmt.Println("\t\t--key\tPath to the ssh private key the server will use when talking with clients")
-	fmt.Println("\t\t--authorizedkeys\tPath to the authorized_keys file or a given public key that control which users can talk to the server")
-	fmt.Println("\t\t--insecure\tIgnore authorized_controllee_keys and allow any controllable client to connect")
-	fmt.Println("\t\t--daemonise\tGo to background")
-	fmt.Println("\t\t--fingerprint\tPrint fingerprint and exit. (Will generate server key if none exists)")
-	fmt.Println("\t\t--enable_webserver\tEnable multiplexed webserver on RSSH port, will automatically compile new clients on request (requires golang)")
-	fmt.Println("\t\t--homeserver_address\tIf the public address of the RSSH server location is different to the listening address, change this to change the connect back host embedded within dynamically compiled clients served by the HTTP server")
-
+	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[options] listen_address")
+	fmt.Println("\nOptions:")
+	fmt.Println("  Authorisation")
+	fmt.Println("\t--key\t\t\tServer SSH private key path (will be generated if not specified)")
+	fmt.Println("\t--authorizedkeys\tPath to the authorized_keys file, if omitted an adjacent 'authorized_keys' file is required")
+	fmt.Println("\t--insecure\t\tIgnore authorized_controllee_keys file and allow any RSSH client to connect")
+	fmt.Println("  Network")
+	fmt.Println("\t--webserver\tEnable webserver on the listen_address port")
+	fmt.Println("\t--external_address\tIf the external IP and port of the RSSH server is different from the listening address, set that here")
+	fmt.Println("  Utility")
+	fmt.Println("\t--fingerprint\tPrint fingerprint and exit. (Will generate server key if none exists)")
 }
 
 func main() {
 
-	privkey_path := flag.String("key", "", "Path to SSH private key, if omitted will generate a key on first use")
-	flag.Bool("insecure", false, "Ignore authorized_controllee_keys and allow any controllable client to connect")
-	connectBackAddress := flag.String("homeserver_address", "", "RSSH server location to embed within dynamically compiled clients")
-	flag.Bool("enable_webserver", false, "Start webserver on rssh port")
-
-	flag.Bool("daemonise", false, "Go to background")
-
-	flag.Bool("fingerprint", false, "Print fingerprint and exit. (Will generate key if no key exists)")
-	authorizedKeysPath := flag.String("authorizedkeys", "authorized_keys", "Path to authorized_keys file or a given public key, if omitted will look for an adjacent 'authorized_keys' file")
-
-	flag.Usage = printHelp
-
-	flag.Parse()
-
-	var background, insecure, fingerprint, webserver bool
-
-	flag.Visit(func(f *flag.Flag) {
-		switch f.Name {
-		case "insecure":
-			insecure = true
-		case "daemonise":
-			background = true
-		case "fingerprint":
-			fingerprint = true
-		case "enable_webserver":
-			webserver = true
-
-		}
+	options, err := terminal.ParseLineValidFlags(strings.Join(os.Args, " "), 0, map[string]bool{
+		"key":              true,
+		"authorizedkeys":   true,
+		"insecure":         true,
+		"external_address": true,
+		"fingerprint":      true,
+		"webserver":        true,
+		"h":                true,
+		"help":             true,
 	})
 
-	if fingerprint {
-		private, err := server.CreateOrLoadServerKeys(*privkey_path)
+	if err != nil {
+		fmt.Println(err)
+		printHelp()
+		return
+	}
+
+	if options.IsSet("h") || options.IsSet("help") {
+		printHelp()
+		return
+	}
+
+	if len(options.Arguments) < 1 {
+		fmt.Println("Missing listening address")
+		printHelp()
+		return
+	}
+
+	listenAddress := options.Arguments[len(options.Arguments)-1].Value()
+
+	privkeyPath, err := options.GetArgString("key")
+	if err != nil {
+		privkeyPath = "id_ed25519"
+	}
+
+	authorizedKeysPath, err := options.GetArgString("authorizedkeys")
+	if err != nil {
+		authorizedKeysPath = "authorized_keys"
+	}
+
+	insecure := options.IsSet("insecure")
+
+	webserver := options.IsSet("webserver")
+	connectBackAddress, err := options.GetArgString("external_address")
+
+	if err != nil && webserver {
+
+		connectBackAddress = listenAddress
+
+		addressParts := strings.Split(listenAddress, ":")
+		if len(addressParts) > 0 && len(addressParts[0]) == 0 {
+
+			port := addressParts[1]
+
+			ifaces, err := net.Interfaces()
+			if err == nil {
+				for _, i := range ifaces {
+
+					addrs, err := i.Addrs()
+					if err != nil {
+						continue
+					}
+
+					if len(addrs) == 0 {
+						continue
+					}
+
+					if i.Flags&net.FlagLoopback == 0 {
+						connectBackAddress = strings.Split(addrs[0].String(), "/")[0] + ":" + port
+						break
+					}
+				}
+			}
+		}
+
+	}
+
+	if options.IsSet("fingerprint") {
+		private, err := server.CreateOrLoadServerKeys(privkeyPath)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -68,19 +117,6 @@ func main() {
 		return
 	}
 
-	if len(flag.Args()) < 1 {
-		fmt.Println("Missing listening address")
-		printHelp()
-		return
-	}
-
-	if background {
-		cmd := exec.Command(os.Args[0], flag.Args()...)
-		cmd.Start()
-		log.Println("Ending parent")
-		return
-	}
-
-	server.Run(flag.Args()[0], *privkey_path, *authorizedKeysPath, *connectBackAddress, insecure, webserver)
+	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, insecure, webserver)
 
 }

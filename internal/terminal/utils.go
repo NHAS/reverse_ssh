@@ -203,6 +203,19 @@ func parseArgs(line string, startPos int) (args []Argument, endPos int) {
 	return
 }
 
+func ParseLineValidFlags(line string, cursorPosition int, validFlags map[string]bool) (pl ParsedLine, err error) {
+	pl = ParseLine(line, cursorPosition)
+
+	for flag := range pl.Flags {
+		_, ok := validFlags[flag]
+		if !ok {
+			return ParsedLine{}, fmt.Errorf("flag provided but not defined: '%s'", flag)
+		}
+	}
+
+	return pl, nil
+}
+
 func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 
 	var capture *Flag = nil
