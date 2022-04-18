@@ -163,8 +163,7 @@ $ bin/client example.com:1234
 The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries.  The server must be placed in the project `bin/` folder, as it needs to find the client source.
 
 ```sh
-# Homeserver_address sets the default baked in call back for the client
-./server --homeserver_address 192.168.122.1:1234 --enable_webserver :1234
+./server --webserver :1234
 
 # Generate an unnamed link
 ssh 192.168.122.1 -p 1234
@@ -182,7 +181,6 @@ This requires the web server component has been enabled.
 	--goarch	Set the target build architecture (default to runtime GOARCH)
 	--name	Set link name
 	--shared-object	Generate shared object file
-	--cross-compiler	Specify C/C++ cross compiler used for compiling shared objects (currently only DLL, linux -> windows)
 
 # Build a client binary
 catcher$ link --name test
@@ -209,8 +207,7 @@ CC=x86_64-w64-mingw32-gcc GOOS=windows RSSH_HOMESERVER=192.168.1.1:2343 make cli
 When the RSSH server has the webserver enabled you can also compile it with the link command: 
 
 ```
-# Homeserver_address sets the default baked in call back for the client
-./server --homeserver_address 192.168.122.1:1234 --enable_webserver :1234
+./server --webserver :1234
 
 # Generate an unnamed link
 ssh 192.168.122.1 -p 1234
