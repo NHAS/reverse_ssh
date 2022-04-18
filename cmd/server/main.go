@@ -89,6 +89,8 @@ func main() {
 
 		connectBackAddress = listenAddress
 
+		//Special case where we're using :3232 as an example, which listens on all interfaces
+		//However we need to have a valid address for the link command, so we get the first interface
 		addressParts := strings.Split(listenAddress, ":")
 		if len(addressParts) > 0 && len(addressParts[0]) == 0 {
 
