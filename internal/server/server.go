@@ -14,22 +14,19 @@ import (
 )
 
 func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
-	if privateKeyPath == "" {
-		//If we have already created a private key (or there is one in the current directory) dont overwrite/create another one
-		privateKeyPath = "id_ed25519"
-		if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
 
-			privateKeyPem, err := internal.GeneratePrivateKey()
-			if err != nil {
-				return nil, fmt.Errorf("Unable to generate private key, and no private key specified: %s", err)
-			}
+	//If we have already created a private key (or there is one in the current directory) dont overwrite/create another one
+	if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
 
-			err = ioutil.WriteFile(privateKeyPath, privateKeyPem, 0600)
-			if err != nil {
-				return nil, fmt.Errorf("Unable to write private key to disk: %s", err)
-			}
+		privateKeyPem, err := internal.GeneratePrivateKey()
+		if err != nil {
+			return nil, fmt.Errorf("Unable to generate private key, and no private key specified: %s", err)
 		}
 
+		err = ioutil.WriteFile(privateKeyPath, privateKeyPem, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to write private key to disk: %s", err)
+		}
 	}
 
 	privateBytes, err := ioutil.ReadFile(privateKeyPath)
