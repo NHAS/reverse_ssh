@@ -174,13 +174,14 @@ link [OPTIONS]
 Link will compile a client and serve the resulting binary on a link which is returned.
 This requires the web server component has been enabled.
 	-t	Set number of minutes link exists for (default is one time use)
-	-s	Set homeserver address, defaults to server --homeserver_address if set, or server listen address if not.
+	-s	Set homeserver address, defaults to server --external_address if set, or server listen address if not.
 	-l	List currently active download links
 	-r	Remove download link
 	--goos	Set the target build operating system (default to runtime GOOS)
 	--goarch	Set the target build architecture (default to runtime GOARCH)
 	--name	Set link name
 	--shared-object	Generate shared object file
+    --fingerprint Set RSSH server fingerprint will default to server public key
 
 # Build a client binary
 catcher$ link --name test

@@ -155,14 +155,14 @@ func (e *link) Help(explain bool) string {
 		"Link will compile a client and serve the resulting binary on a link which is returned.",
 		"This requires the web server component has been enabled.",
 		"\t-t\tSet number of minutes link exists for (default is one time use)",
-		"\t-s\tSet homeserver address, defaults to server --homeserver_address if set, or server listen address if not.",
+		"\t-s\tSet homeserver address, defaults to server --external_address if set, or server listen address if not.",
 		"\t-l\tList currently active download links",
 		"\t-r\tRemove download link",
 		"\t--goos\tSet the target build operating system (default to runtime GOOS)",
 		"\t--goarch\tSet the target build architecture (default to runtime GOARCH)",
 		"\t--name\tSet link name",
 		"\t--shared-object\tGenerate shared object file",
-		"\t--fingerprint\tSet RSSH server fingerprint will default to --homeserver_address value",
+		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
 	)
 }
 
