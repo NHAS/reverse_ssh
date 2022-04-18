@@ -52,10 +52,7 @@ func main() {
 		return
 	}
 
-	privkeyPath, err := options.GetArgString("key")
-	if err != nil {
-		privkeyPath = "id_ed25519"
-	}
+	privkeyPath, _ := options.GetArgString("key")
 
 	if options.IsSet("fingerprint") {
 		private, err := server.CreateOrLoadServerKeys(privkeyPath)
