@@ -52,6 +52,21 @@ func main() {
 		return
 	}
 
+	privkeyPath, err := options.GetArgString("key")
+	if err != nil {
+		privkeyPath = "id_ed25519"
+	}
+
+	if options.IsSet("fingerprint") {
+		private, err := server.CreateOrLoadServerKeys(privkeyPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(internal.FingerprintSHA256Hex(private.PublicKey()))
+		return
+	}
+
 	if len(options.Arguments) < 1 {
 		fmt.Println("Missing listening address")
 		printHelp()
@@ -59,11 +74,6 @@ func main() {
 	}
 
 	listenAddress := options.Arguments[len(options.Arguments)-1].Value()
-
-	privkeyPath, err := options.GetArgString("key")
-	if err != nil {
-		privkeyPath = "id_ed25519"
-	}
 
 	authorizedKeysPath, err := options.GetArgString("authorizedkeys")
 	if err != nil {
@@ -105,16 +115,6 @@ func main() {
 			}
 		}
 
-	}
-
-	if options.IsSet("fingerprint") {
-		private, err := server.CreateOrLoadServerKeys(privkeyPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Println(internal.FingerprintSHA256Hex(private.PublicKey()))
-		return
 	}
 
 	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, insecure, webserver)
