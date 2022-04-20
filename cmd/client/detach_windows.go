@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -24,8 +23,6 @@ func Fork(destination, fingerprint, proxyaddress string) error {
 	cmd := exec.Command(path, append([]string{"--foreground"}, os.Args[1:]...)...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	err := cmd.Start()
-
-	fmt.Print(err)
 
 	if cmd.Process != nil {
 		cmd.Process.Release()
