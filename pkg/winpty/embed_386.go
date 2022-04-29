@@ -4,9 +4,16 @@
 package winpty
 
 import (
+	"embed"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 //go:embed ia32/*
