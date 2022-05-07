@@ -39,6 +39,7 @@ func main() {
 		argv = string(orginialArgv)
 		child = true
 	}
+	o.Close()
 
 	line := terminal.ParseLine(argv, 0)
 
