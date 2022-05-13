@@ -83,7 +83,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	for i, tr := range toReturn {
 
-		fmt.Fprintf(tty, "%s %s %s", tr.id, tr.sc.User(), tr.sc.RemoteAddr().String())
+		fmt.Fprintf(tty, "%s %s %s", tr.id, clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String())
 
 		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)

@@ -17,10 +17,18 @@ var clients = map[string]*ssh.ServerConn{}
 
 var Autocomplete = trie.NewTrie()
 
-var usernameRegex = regexp.MustCompile(`[^\w]`)
+var usernameRegex = regexp.MustCompile(`[^\w-]`)
 
 var uniqueIdToAllAliases = map[string][]string{}
 var aliases = map[string]map[string]bool{}
+
+func NormaliseHostname(hostname string) string {
+	hostname = strings.ToLower(hostname)
+
+	hostname = usernameRegex.ReplaceAllString(hostname, ".")
+
+	return hostname
+}
 
 func Add(conn *ssh.ServerConn) (string, error) {
 	lock.Lock()
@@ -31,9 +39,7 @@ func Add(conn *ssh.ServerConn) (string, error) {
 		return "", err
 	}
 
-	username := strings.ToLower(conn.User())
-
-	username = usernameRegex.ReplaceAllString(username, ".")
+	username := NormaliseHostname(conn.User())
 
 	if _, ok := aliases[username]; !ok {
 		aliases[username] = make(map[string]bool)
@@ -60,14 +66,14 @@ func Add(conn *ssh.ServerConn) (string, error) {
 
 }
 
-func GetAll() map[string]ssh.Conn {
+func GetAll() map[string][]string {
 	lock.RLock()
 	defer lock.RUnlock()
 
-	//Defensive copy
-	out := map[string]ssh.Conn{}
-	for k, v := range clients {
-		out[k] = v
+	out := map[string][]string{}
+
+	for id := range uniqueIdToAllAliases {
+		out[id] = uniqueIdToAllAliases[id]
 	}
 
 	return out
@@ -84,6 +90,7 @@ func Search(filter string) (out map[string]*ssh.ServerConn, err error) {
 	lock.RLock()
 	defer lock.RUnlock()
 
+outer:
 	for id, conn := range clients {
 		if filter == "" {
 			out[id] = conn
@@ -96,10 +103,12 @@ func Search(filter string) (out map[string]*ssh.ServerConn, err error) {
 			continue
 		}
 
-		match, _ = filepath.Match(filter, conn.User())
-		if match {
-			out[id] = conn
-			continue
+		for _, alias := range uniqueIdToAllAliases[id] {
+			match, _ = filepath.Match(filter, alias)
+			if match {
+				out[id] = conn
+				continue outer
+			}
 		}
 
 		match, _ = filepath.Match(filter, conn.RemoteAddr().String())
