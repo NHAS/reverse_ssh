@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/handlers/subsystems"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
-	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -35,24 +35,12 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 
 		case "subsystem":
 
-			if !(len(req.Payload) > 4 && string(req.Payload[4:]) == "sftp") {
-				req.Reply(false, []byte("Unknown subsystem"))
-				log.Warning("unknown subsystem '%s' ", req.Payload)
-			}
-
-			server, err := sftp.NewServer(connection)
+			err := subsystems.RunSubsystems(connection, req)
 			if err != nil {
-				log.Warning("Unable to make server from channel '%s'", err.Error())
-				req.Reply(false, []byte(err.Error()))
-				return
+				log.Error("subsystem encountered an error: %s", err.Error())
+				fmt.Fprintf(connection, "subsystem error: '%s'", err.Error())
 			}
 
-			req.Reply(true, nil)
-
-			err = server.Serve()
-			if err != io.EOF && err != nil {
-				log.Error("sftp server had an error: %s", err.Error())
-			}
 			return
 
 		case "exec":

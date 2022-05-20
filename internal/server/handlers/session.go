@@ -2,10 +2,14 @@ package handlers
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/commands"
+	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -64,8 +68,19 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			// (i.e. no command in the Payload)
 			req.Reply(len(req.Payload) == 0, nil)
 
-			//This blocks so will keep the channel from defer closing
-			shell(user, connection, log)
+			term := terminal.NewAdvancedTerminal(connection, user, "catcher$ ")
+
+			term.SetSize(int(user.Pty.Columns), int(user.Pty.Rows))
+
+			term.AddValueAutoComplete(autocomplete.RemoteId, clients.Autocomplete)
+			term.AddValueAutoComplete(autocomplete.WebServerFileIds, webserver.Autocomplete)
+
+			term.AddCommands(commands.CreateCommands(user, log))
+
+			err := term.Run()
+			if err != nil && err != io.EOF {
+				log.Error("Error: %s", err)
+			}
 
 			return
 			//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actuall proceeds all of them
