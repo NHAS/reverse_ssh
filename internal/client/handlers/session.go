@@ -36,7 +36,6 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 		case "subsystem":
 
 			if !(len(req.Payload) > 4 && string(req.Payload[4:]) == "sftp") {
-				fmt.Println(req.Payload, "\n", []byte("sftp"))
 				req.Reply(false, []byte("Unknown subsystem"))
 				log.Warning("unknown subsystem '%s' ", req.Payload)
 			}
