@@ -9,6 +9,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -31,6 +32,30 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 	for req := range requests {
 		log.Info("Session got request: %q", req.Type)
 		switch req.Type {
+
+		case "subsystem":
+
+			if !(len(req.Payload) > 4 && string(req.Payload[4:]) == "sftp") {
+				fmt.Println(req.Payload, "\n", []byte("sftp"))
+				req.Reply(false, []byte("Unknown subsystem"))
+				log.Warning("unknown subsystem '%s' ", req.Payload)
+			}
+
+			server, err := sftp.NewServer(connection)
+			if err != nil {
+				log.Warning("Unable to make server from channel '%s'", err.Error())
+				req.Reply(false, []byte(err.Error()))
+				return
+			}
+
+			req.Reply(true, nil)
+
+			err = server.Serve()
+			if err != io.EOF && err != nil {
+				log.Error("sftp server had an error: %s", err.Error())
+			}
+			return
+
 		case "exec":
 			var command struct {
 				Cmd string
