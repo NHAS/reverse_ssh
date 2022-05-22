@@ -169,12 +169,12 @@ func Remove(uniqueId string) {
 	if currentAliases, ok := uniqueIdToAllAliases[uniqueId]; ok {
 
 		for _, alias := range currentAliases {
-			delete(aliases[alias], uniqueId)
-
 			if len(aliases[alias]) <= 1 {
 				Autocomplete.Remove(alias)
 				delete(aliases, alias)
 			}
+
+			delete(aliases[alias], uniqueId)
 		}
 		delete(uniqueIdToAllAliases, uniqueId)
 	}
