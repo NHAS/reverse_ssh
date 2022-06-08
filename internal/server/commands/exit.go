@@ -22,5 +22,5 @@ func (e *exit) Help(explain bool) string {
 		return "Quit connection"
 	}
 
-	return makeHelpText("exit")
+	return terminal.MakeHelpText("exit")
 }
