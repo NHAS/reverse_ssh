@@ -31,5 +31,5 @@ func (w *who) Help(explain bool) string {
 		return "List users connected to the RSSH server"
 	}
 
-	return makeHelpText("who")
+	return terminal.MakeHelpText("who")
 }

@@ -66,7 +66,7 @@ func (h *help) Help(explain bool) string {
 		return "Get help for commands, or display all commands"
 	}
 
-	return makeHelpText(
+	return terminal.MakeHelpText(
 		"help",
 		"help <functions>",
 	)

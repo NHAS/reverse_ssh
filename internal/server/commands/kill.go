@@ -54,7 +54,7 @@ func (k *kill) Help(explain bool) string {
 		return "End a remote controllable host instance."
 	}
 
-	return makeHelpText(
+	return terminal.MakeHelpText(
 		"kill <remote_id>",
 		"kill <glob pattern>",
 	)

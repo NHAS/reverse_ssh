@@ -124,7 +124,7 @@ func (e *exec) Help(explain bool) string {
 		return "Execute a command on one or more rssh client"
 	}
 
-	return makeHelpText(
+	return terminal.MakeHelpText(
 		"exec [OPTIONS] filter|host command",
 		"Filter uses glob matching against all attributes of a target (hostname, ip, id), allowing you to run a command against multiple machines",
 		"\t-q\tQuiet, no output (will also remove confirmation prompt)",

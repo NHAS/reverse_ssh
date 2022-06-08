@@ -336,3 +336,11 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 	return
 
 }
+
+func MakeHelpText(lines ...string) (s string) {
+	for _, v := range lines {
+		s += v + "\n"
+	}
+
+	return s
+}

@@ -7,7 +7,7 @@ require (
 	github.com/creack/pty v1.1.17
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
-	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 )
 
 require (

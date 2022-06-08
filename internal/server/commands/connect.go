@@ -77,7 +77,7 @@ func (c *connect) Help(explain bool) string {
 		return "Start shell on remote controllable host."
 	}
 
-	return makeHelpText(
+	return terminal.MakeHelpText(
 		"connect " + autocomplete.RemoteId,
 	)
 }

@@ -107,7 +107,7 @@ func (l *list) Help(explain bool) string {
 		return "List connected controllable hosts."
 	}
 
-	return makeHelpText(
+	return terminal.MakeHelpText(
 		"ls [OPTION] [FILTER]",
 		"Filter uses glob matching against all attributes of a target (hostname, ip, id)",
 		"\t-t\tPrint all attributes in pretty table",

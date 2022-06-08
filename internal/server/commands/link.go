@@ -150,7 +150,7 @@ func (e *link) Help(explain bool) string {
 		return "Generate client binary and return link to it"
 	}
 
-	return makeHelpText(
+	return terminal.MakeHelpText(
 		"link [OPTIONS]",
 		"Link will compile a client and serve the resulting binary on a link which is returned.",
 		"This requires the web server component has been enabled.",
