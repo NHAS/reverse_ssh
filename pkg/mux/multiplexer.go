@@ -48,7 +48,7 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 			}
 			go func() {
 
-				conn.SetDeadline(time.Now().Add(10 * time.Second))
+				conn.SetDeadline(time.Now().Add(2 * time.Second))
 				l, prefix, err := m.determineProtocol(conn)
 				if err != nil {
 					conn.Close()
