@@ -79,7 +79,7 @@ func (s *service) installService(name, location string) error {
 		return fmt.Errorf("service %s already exists", name)
 	}
 
-	newService, err = m.CreateService(name, location, mgr.Config{DisplayName: "", StartType: mgr.StartAutomatic})
+	newService, err = m.CreateService(name, location, mgr.Config{DisplayName: "", StartType: mgr.StartAutomatic}, "--foreground")
 	if err != nil {
 		return err
 	}
