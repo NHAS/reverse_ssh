@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,15 +44,16 @@ func (m *Multiplexer) StartListener(network, address string) error {
 		for {
 			conn, err := listen.Accept()
 			if err != nil {
-				listen.Close()
+				if strings.Contains(err.Error(), "use of closed network connection") {
+					m.Lock()
 
-				m.Lock()
+					delete(m.listeners, address)
 
-				delete(m.listeners, address)
+					m.Unlock()
+					return
+				}
+				continue
 
-				m.Unlock()
-
-				return
 			}
 
 			go func() {
