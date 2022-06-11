@@ -81,7 +81,8 @@ func runService(name, destination, fingerprint, proxyaddress string) {
 func (m *rsshService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
-	go Run(m.Dest, m.Fingerprint, m.Proxy)
+
+	go client.Run(m.Dest, m.Fingerprint, m.Proxy)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
 	for c := range r {
