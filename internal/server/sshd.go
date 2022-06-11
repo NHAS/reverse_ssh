@@ -11,6 +11,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
+	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -173,7 +174,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 
 	case "client":
 
-		id, err := clients.Add(sshConn)
+		id, username, err := clients.Add(sshConn)
 		if err != nil {
 			clientLog.Error("Unable to add new client %s", err)
 
@@ -186,9 +187,11 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 
 			clientLog.Info("SSH client disconnected")
 			clients.Remove(id)
+			observers.Leave.Notify(id, username, sshConn.RemoteAddr().String())
 		}()
 
 		clientLog.Info("New controllable connection with id %s", id)
+		observers.Join.Notify(id, username, sshConn.RemoteAddr().String())
 
 	default:
 		sshConn.Close()

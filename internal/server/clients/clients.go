@@ -30,13 +30,13 @@ func NormaliseHostname(hostname string) string {
 	return hostname
 }
 
-func Add(conn *ssh.ServerConn) (string, error) {
+func Add(conn *ssh.ServerConn) (string, string, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	idString, err := internal.RandomString(20)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	username := NormaliseHostname(conn.User())
@@ -62,7 +62,7 @@ func Add(conn *ssh.ServerConn) (string, error) {
 		Autocomplete.Add(v)
 	}
 
-	return idString, nil
+	return idString, username, nil
 
 }
 

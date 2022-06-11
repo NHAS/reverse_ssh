@@ -17,6 +17,7 @@ var allCommands = map[string]terminal.Command{
 	"link":    &link{},
 	"exec":    &exec{},
 	"who":     &who{},
+	"watch":   &watch{},
 }
 
 func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.Command {
@@ -30,6 +31,7 @@ func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.
 		"link":    &link{},
 		"exec":    &exec{},
 		"who":     &who{},
+		"watch":   &watch{},
 	}
 
 	return o
