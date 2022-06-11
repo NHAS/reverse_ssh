@@ -26,13 +26,15 @@ func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subs
 
 	installPath, err := line.GetArgString("install")
 	if err != terminal.ErrFlagNotSet {
+		flagErr := err
+
 		currentPath, err := os.Executable()
 		if err != nil {
 			return errors.New("Unable to find the current binary location: " + err.Error())
 		}
 
 		//If no argument was supplied for install
-		if err != nil {
+		if flagErr != nil {
 			installPath = currentPath
 
 		} else if installPath != currentPath {
@@ -48,6 +50,8 @@ func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subs
 			}
 
 		}
+
+		fmt.Fprintf(connection, "after err: %s, arg: %s, current %s", err.Error(), installPath, currentPath)
 
 		return s.installService(name, installPath)
 	}
