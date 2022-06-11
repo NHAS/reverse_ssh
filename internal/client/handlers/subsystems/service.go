@@ -34,16 +34,18 @@ func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subs
 		//If no argument was supplied for install
 		if err == nil {
 			installPath = currentPath
-		}
+		} else if installPath != currentPath {
 
-		input, err := ioutil.ReadFile(currentPath)
-		if err != nil {
-			return err
-		}
+			input, err := ioutil.ReadFile(currentPath)
+			if err != nil {
+				return err
+			}
 
-		err = ioutil.WriteFile(installPath, input, 0644)
-		if err != nil {
-			return err
+			err = ioutil.WriteFile(installPath, input, 0644)
+			if err != nil {
+				return err
+			}
+
 		}
 
 		return s.installService(name, installPath)
