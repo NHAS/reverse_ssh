@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/pkg/mux"
 	"golang.org/x/crypto/ssh"
@@ -44,11 +45,12 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 
 func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure, enabledWebserver bool) {
 
-	m, err := mux.Listen("tcp", addr)
+	var err error
+	multiplexer.ServerMultiplexer, err = mux.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen on %s (%s)", addr, err)
 	}
-	defer m.Close()
+	defer multiplexer.ServerMultiplexer.Close()
 
 	log.Printf("Listening on %s\n", addr)
 
@@ -70,10 +72,10 @@ func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress 
 		if len(connectBackAddress) == 0 {
 			connectBackAddress = addr
 		}
-		go webserver.Start(m.HTTP(), connectBackAddress, "../", private.PublicKey())
+		go webserver.Start(multiplexer.ServerMultiplexer.HTTP(), connectBackAddress, "../", private.PublicKey())
 
 	}
 
-	StartSSHServer(m.SSH(), private, insecure, authorizedKeys)
+	StartSSHServer(multiplexer.ServerMultiplexer.SSH(), private, insecure, authorizedKeys)
 
 }

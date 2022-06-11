@@ -8,7 +8,6 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
-	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
 type watch struct {
@@ -76,8 +75,4 @@ func (w *watch) Help(explain bool) string {
 		"\t-j\tPrint joins only",
 		"\t-l\tPrint leaves only",
 	)
-}
-
-func Watch(log logger.Logger) *watch {
-	return &watch{}
 }

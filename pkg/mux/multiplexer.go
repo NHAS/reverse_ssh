@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"net"
+	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -15,40 +17,103 @@ type MultiplexerConfig struct {
 }
 
 type Multiplexer struct {
-	protocols map[string]*multiplexerListener
-	done      bool
-	listener  net.Listener
+	sync.RWMutex
+	protocols      map[string]*multiplexerListener
+	done           bool
+	listeners      map[string]net.Listener
+	newConnections chan net.Conn
+}
+
+func (m *Multiplexer) StartListener(network, address string) error {
+	m.Lock()
+	defer m.Unlock()
+
+	if _, ok := m.listeners[address]; ok {
+		return errors.New("Address " + address + " already listening")
+	}
+
+	listener, err := net.Listen(network, address)
+	if err != nil {
+		return err
+	}
+
+	m.listeners[address] = listener
+
+	go func(listen net.Listener) {
+		for {
+			conn, err := listen.Accept()
+			if err != nil {
+				listen.Close()
+
+				m.Lock()
+
+				delete(m.listeners, address)
+
+				m.Unlock()
+
+				return
+			}
+
+			go func() {
+				m.newConnections <- conn
+			}()
+		}
+
+	}(listener)
+
+	return nil
+}
+
+func (m *Multiplexer) StopListener(address string) error {
+	m.Lock()
+	defer m.Unlock()
+
+	listener, ok := m.listeners[address]
+	if !ok {
+		return errors.New("Address " + address + " not listening")
+	}
+
+	return listener.Close()
+}
+
+func (m *Multiplexer) GetListeners() []string {
+	m.RLock()
+	defer m.RUnlock()
+
+	listeners := []string{}
+	for l := range m.listeners {
+		listeners = append(listeners, l)
+	}
+
+	sort.Strings(listeners)
+
+	return listeners
 }
 
 func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexer, error) {
 
-	listener, err := net.Listen(network, address)
+	var m Multiplexer
+
+	m.newConnections = make(chan net.Conn)
+	m.listeners = make(map[string]net.Listener)
+	m.protocols = map[string]*multiplexerListener{}
+
+	err := m.StartListener(network, address)
 	if err != nil {
 		return nil, err
 	}
 
-	var m Multiplexer
-
-	m.listener = listener
-
-	m.protocols = map[string]*multiplexerListener{}
-
 	if c.SSH {
-		m.protocols["ssh"] = newMultiplexerListener(listener.Addr())
+		m.protocols["ssh"] = newMultiplexerListener(m.listeners[address].Addr())
 	}
 
 	if c.HTTP {
-		m.protocols["http"] = newMultiplexerListener(listener.Addr())
+		m.protocols["http"] = newMultiplexerListener(m.listeners[address].Addr())
 	}
 
 	var waitingConnections int32
 	go func() {
-		for !m.done {
-			conn, err := listener.Accept()
-			if err != nil {
-				conn.Close()
-				continue
-			}
+		for conn := range m.newConnections {
 
 			if atomic.LoadInt32(&waitingConnections) > 1000 {
 				conn.Close()
@@ -57,7 +122,7 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 
 			//Atomic as other threads may be writing and reading while we do this
 			atomic.AddInt32(&waitingConnections, 1)
-			go func() {
+			go func(conn net.Conn) {
 
 				conn.SetDeadline(time.Now().Add(2 * time.Second))
 				l, prefix, err := m.determineProtocol(conn)
@@ -77,7 +142,7 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 				}
 
 				atomic.AddInt32(&waitingConnections, -1)
-			}()
+			}(conn)
 
 		}
 	}()
@@ -96,10 +161,16 @@ func Listen(network, address string) (*Multiplexer, error) {
 
 func (m *Multiplexer) Close() {
 	m.done = true
-	m.listener.Close()
+
+	for address := range m.listeners {
+		m.StopListener(address)
+	}
+
 	for _, v := range m.protocols {
 		v.Close()
 	}
+
+	close(m.newConnections)
 
 }
 

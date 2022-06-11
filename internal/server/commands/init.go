@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
@@ -18,6 +19,7 @@ var allCommands = map[string]terminal.Command{
 	"exec":    &exec{},
 	"who":     &who{},
 	"watch":   &watch{},
+	"listen":  &listen{},
 }
 
 func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.Command {
@@ -32,6 +34,7 @@ func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.
 		"exec":    &exec{},
 		"who":     &who{},
 		"watch":   &watch{},
+		"listen":  Listen(multiplexer.ServerMultiplexer, log),
 	}
 
 	return o
