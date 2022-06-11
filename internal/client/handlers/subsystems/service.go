@@ -79,7 +79,7 @@ func (s *service) installService(name, location string) error {
 		return fmt.Errorf("service %s already exists", name)
 	}
 
-	newService, err = m.CreateService(name, location, mgr.Config{DisplayName: "", StartType: mgr.StartAutomatic}, "is", "auto-started")
+	newService, err = m.CreateService(name, location, mgr.Config{DisplayName: "", StartType: mgr.StartAutomatic})
 	if err != nil {
 		return err
 	}
@@ -90,6 +90,10 @@ func (s *service) installService(name, location string) error {
 		return fmt.Errorf("SetupEventLogSource() failed: %s", err)
 	}
 
+	err = newService.Start()
+	if err != nil {
+		return fmt.Errorf("Starting rssh has failed: %s", err)
+	}
 	return nil
 
 }
