@@ -122,7 +122,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 
 func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 
-	realConn := &internal.TimeoutConn{c, 60 * time.Second}
+	realConn := &internal.TimeoutConn{c, 10 * time.Second}
 
 	// Before use, a handshake must be performed on the incoming net.Conn.
 	sshConn, chans, reqs, err := ssh.NewServerConn(realConn, config)
