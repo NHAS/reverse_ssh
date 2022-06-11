@@ -51,8 +51,6 @@ func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subs
 
 		}
 
-		fmt.Fprintf(connection, "after err: %s, arg: %s, current %s", err.Error(), installPath, currentPath)
-
 		return s.installService(name, installPath)
 	}
 
