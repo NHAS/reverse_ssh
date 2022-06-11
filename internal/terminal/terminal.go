@@ -617,6 +617,10 @@ func (t *Terminal) move(up, down, left, right int) {
 }
 
 func (t *Terminal) Read(b []byte) (n int, err error) {
+
+	//Intentional racecondition, essentially due to how all the blocking reads do their thing (and the fact we cant cancel them without closing the connection)
+	//We have to jank shit like this
+
 	if t.raw {
 		n, err := t.c.Read(b)
 		if !t.raw {

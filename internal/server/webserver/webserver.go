@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver/shellscripts"
@@ -29,11 +30,16 @@ func Start(webListener net.Listener, connectBackAddress, projRoot string, public
 		log.Fatal(err)
 	}
 
-	http.HandleFunc("/", buildAndServe(projRoot, connectBackAddress, validPlatforms, validArchs))
+	srv := &http.Server{
+		ReadTimeout:  2 * time.Second,
+		WriteTimeout: 2 * time.Second,
+		Handler:      buildAndServe(projRoot, connectBackAddress, validPlatforms, validArchs),
+	}
 
 	log.Println("Started Web Server")
 	webserverOn = true
-	log.Fatal(http.Serve(webListener, nil))
+
+	log.Fatal(srv.Serve(webListener))
 
 }
 

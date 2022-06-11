@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,12 +41,22 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 		m.protocols["http"] = newMultiplexerListener(listener.Addr())
 	}
 
+	var waitingConnections int32
 	go func() {
 		for !m.done {
 			conn, err := listener.Accept()
 			if err != nil {
+				conn.Close()
 				continue
 			}
+
+			if atomic.LoadInt32(&waitingConnections) > 1000 {
+				conn.Close()
+				continue
+			}
+
+			//Atomic as other threads may be writing and reading while we do this
+			atomic.AddInt32(&waitingConnections, 1)
 			go func() {
 
 				conn.SetDeadline(time.Now().Add(2 * time.Second))
@@ -58,10 +69,16 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 
 				conn.SetDeadline(time.Time{})
 
-				go func() {
-					l.connections <- &bufferedConn{conn: conn, prefix: prefix}
-				}()
+				select {
+				//Allow whatever we're multiplexing to apply backpressure if we cant accept things
+				case l.connections <- &bufferedConn{conn: conn, prefix: prefix}:
+				case <-time.After(2 * time.Second):
+					conn.Close()
+				}
+
+				atomic.AddInt32(&waitingConnections, -1)
 			}()
+
 		}
 	}()
 
