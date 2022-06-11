@@ -3,9 +3,9 @@
 Want to use SSH for reverse shells? Now you can.  
 
 - Manage and connect to reverse shells with native SSH syntax
-- Dynamic, local and remote forwarding with simple jumphost syntax
-- Native SCP implementation for retrieving files from your targets
-- Full windows shell even if the host is not supported by ConPty
+- Dynamic, local and remote forwarding
+- Native SCP and SFTP implementations for retrieving files from your targets
+- Full windows shell
 - Mutual client & server authentication to create high trust control channels  
 And more! 
 
