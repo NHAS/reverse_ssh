@@ -16,10 +16,13 @@ import (
 	"golang.org/x/sys/windows/svc/eventlog"
 )
 
+var elog debug.Log
+
 func Fork(destination, fingerprint, proxyaddress string) error {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {
+		elog.Error(1, fmt.Sprintf("failed to determine if we are running in service: %v", err))
 		log.Fatalf("failed to determine if we are running in service: %v", err)
 	}
 
@@ -43,12 +46,10 @@ func Fork(destination, fingerprint, proxyaddress string) error {
 		return nil
 	}
 
-	runService("RSSH", destination, fingerprint, proxyaddress)
+	runService("rssh", destination, fingerprint, proxyaddress)
 
-	return err
+	return nil
 }
-
-var elog debug.Log
 
 type rsshService struct {
 	Dest, Fingerprint, Proxy string

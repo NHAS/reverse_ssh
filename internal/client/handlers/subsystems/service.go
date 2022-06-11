@@ -19,10 +19,7 @@ type service bool
 func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subsystemReq *ssh.Request) error {
 	subsystemReq.Reply(true, nil)
 
-	name, err := line.GetArgString("name")
-	if err == terminal.ErrFlagNotSet {
-		name = "rssh"
-	}
+	const serviceName = "rssh"
 
 	installPath, err := line.GetArgString("install")
 	if err != terminal.ErrFlagNotSet {
@@ -49,19 +46,18 @@ func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subs
 
 		}
 
-		return s.installService(name, installPath)
+		return s.installService("rssh", installPath)
 	}
 
 	if line.IsSet("uninstall") {
-		return s.uninstallService(name)
+		return s.uninstallService("rssh")
 	}
 
 	return errors.New(terminal.MakeHelpText(
 		"service [MODE] [ARGS|...]",
 		"The service submodule can install or removed the rssh binary as a service",
-		"\t--name\tName of service to act on, defaults to 'rssh'",
 		"\t--install\tOptionally, when supplied an argument rssh will copy itself there",
-		"\t--uninstall\tWill uninstall the service set by name",
+		"\t--uninstall\tWill uninstall the service ",
 	))
 }
 
@@ -79,7 +75,7 @@ func (s *service) installService(name, location string) error {
 		return fmt.Errorf("service %s already exists", name)
 	}
 
-	newService, err = m.CreateService(name, location, mgr.Config{DisplayName: "", StartType: mgr.StartAutomatic}, "--foreground")
+	newService, err = m.CreateService(name, location, mgr.Config{DisplayName: "", StartType: mgr.StartAutomatic})
 	if err != nil {
 		return err
 	}
