@@ -19,7 +19,10 @@ type service bool
 func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subsystemReq *ssh.Request) error {
 	subsystemReq.Reply(true, nil)
 
-	const serviceName = "rssh"
+	name, err := line.GetArgString("name")
+	if err == terminal.ErrFlagNotSet {
+		name = "rssh"
+	}
 
 	installPath, err := line.GetArgString("install")
 	if err != terminal.ErrFlagNotSet {
@@ -46,18 +49,19 @@ func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subs
 
 		}
 
-		return s.installService("rssh", installPath)
+		return s.installService(name, installPath)
 	}
 
 	if line.IsSet("uninstall") {
-		return s.uninstallService("rssh")
+		return s.uninstallService(name)
 	}
 
 	return errors.New(terminal.MakeHelpText(
 		"service [MODE] [ARGS|...]",
 		"The service submodule can install or removed the rssh binary as a service",
+		"\t--name\tName of service to act on, defaults to 'rssh'",
 		"\t--install\tOptionally, when supplied an argument rssh will copy itself there",
-		"\t--uninstall\tWill uninstall the service ",
+		"\t--uninstall\tWill uninstall the service set by name",
 	))
 }
 
