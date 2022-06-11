@@ -100,6 +100,9 @@ func (m *rsshService) Execute(args []string, r <-chan svc.ChangeRequest, changes
 	}
 
 	changes <- svc.Status{State: svc.StopPending}
+	changes <- svc.Status{State: svc.Stopped}
+
+	os.Exit(0)
 	return
 }
 
