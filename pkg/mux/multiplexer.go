@@ -46,18 +46,22 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 			if err != nil {
 				continue
 			}
+			go func() {
 
-			conn.SetDeadline(time.Now().Add(30 * time.Second))
-			l, prefix, err := m.determineProtocol(conn)
-			if err != nil {
-				conn.Close()
-				log.Println("Multiplexing failed: ", err)
-				continue
-			}
+				conn.SetDeadline(time.Now().Add(10 * time.Second))
+				l, prefix, err := m.determineProtocol(conn)
+				if err != nil {
+					conn.Close()
+					log.Println("Multiplexing failed: ", err)
+					return
+				}
 
-			conn.SetDeadline(time.Time{})
+				conn.SetDeadline(time.Time{})
 
-			go func() { l.connections <- &bufferedConn{conn: conn, prefix: prefix} }()
+				go func() {
+					l.connections <- &bufferedConn{conn: conn, prefix: prefix}
+				}()
+			}()
 		}
 	}()
 
