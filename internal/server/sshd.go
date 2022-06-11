@@ -141,7 +141,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 				sshConn.Close()
 				return
 			}
-			time.Sleep(30 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}()
 
