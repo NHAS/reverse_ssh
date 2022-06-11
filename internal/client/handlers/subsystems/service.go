@@ -19,47 +19,50 @@ type service bool
 func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subsystemReq *ssh.Request) error {
 	subsystemReq.Reply(true, nil)
 
-	arg, err := line.GetArgString("install")
-	if err != terminal.ErrFlagNotSet {
-		if err != nil {
-			return err
-		}
-		return s.installService("rssh", arg)
+	name, err := line.GetArgString("name")
+	if err == terminal.ErrFlagNotSet {
+		name = "rssh"
 	}
 
-	arg, err = line.GetArgString("uninstall")
+	installPath, err := line.GetArgString("install")
 	if err != terminal.ErrFlagNotSet {
+		currentPath, err := os.Executable()
+		if err != nil {
+			return errors.New("Unable to find the current binary location: " + err.Error())
+		}
+
+		//If no argument was supplied for install
+		if err == nil {
+			installPath = currentPath
+		}
+
+		input, err := ioutil.ReadFile(currentPath)
 		if err != nil {
 			return err
 		}
 
-		return s.uninstallService(arg)
+		err = ioutil.WriteFile(installPath, input, 0644)
+		if err != nil {
+			return err
+		}
+
+		return s.installService(name, installPath)
+	}
+
+	if line.IsSet("uninstall") {
+		return s.uninstallService(name)
 	}
 
 	return errors.New(terminal.MakeHelpText(
 		"service [MODE] [ARGS|...]",
 		"The service submodule can install or removed the rssh binary as a service",
-		"\t--install\tTakes 1 argument, a location to copy the rssh binary to. E.g service --install rssh C:\\path\\here\\rssh.exe",
-		"\t--uninstall\tTakes 1 argument, the name of a service to remove. Will not check if this is the rssh service",
+		"\t--name\tName of service to act on, defaults to 'rssh'",
+		"\t--install\tOptionally, when supplied an argument rssh will copy itself there",
+		"\t--uninstall\tWill uninstall the service set by name",
 	))
 }
 
 func (s *service) installService(name, location string) error {
-
-	currentPath, err := os.Executable()
-	if err != nil {
-		return errors.New("Unable to find the current binary location: " + err.Error())
-	}
-
-	input, err := ioutil.ReadFile(currentPath)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(location, input, 0644)
-	if err != nil {
-		return err
-	}
 
 	m, err := mgr.Connect()
 	if err != nil {
