@@ -72,7 +72,8 @@ func (s *service) installService(name, location string) error {
 		newService.Close()
 		return fmt.Errorf("service %s already exists", name)
 	}
-	newService, err = m.CreateService(name, location, mgr.Config{DisplayName: ""}, "is", "auto-started")
+
+	newService, err = m.CreateService(name, location, mgr.Config{DisplayName: "", StartType: mgr.StartAutomatic}, "is", "auto-started")
 	if err != nil {
 		return err
 	}
@@ -82,6 +83,7 @@ func (s *service) installService(name, location string) error {
 		newService.Delete()
 		return fmt.Errorf("SetupEventLogSource() failed: %s", err)
 	}
+
 	return nil
 
 }
@@ -101,10 +103,8 @@ func (s *service) uninstallService(name string) error {
 	if err != nil {
 		return err
 	}
-	err = eventlog.Remove(name)
-	if err != nil {
-		return fmt.Errorf("RemoveEventLogSource() failed: %s", err)
-	}
+
+	eventlog.Remove(name)
 	return nil
 
 }
