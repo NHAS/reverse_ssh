@@ -1,6 +1,17 @@
 package observers
 
-import "github.com/NHAS/reverse_ssh/pkg/observer"
+import (
+	"time"
 
-var Join = observer.New()
-var Leave = observer.New()
+	"github.com/NHAS/reverse_ssh/pkg/observer"
+)
+
+type ClientState struct {
+	Status    string
+	ID        string
+	IP        string
+	HostName  string
+	Timestamp time.Time
+}
+
+var ConnectionState = observer.New(ClientState{})

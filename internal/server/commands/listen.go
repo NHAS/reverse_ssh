@@ -22,7 +22,14 @@ func (w *listen) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if line.IsSet("l") {
-		for _, listener := range w.m.GetListeners() {
+		listeners := w.m.GetListeners()
+
+		if len(listeners) == 0 {
+			fmt.Fprintln(tty, "No active listeners")
+			return nil
+		}
+
+		for _, listener := range listeners {
 			fmt.Fprintf(tty, "%s\n", listener)
 		}
 		return nil

@@ -3,8 +3,6 @@ package commands
 import (
 	"fmt"
 	"io"
-	"strings"
-	"time"
 
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
@@ -17,20 +15,18 @@ func (w *watch) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	messages := make(chan string)
 
-	var joinId string
-	if !line.IsSet("l") {
-		joinId = observers.Join.Register(func(m []string) {
+	observerId := observers.ConnectionState.Register(func(m interface{}) {
 
-			messages <- fmt.Sprintf("-> %s joined", strings.Join(m, " "))
-		})
-	}
+		c := m.(observers.ClientState)
 
-	var leaveId string
-	if !line.IsSet("j") {
-		leaveId = observers.Leave.Register(func(m []string) {
-			messages <- fmt.Sprintf("<- %s left", strings.Join(m, " "))
-		})
-	}
+		var arrowDirection = "<-"
+		if c.Status == "disconnected" {
+			arrowDirection = "->"
+		}
+
+		messages <- fmt.Sprintf("%s %s %s (%s %s) %s", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, c.HostName, c.IP, c.ID, c.Status)
+
+	})
 
 	term, isTerm := tty.(*terminal.Terminal)
 	if isTerm {
@@ -42,15 +38,14 @@ func (w *watch) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		b := make([]byte, 1)
 		tty.Read(b)
 
-		observers.Leave.Deregister(joinId)
-		observers.Join.Deregister(leaveId)
+		observers.ConnectionState.Deregister(observerId)
 
 		close(messages)
 	}()
 
 	fmt.Fprintf(tty, "Watching clients...\n\r")
 	for m := range messages {
-		fmt.Fprintf(tty, "%s %s\n\r", time.Now().Format("2006/01/02 15:04:05"), m)
+		fmt.Fprintf(tty, "%s\n\r", m)
 	}
 
 	if isTerm {
@@ -71,8 +66,6 @@ func (w *watch) Help(explain bool) string {
 
 	return terminal.MakeHelpText(
 		"watch [OPTIONS]",
-		"Watch shows joining and leaving of clients",
-		"\t-j\tPrint joins only",
-		"\t-l\tPrint leaves only",
+		"Watch shows continuous connection status of clients (prints the joining and leaving of clients)",
 	)
 }

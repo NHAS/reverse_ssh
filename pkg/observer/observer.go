@@ -3,6 +3,7 @@ package observer
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"sync"
 )
 
@@ -18,10 +19,11 @@ func random(length int) (string, error) {
 
 type observer struct {
 	sync.RWMutex
-	clients map[string]Target
+	clients  map[string]Target
+	typeName string
 }
 
-type Target func(message []string)
+type Target func(message interface{})
 
 func (o *observer) Register(t Target) (id string) {
 	o.Lock()
@@ -41,17 +43,23 @@ func (o *observer) Deregister(id string) {
 	delete(o.clients, id)
 }
 
-func (o *observer) Notify(message ...string) {
+func (o *observer) Notify(message interface{}) {
 	o.RLock()
 	defer o.RUnlock()
+
+	if fmt.Sprintf("%T", message) != o.typeName {
+		panic("Message had type: " + fmt.Sprintf("%T", message) + " but this observer only takes: " + o.typeName)
+	}
 
 	for i := range o.clients {
 		go o.clients[i](message)
 	}
 }
 
-func New() observer {
+func New(msgType interface{}) observer {
+
 	return observer{
-		clients: make(map[string]Target),
+		clients:  make(map[string]Target),
+		typeName: fmt.Sprintf("%T", msgType),
 	}
 }

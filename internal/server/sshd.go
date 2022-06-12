@@ -187,11 +187,24 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 
 			clientLog.Info("SSH client disconnected")
 			clients.Remove(id)
-			observers.Leave.Notify(id, username, sshConn.RemoteAddr().String())
+			observers.ConnectionState.Notify(observers.ClientState{
+				Status:    "disconnected",
+				ID:        id,
+				IP:        sshConn.RemoteAddr().String(),
+				HostName:  username,
+				Timestamp: time.Now(),
+			})
 		}()
 
 		clientLog.Info("New controllable connection with id %s", id)
-		observers.Join.Notify(id, username, sshConn.RemoteAddr().String())
+
+		observers.ConnectionState.Notify(observers.ClientState{
+			Status:    "connected",
+			ID:        id,
+			IP:        sshConn.RemoteAddr().String(),
+			HostName:  username,
+			Timestamp: time.Now(),
+		})
 
 	default:
 		sshConn.Close()

@@ -20,6 +20,7 @@ var allCommands = map[string]terminal.Command{
 	"who":     &who{},
 	"watch":   &watch{},
 	"listen":  &listen{},
+	"webhook": &webhook{},
 }
 
 func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.Command {
@@ -35,6 +36,7 @@ func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.
 		"who":     &who{},
 		"watch":   &watch{},
 		"listen":  Listen(multiplexer.ServerMultiplexer, log),
+		"webhook": &webhook{},
 	}
 
 	return o
