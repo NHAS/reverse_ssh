@@ -9,6 +9,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
+	"github.com/NHAS/reverse_ssh/internal/server/webhooks"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/pkg/mux"
 	"golang.org/x/crypto/ssh"
@@ -43,7 +44,7 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 	return private, nil
 }
 
-func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress string, insecure, enabledWebserver bool) {
+func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress, configPath string, insecure, enabledWebserver bool) {
 
 	var err error
 	multiplexer.ServerMultiplexer, err = mux.Listen("tcp", addr)
@@ -75,6 +76,8 @@ func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress 
 		go webserver.Start(multiplexer.ServerMultiplexer.HTTP(), connectBackAddress, "../", private.PublicKey())
 
 	}
+
+	go webhooks.StartWebhooks(configPath)
 
 	StartSSHServer(multiplexer.ServerMultiplexer.SSH(), private, insecure, authorizedKeys)
 

@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"path"
 	"sort"
 	"sync"
@@ -22,7 +24,30 @@ import (
 var m sync.RWMutex
 var recipients map[string]bool = make(map[string]bool)
 
-func init() {
+var configPath string
+
+func StartWebhooks(config string) {
+	configPath = config
+
+	_, err := os.Stat(configPath)
+	if err != nil {
+		err := ioutil.WriteFile(configPath, []byte("{}"), 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	activeWebhooks, err := ioutil.ReadFile(configPath)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = json.Unmarshal(activeWebhooks, &recipients)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	messages := make(chan interface{})
 
 	observers.ConnectionState.Register(func(message interface{}) {
@@ -89,6 +114,8 @@ func Add(newUrl string, checkTLS bool) (string, error) {
 	recipients[u.String()] = checkTLS
 	m.Unlock()
 
+	saveConfig()
+
 	return u.String(), nil
 }
 
@@ -108,13 +135,23 @@ func GetAll() []string {
 
 func Remove(url string) error {
 	m.Lock()
-	defer m.Unlock()
 
 	if _, ok := recipients[url]; !ok {
 		return errors.New("Url not found")
 	}
 
 	delete(recipients, url)
+	m.Unlock()
+
+	saveConfig()
 
 	return nil
+}
+
+func saveConfig() {
+	m.RLock()
+	defer m.RUnlock()
+
+	activeWebhooks, _ := json.Marshal(&recipients)
+	ioutil.WriteFile(configPath, activeWebhooks, 0644)
 }

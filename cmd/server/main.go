@@ -17,6 +17,8 @@ func printHelp() {
 
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[options] listen_address")
 	fmt.Println("\nOptions:")
+	fmt.Println("  Data")
+	fmt.Println("\t--config\t\t\tLocation to store saved configurations (defaults to working directory)")
 	fmt.Println("  Authorisation")
 	fmt.Println("\t--key\t\t\tServer SSH private key path (will be generated if not specified)")
 	fmt.Println("\t--authorizedkeys\tPath to the authorized_keys file, if omitted an adjacent 'authorized_keys' file is required")
@@ -37,6 +39,7 @@ func main() {
 		"external_address": true,
 		"fingerprint":      true,
 		"webserver":        true,
+		"config":           true,
 		"h":                true,
 		"help":             true,
 	})
@@ -71,6 +74,11 @@ func main() {
 		fmt.Println("Missing listening address")
 		printHelp()
 		return
+	}
+
+	configPath, err := options.GetArgString("config")
+	if err != nil {
+		configPath = "./config.json"
 	}
 
 	listenAddress := options.Arguments[len(options.Arguments)-1].Value()
@@ -119,6 +127,6 @@ func main() {
 
 	}
 
-	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, insecure, webserver)
+	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, configPath, insecure, webserver)
 
 }
