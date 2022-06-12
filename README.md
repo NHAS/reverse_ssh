@@ -243,7 +243,7 @@ e.g
 
 ```
 # Install the rssh binary as a service (windows only)
-ssh -J certainlyawesome.com:8080 test-pc.user.test-pc -s service --install
+ssh -J your.rssh.server.com:3232 test-pc.user.test-pc -s service --install
 ```
 
 ### Windows Service Integration
@@ -254,6 +254,32 @@ The client RSSH binary supports being run within a windows service and wont time
 
 Most reverse shells for windows struggle to generate a shell environment that supports resizing, copying and pasting and all the other features that we're all very fond of. 
 This project uses conpty on newer versions of windows, and the winpty library (which self unpacks) on older versions. This should mean that almost all versions of windows will net you a nice shell. 
+
+### Webhooks
+
+The RSSH server can send out raw HTTP requests set using the `webhook` command from the terminal interface.
+
+First enable a webhook:
+```bash
+$ ssh your.rssh.server.com -p 3232
+catcher$ webhook --on http://localhost:8080/
+```
+
+Then disconnect, or connect a client, this will when issue a `POST` request with the following format.
+
+
+```bash
+$ nc -l -p 8080
+POST /rssh_webhook HTTP/1.1
+Host: localhost:8080
+User-Agent: Go-http-client/1.1
+Content-Length: 165
+Content-Type: application/json
+Accept-Encoding: gzip
+
+{"Status":"connected","ID":"ae92b6535a30566cbae122ebb2a5e754dd58f0ca","IP":"[::1]:52608","HostName":"user.computer","Timestamp":"2022-06-12T12:23:40.626775318+12:00"}%  
+```
+
 
 ## Foreground vs Background (Important note about clients)
 
