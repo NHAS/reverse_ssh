@@ -9,10 +9,11 @@ type multiplexerListener struct {
 	addr        net.Addr
 	connections chan net.Conn
 	closed      bool
+	protocol    string
 }
 
-func newMultiplexerListener(addr net.Addr) *multiplexerListener {
-	return &multiplexerListener{addr: addr, connections: make(chan net.Conn)}
+func newMultiplexerListener(addr net.Addr, protocol string) *multiplexerListener {
+	return &multiplexerListener{addr: addr, connections: make(chan net.Conn), protocol: protocol}
 }
 
 func (ml *multiplexerListener) Accept() (net.Conn, error) {

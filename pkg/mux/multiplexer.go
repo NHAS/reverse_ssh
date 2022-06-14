@@ -57,7 +57,12 @@ func (m *Multiplexer) StartListener(network, address string) error {
 			}
 
 			go func() {
-				m.newConnections <- conn
+				select {
+				case m.newConnections <- conn:
+				case <-time.After(2 * time.Second):
+					log.Println("Accepting new connection timed out")
+					conn.Close()
+				}
 			}()
 		}
 
@@ -106,11 +111,11 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 	}
 
 	if c.SSH {
-		m.protocols["ssh"] = newMultiplexerListener(m.listeners[address].Addr())
+		m.protocols["ssh"] = newMultiplexerListener(m.listeners[address].Addr(), "ssh")
 	}
 
 	if c.HTTP {
-		m.protocols["http"] = newMultiplexerListener(m.listeners[address].Addr())
+		m.protocols["http"] = newMultiplexerListener(m.listeners[address].Addr(), "http")
 	}
 
 	var waitingConnections int32
@@ -137,9 +142,11 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 				conn.SetDeadline(time.Time{})
 
 				select {
-				//Allow whatever we're multiplexing to apply backpressure if we cant accept things
+				//Allow whatever we're multiplexing to apply backpressure if it cant accept things
 				case l.connections <- &bufferedConn{conn: conn, prefix: prefix}:
 				case <-time.After(2 * time.Second):
+
+					log.Println(l.protocol, "Failed to accept new connection within 2 seconds, closing connection (may indicate high resource usage)")
 					conn.Close()
 				}
 
