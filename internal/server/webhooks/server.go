@@ -135,13 +135,13 @@ func GetAll() []string {
 
 func Remove(url string) error {
 	m.Lock()
+	defer m.Unlock()
 
 	if _, ok := recipients[url]; !ok {
 		return errors.New("Url not found")
 	}
 
 	delete(recipients, url)
-	m.Unlock()
 
 	saveConfig()
 
