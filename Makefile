@@ -9,7 +9,7 @@ ifdef RSSH_FINGERPRINT
 endif
 
 ifdef IGNORE
-	LDFLAGS += -X main.ignoreInput=$(RSSH_FINGERPRINT)
+	LDFLAGS += -X main.ignoreInput=$(IGNORE)
 endif
 
 
