@@ -123,7 +123,8 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 
 func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 
-	realConn := &internal.TimeoutConn{c, 10 * time.Second}
+	//Initially set the timeout high, so people who type in their ssh key password can actually use rssh
+	realConn := &internal.TimeoutConn{c, 5 * time.Minute}
 
 	// Before use, a handshake must be performed on the incoming net.Conn.
 	sshConn, chans, reqs, err := ssh.NewServerConn(realConn, config)
@@ -131,6 +132,9 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 		log.Printf("Failed to handshake (%s)", err.Error())
 		return
 	}
+
+	//Set the actual timeout much lower
+	realConn.Timeout = 10 * time.Second
 
 	clientLog := logger.NewLog(sshConn.RemoteAddr().String())
 

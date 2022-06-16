@@ -114,6 +114,7 @@ func Run(destination, fingerprint, proxyaddress string) {
 	}
 
 	if !inService {
+
 		client.Run(destination, fingerprint, proxyaddress)
 		return
 	}
