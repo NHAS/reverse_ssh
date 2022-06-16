@@ -14,6 +14,7 @@ import (
 
 var destination string
 var fingerprint string
+var ignoreInput string
 
 func printHelp() {
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--foreground] [--fingerprint] destination")
@@ -24,8 +25,7 @@ func printHelp() {
 
 func main() {
 
-	//Happens if we're executing from a fileless state
-	if len(os.Args) == 0 {
+	if len(os.Args) == 0 || ignoreInput == "true" {
 		Run(destination, fingerprint, "")
 		return
 	}

@@ -8,6 +8,11 @@ ifdef RSSH_FINGERPRINT
 	LDFLAGS += -X main.fingerprint=$(RSSH_FINGERPRINT)
 endif
 
+ifdef IGNORE
+	LDFLAGS += -X main.ignoreInput=$(IGNORE)
+endif
+
+
 LDFLAGS_RELEASE = $(LDFLAGS) -s -w
 
 debug: .generate_keys
