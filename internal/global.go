@@ -17,6 +17,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var Version string
+
 type RemoteForwardRequest struct {
 	BindAddr string
 	BindPort uint32

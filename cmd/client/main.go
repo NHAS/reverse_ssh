@@ -12,9 +12,11 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
 
-var destination string
-var fingerprint string
-var ignoreInput string
+var (
+	destination string
+	fingerprint string
+	ignoreInput string
+)
 
 func printHelp() {
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[--foreground] [--fingerprint] destination")

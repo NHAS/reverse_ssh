@@ -1,5 +1,6 @@
 ADDR=localhost:2200
 
+
 ifdef RSSH_HOMESERVER
 	LDFLAGS += -X main.destination=$(RSSH_HOMESERVER)
 endif
@@ -13,6 +14,8 @@ ifdef IGNORE
 endif
 
 
+LDFLAGS += -X internal.Version=$(shell git describe --tags)
+
 LDFLAGS_RELEASE = $(LDFLAGS) -s -w
 
 debug: .generate_keys
@@ -24,11 +27,11 @@ release: .generate_keys
 	GOOS=windows GOARCH=amd64 go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
 client: .generate_keys
-	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
+	go build -ldflags=" $(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
 client_dll: .generate_keys
 	test -n "$(RSSH_HOMESERVER)" # Shared objects cannot take arguments, so must have a callback server baked in (define RSSH_HOMESERVER)
-	CGO_ENABLED=1 go build -tags=cshared -buildmode=c-shared -ldflags="$(LDFLAGS_RELEASE)" -o bin/client.dll ./cmd/client
+	CGO_ENABLED=1 go build -tags=cshared -buildmode=c-shared -ldflags="$(LDFLAGS_RELEASE) -X client.Version=${VERSION}" -o bin/client.dll ./cmd/client
 
 server:
 	mkdir -p bin
