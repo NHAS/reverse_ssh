@@ -21,6 +21,7 @@ var allCommands = map[string]terminal.Command{
 	"watch":   &watch{},
 	"listen":  &listen{},
 	"webhook": &webhook{},
+	"version": &version{},
 }
 
 func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.Command {
@@ -37,6 +38,7 @@ func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.
 		"watch":   &watch{},
 		"listen":  Listen(multiplexer.ServerMultiplexer, log),
 		"webhook": &webhook{},
+		"version": &version{},
 	}
 
 	return o
