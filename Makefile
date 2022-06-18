@@ -14,7 +14,7 @@ ifdef IGNORE
 endif
 
 
-LDFLAGS += -X internal.Version=$(shell git describe --tags)
+LDFLAGS += -X 'github.com/NHAS/reverse_ssh/internal.Version=$(shell git describe --tags)'
 
 LDFLAGS_RELEASE = $(LDFLAGS) -s -w
 

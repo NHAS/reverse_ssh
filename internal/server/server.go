@@ -46,6 +46,7 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 
 func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress, configPath string, insecure, enabledWebserver bool) {
 
+	log.Println("Version: ", internal.Version)
 	var err error
 	multiplexer.ServerMultiplexer, err = mux.Listen("tcp", addr)
 	if err != nil {

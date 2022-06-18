@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
@@ -43,8 +42,6 @@ func main() {
 		child = true
 	}
 	o.Close()
-
-	time.Sleep(1 * time.Minute)
 
 	line := terminal.ParseLine(argv, 0)
 

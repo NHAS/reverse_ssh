@@ -123,6 +123,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 			return nil
 		},
+		ClientVersion: internal.Version,
 	}
 
 	for { // My take on a golang do {} while loop :P

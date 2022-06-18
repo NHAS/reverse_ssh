@@ -191,6 +191,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 
 			clientLog.Info("SSH client disconnected")
 			clients.Remove(id)
+
 			observers.ConnectionState.Notify(observers.ClientState{
 				Status:    "disconnected",
 				ID:        id,
