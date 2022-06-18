@@ -23,9 +23,9 @@ type displayItem struct {
 
 func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 
-	t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address")
+	t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address", "Version")
 	for _, a := range applicable {
-		t.AddValues(a.id, a.sc.User(), a.sc.RemoteAddr().String())
+		t.AddValues(a.id, clients.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String(), string(a.sc.ClientVersion()))
 	}
 
 	t.Fprint(tty)
@@ -83,7 +83,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	for i, tr := range toReturn {
 
-		fmt.Fprintf(tty, "%s %s %s", tr.id, clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String())
+		fmt.Fprintf(tty, "%s %s %s, version: %s", tr.id, clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion())
 
 		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)
