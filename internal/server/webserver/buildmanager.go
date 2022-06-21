@@ -27,16 +27,18 @@ type file struct {
 	Hits      int
 }
 
-var Autocomplete = trie.NewTrie()
-
 const cacheDescriptionFile = "description.json"
 
-var validPlatforms = make(map[string]bool)
-var validArchs = make(map[string]bool)
+var (
+	Autocomplete = trie.NewTrie()
 
-var c sync.RWMutex
-var cache map[string]file = make(map[string]file) // random id to actual file path
-var cachePath string
+	validPlatforms = make(map[string]bool)
+	validArchs     = make(map[string]bool)
+
+	c         sync.RWMutex
+	cache     map[string]file = make(map[string]file) // random id to actual file path
+	cachePath string
+)
 
 func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared bool) (string, error) {
 	if !webserverOn {
