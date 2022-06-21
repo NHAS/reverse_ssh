@@ -149,8 +149,6 @@ func Remove(url string) error {
 }
 
 func saveConfig() {
-	m.RLock()
-	defer m.RUnlock()
 
 	activeWebhooks, _ := json.Marshal(&recipients)
 	ioutil.WriteFile(configPath, activeWebhooks, 0644)
