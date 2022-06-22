@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
@@ -25,7 +23,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Type", "Hits")
+		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Version", "Type", "Hits")
 
 		files, err := webserver.List(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
@@ -42,7 +40,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		for _, id := range ids {
 			file := files[id]
 
-			t.AddValues(id, file.Goos, file.Goarch, file.FileType, fmt.Sprintf("%d", file.Hits))
+			t.AddValues(id, file.Goos, file.Goarch, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits))
 		}
 
 		t.Fprint(tty)
@@ -80,21 +78,6 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	}
 
-	var e time.Duration
-	timeStr, err := line.GetArgString("t")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
-	}
-
-	if err == nil {
-
-		mins, err := strconv.Atoi(timeStr)
-		if err != nil {
-			return fmt.Errorf("Unable to parse number of minutes (-t): %s", timeStr)
-		}
-		e = time.Duration(mins) * time.Minute
-	}
-
 	goos, err := line.GetArgString("goos")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
@@ -120,7 +103,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	url, err := webserver.Build(e, goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"))
+	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"))
 	if err != nil {
 		return err
 	}
@@ -150,7 +133,6 @@ func (e *link) Help(explain bool) string {
 		"link [OPTIONS]",
 		"Link will compile a client and serve the resulting binary on a link which is returned.",
 		"This requires the web server component has been enabled.",
-		"\t-t\tSet number of minutes link exists for (default is one time use)",
 		"\t-s\tSet homeserver address, defaults to server --external_address if set, or server listen address if not.",
 		"\t-l\tList currently active download links",
 		"\t-r\tRemove download link",

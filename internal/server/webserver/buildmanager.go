@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
@@ -38,7 +37,7 @@ var (
 	cachePath string
 )
 
-func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared bool) (string, error) {
+func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared bool) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("Web server is not enabled.")
 	}
@@ -92,7 +91,12 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, finger
 
 	f.Path = filepath.Join(cachePath, filename)
 	f.FileType = "executable"
-	f.Version = internal.Version
+	f.Version = internal.Version + " (guess)"
+
+	repoVersion, err := exec.Command("git", "describe", "--tags").CombinedOutput()
+	if err == nil {
+		f.Version = string(repoVersion)
+	}
 
 	buildArguments := []string{"build"}
 	if shared {
