@@ -17,14 +17,12 @@ import (
 )
 
 type file struct {
-	Timestamp time.Time
-	Expiry    time.Duration
-	timer     *time.Timer `json:"-"`
-	Path      string
-	Goos      string
-	Goarch    string
-	FileType  string
-	Hits      int
+	Path     string
+	Goos     string
+	Goarch   string
+	FileType string
+	Hits     int
+	Version  string
 }
 
 const cacheDescriptionFile = "description.json"
@@ -93,9 +91,8 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, finger
 	}
 
 	f.Path = filepath.Join(cachePath, filename)
-	f.Timestamp = time.Now()
-	f.Expiry = expiry
 	f.FileType = "executable"
+	f.Version = internal.Version
 
 	buildArguments := []string{"build"}
 	if shared {
@@ -139,11 +136,6 @@ func Build(expiry time.Duration, goos, goarch, suppliedConnectBackAdress, finger
 		return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
 	}
 
-	if expiry > 0 {
-		f.timer = time.AfterFunc(f.Expiry, func() {
-			Delete(name)
-		})
-	}
 	cache[name] = f
 
 	os.Chmod(f.Path, 0600)
@@ -218,10 +210,6 @@ func Delete(key string) error {
 		return errors.New("Unable to find cache entry: " + key)
 	}
 
-	if cacheEntry.timer != nil {
-		cacheEntry.timer.Stop()
-	}
-
 	delete(cache, key)
 
 	writeCache()
@@ -293,14 +281,8 @@ func startBuildManager(cPath string) error {
 	if err == nil {
 		err = json.Unmarshal(contents, &cache)
 		if err == nil {
-			for id, v := range cache {
+			for id := range cache {
 				Autocomplete.Add(id)
-
-				if v.Expiry != 0 {
-					v.timer = time.AfterFunc(v.Expiry, func() {
-						Delete(id)
-					})
-				}
 			}
 		} else {
 			fmt.Println("Unable to load cache: ", err)

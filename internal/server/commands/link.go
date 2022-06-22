@@ -25,7 +25,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Type", "Hits", "Expires")
+		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Type", "Hits")
 
 		files, err := webserver.List(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
@@ -42,11 +42,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		for _, id := range ids {
 			file := files[id]
 
-			expiry := "N/A"
-			if file.Expiry != 0 {
-				expiry = file.Timestamp.Add(file.Expiry).String()
-			}
-			t.AddValues(id, file.Goos, file.Goarch, file.FileType, fmt.Sprintf("%d", file.Hits), expiry)
+			t.AddValues(id, file.Goos, file.Goarch, file.FileType, fmt.Sprintf("%d", file.Hits))
 		}
 
 		t.Fprint(tty)
