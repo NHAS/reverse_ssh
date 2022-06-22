@@ -131,6 +131,8 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 			atomic.AddInt32(&waitingConnections, 1)
 			go func(conn net.Conn) {
 
+				defer atomic.AddInt32(&waitingConnections, -1)
+
 				conn.SetDeadline(time.Now().Add(2 * time.Second))
 				l, prefix, err := m.determineProtocol(conn)
 				if err != nil {
@@ -150,7 +152,6 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 					conn.Close()
 				}
 
-				atomic.AddInt32(&waitingConnections, -1)
 			}(conn)
 
 		}
