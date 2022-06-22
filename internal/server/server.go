@@ -46,9 +46,14 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 
 func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress, configPath string, insecure, enabledWebserver bool) {
 
+	c := mux.MultiplexerConfig{
+		SSH:  true,
+		HTTP: enabledWebserver,
+	}
+
 	log.Println("Version: ", internal.Version)
 	var err error
-	multiplexer.ServerMultiplexer, err = mux.Listen("tcp", addr)
+	multiplexer.ServerMultiplexer, err = mux.ListenWithConfig("tcp", addr, c)
 	if err != nil {
 		log.Fatalf("Failed to listen on %s (%s)", addr, err)
 	}
