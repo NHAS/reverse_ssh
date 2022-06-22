@@ -218,6 +218,10 @@ func (t *Terminal) handleWindowSize() {
 	}()
 }
 
+func (t *Terminal) GetWidth() int {
+	return int(t.termWidth)
+}
+
 func (t *Terminal) AddValueAutoComplete(placement string, trie *trie.Trie) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()

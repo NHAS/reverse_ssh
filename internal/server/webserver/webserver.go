@@ -15,10 +15,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var defaultConnectBack string
-var defaultFingerPrint string
-var projectRoot string
-var webserverOn bool
+var (
+	defaultConnectBack string
+	defaultFingerPrint string
+	projectRoot        string
+	webserverOn        bool
+)
 
 func Start(webListener net.Listener, connectBackAddress, projRoot string, publicKey ssh.PublicKey) {
 	projectRoot = projRoot

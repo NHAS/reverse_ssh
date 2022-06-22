@@ -99,6 +99,18 @@ func (t *Table) Fprint(w io.Writer) {
 	}
 }
 
+func (t *Table) FprintWidth(w io.Writer, width int) {
+
+	lines := t.OutputStrings()
+
+	for _, line := range lines {
+		for i := 0; i < len(line) && i < width-1; i++ {
+			fmt.Fprintf(w, "%c", line[i])
+		}
+		fmt.Fprint(w, "\n")
+	}
+}
+
 func (t *Table) OutputStrings() (output []string) {
 
 	seperator := t.seperator()
