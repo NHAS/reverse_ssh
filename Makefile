@@ -31,7 +31,7 @@ client: .generate_keys
 
 client_dll: .generate_keys
 	test -n "$(RSSH_HOMESERVER)" # Shared objects cannot take arguments, so must have a callback server baked in (define RSSH_HOMESERVER)
-	CGO_ENABLED=1 go build -tags=cshared -buildmode=c-shared -ldflags="$(LDFLAGS_RELEASE) -X client.Version=${VERSION}" -o bin/client.dll ./cmd/client
+	CGO_ENABLED=1 go build -tags=cshared -buildmode=c-shared -ldflags="$(LDFLAGS_RELEASE)" -o bin/client.dll ./cmd/client
 
 server:
 	mkdir -p bin
