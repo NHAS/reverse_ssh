@@ -250,6 +250,8 @@ ssh -J your.rssh.server.com:3232 test-pc.user.test-pc -s service --install
 
 The client RSSH binary supports being run within a windows service and wont time out after 10 seconds. This is great for creating persistent management services. 
 
+
+
 ### Full Windows Shell Support
 
 Most reverse shells for windows struggle to generate a shell environment that supports resizing, copying and pasting and all the other features that we're all very fond of. 
@@ -280,6 +282,18 @@ Accept-Encoding: gzip
 {"Status":"connected","ID":"ae92b6535a30566cbae122ebb2a5e754dd58f0ca","IP":"[::1]:52608","HostName":"user.computer","Timestamp":"2022-06-12T12:23:40.626775318+12:00"}%  
 ```
 
+
+# Help
+
+## Windows and SFTP
+
+Due to the limitations of SFTP (or rather the library Im using for it). Paths need a little more effort on windows.
+
+```
+sftp -r -J your.rssh.server.com:3232 test-pc.user.test-pc:'/C:/Windows/system32'
+```
+
+Note the `/` before the starting character. 
 
 ## Foreground vs Background (Important note about clients)
 
