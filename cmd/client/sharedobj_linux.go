@@ -10,8 +10,6 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
-var isShared = true
-
 func init() {
 	syscall.Setsid()
 	signal.Ignore(syscall.SIGHUP)

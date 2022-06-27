@@ -2,10 +2,12 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -16,14 +18,19 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func readPubKeys(path string) (m map[string]bool, err error) {
+type Options struct {
+	AllowList []*net.IPNet
+	DenyList  []*net.IPNet
+}
+
+func readPubKeys(path string) (m map[string]Options, err error) {
 	authorizedKeysBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return m, fmt.Errorf("failed to load file %s, err: %v", path, err)
 	}
 
 	keys := bytes.Split(authorizedKeysBytes, []byte("\n"))
-	m = map[string]bool{}
+	m = map[string]Options{}
 
 	for i, key := range keys {
 		key = bytes.TrimSpace(key)
@@ -31,12 +38,97 @@ func readPubKeys(path string) (m map[string]bool, err error) {
 			continue
 		}
 
-		pubKey, _, _, _, err := ssh.ParseAuthorizedKey(key)
+		pubKey, _, options, _, err := ssh.ParseAuthorizedKey(key)
 		if err != nil {
 			return m, fmt.Errorf("unable to parse public key. %s line %d. Reason: %s", path, i+1, err)
 		}
 
-		m[string(pubKey.Marshal())] = true
+		var opts Options
+		for _, o := range options {
+			parts := strings.Split(o, "=")
+			if len(parts) == 2 && parts[0] == "from" {
+				list := strings.Trim(parts[1], "\"")
+
+				directives := strings.Split(list, ",")
+				for _, directive := range directives {
+					if len(directive) > 0 {
+						switch directive[0] {
+						case '!':
+							directive = directive[1:]
+							newDenys, err := ParseDirective(directive)
+							if err != nil {
+								log.Println("Unable to add !", directive, " to denylist: ", err)
+								continue
+							}
+							opts.DenyList = append(opts.DenyList, newDenys...)
+						default:
+							newAllowOnlys, err := ParseDirective(directive)
+							if err != nil {
+								log.Println("Unable to add ", directive, " to allowlist: ", err)
+								continue
+							}
+
+							opts.AllowList = append(opts.AllowList, newAllowOnlys...)
+
+						}
+					}
+				}
+			}
+		}
+
+		m[string(pubKey.Marshal())] = opts
+	}
+
+	return
+}
+
+func ParseDirective(address string) (cidr []*net.IPNet, err error) {
+	if len(address) > 0 && address[0] == '*' {
+		_, all, _ := net.ParseCIDR("0.0.0.0/0")
+		_, allv6, _ := net.ParseCIDR("::/0")
+		cidr = append(cidr, all, allv6)
+		return
+	}
+
+	_, mask, err := net.ParseCIDR(address)
+	if err == nil {
+		cidr = append(cidr, mask)
+		return
+	}
+
+	ip := net.ParseIP(address)
+	if ip == nil {
+		var newcidr net.IPNet
+		newcidr.IP = ip
+		newcidr.Mask = net.CIDRMask(32, 32)
+
+		if ip.To4() == nil {
+			newcidr.Mask = net.CIDRMask(128, 128)
+		}
+
+		cidr = append(cidr, &newcidr)
+		return
+	}
+
+	addresses, err := net.LookupIP(address)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, address := range addresses {
+		var newcidr net.IPNet
+		newcidr.IP = address
+		newcidr.Mask = net.CIDRMask(32, 32)
+
+		if address.To4() == nil {
+			newcidr.Mask = net.CIDRMask(128, 128)
+		}
+
+		cidr = append(cidr, &newcidr)
+	}
+
+	if len(addresses) == 0 {
+		return nil, errors.New("Unable to find domains for " + address)
 	}
 
 	return
@@ -85,11 +177,36 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 
 			var clientType string
 
+			remoteIp := getIP(conn.RemoteAddr().String())
+
+			if remoteIp == nil {
+				return nil, fmt.Errorf("not authorized %q, could not parse IP address %s", conn.User(), remoteIp)
+			}
+
 			//If insecure mode, then any unknown client will be connected as a controllable client.
 			//The server effectively ignores channel requests from controllable clients.
-			if authorizedKeysMap[string(key.Marshal())] {
+			if opt, ok := authorizedKeysMap[string(key.Marshal())]; ok {
 				clientType = "user"
-			} else if insecure || authorizedControllees[string(key.Marshal())] {
+
+				for _, deny := range opt.DenyList {
+					if deny.Contains(remoteIp) {
+						return nil, fmt.Errorf("not authorized %q (deny list)", conn.User())
+					}
+				}
+
+				safe := false || len(opt.AllowList) == 0
+				for _, allow := range opt.AllowList {
+					if allow.Contains(remoteIp) {
+						safe = true
+						break
+					}
+				}
+
+				if !safe {
+					return nil, fmt.Errorf("not authorized %q (not on allow list)", conn.User())
+				}
+
+			} else if _, ok := authorizedControllees[string(key.Marshal())]; insecure || ok {
 				clientType = "client"
 			} else {
 				return nil, fmt.Errorf("not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
@@ -119,6 +236,16 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 
 		go acceptConn(tcpConn, config)
 	}
+}
+
+func getIP(ip string) net.IP {
+	for i := len(ip) - 1; i > 0; i-- {
+		if ip[i] == ':' {
+			return net.ParseIP(strings.Trim(strings.Trim(ip[:i], "]"), "["))
+		}
+	}
+
+	return nil
 }
 
 func acceptConn(c net.Conn, config *ssh.ServerConfig) {
