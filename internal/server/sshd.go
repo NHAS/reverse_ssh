@@ -194,7 +194,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 					}
 				}
 
-				safe := false || len(opt.AllowList) == 0
+				safe := len(opt.AllowList) == 0
 				for _, allow := range opt.AllowList {
 					if allow.Contains(remoteIp) {
 						safe = true
