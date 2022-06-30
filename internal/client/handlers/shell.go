@@ -32,7 +32,7 @@ func init() {
 			if len(line) > 0 && line[0] == '#' || strings.TrimSpace(line) == "" {
 				continue
 			}
-			shells = append(shells, strings.TrimSpace(line))
+			potentialShells = append(potentialShells, strings.TrimSpace(line))
 		}
 	} else {
 		//If the host did not have a /etc/shells, guess a few common shells
