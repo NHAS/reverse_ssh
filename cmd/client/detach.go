@@ -143,8 +143,6 @@ func fork(path string) error {
 	cmd := exec.Command(path)
 	cmd.Args = boringProcessArgv
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 
 	err = cmd.Start()
 
