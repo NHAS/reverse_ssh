@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"strings"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -130,6 +131,13 @@ func Run(addr, fingerprint, proxyAddr string) {
 		log.Println("Connecting to ", addr)
 		conn, err := Connect(addr, proxyAddr, config.Timeout)
 		if err != nil {
+
+			errMsg := err.Error()
+			switch {
+			case strings.Contains(errMsg, "no such host"), strings.Contains(errMsg, "missing port in address"):
+				log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", addr, errMsg)
+			}
+
 			log.Printf("Unable to connect TCP: %s\n", err)
 			<-time.After(10 * time.Second)
 			continue
