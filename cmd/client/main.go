@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -33,16 +32,6 @@ func main() {
 
 	var argv = strings.Join(os.Args, " ")
 
-	//If we have a fd, it is a pipe which we can read options from and act if we are forked
-	o := os.NewFile(uintptr(3), "pipe")
-	orginialArgv, err := io.ReadAll(o)
-	child := false
-	if err == nil && len(orginialArgv) > 0 {
-		argv = string(orginialArgv)
-		child = true
-	}
-	o.Close()
-
 	line := terminal.ParseLine(argv, 0)
 
 	if line.IsSet("h") || line.IsSet("help") {
@@ -60,7 +49,7 @@ func main() {
 		destination = line.Arguments[len(line.Arguments)-1].Value()
 	}
 
-	fg := line.IsSet("foreground") || child
+	fg := line.IsSet("foreground")
 
 	proxyaddress, _ := line.GetArgString("proxy")
 
