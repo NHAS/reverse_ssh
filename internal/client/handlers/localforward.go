@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -21,14 +22,17 @@ func LocalForward(_ *internal.User, newChannel ssh.NewChannel, l logger.Logger) 
 		return
 	}
 
+	d := net.Dialer{Timeout: 5 * time.Second}
 	dest := fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport)
-	tcpConn, err := net.Dial("tcp", dest)
+	tcpConn, err := d.Dial("tcp", dest)
 	if err != nil {
 		l.Warning("Unable to dial destination: %s", err)
 		newChannel.Reject(ssh.ConnectionFailed, "Unable to connect to "+dest)
 		return
 	}
 	defer tcpConn.Close()
+
+	d.Timeout = 0
 
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
