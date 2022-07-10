@@ -228,15 +228,15 @@ The SSH ecosystem allowsy out define and call subsystems with the `-s` flag. In 
 
 
 #### All
-`list`  Lists avaiable subsystem
-`sftp`: Runs the sftp handler to transfer files
+`list`  Lists avaiable subsystem  
+`sftp`: Runs the sftp handler to transfer files  
 
 #### Linux
-`setgid`:   Attempt to change group
-`setuid`:   Attempt to change user
+`setgid`:   Attempt to change group  
+`setuid`:   Attempt to change user  
 
 #### Windows
-`service`: Installs or removes the rssh binary as a windows service, requires administrative rights
+`service`: Installs or removes the rssh binary as a windows service, requires administrative rights  
 
 
 e.g
