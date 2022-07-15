@@ -1,22 +1,20 @@
 module github.com/NHAS/reverse_ssh
 
-go 1.17
+go 1.18
 
 require (
 	github.com/ActiveState/termtest/conpty v0.5.0
-	github.com/creack/pty v1.1.17
-	github.com/pkg/sftp v1.13.4
-	github.com/shirou/gopsutil v3.21.11+incompatible
-	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	github.com/creack/pty v1.1.18
+	github.com/pkg/sftp v1.13.5
+	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
+	golang.org/x/sys v0.0.0-20220712014510-0a85c31ab51e
+	gvisor.dev/gvisor v0.0.0-20220714043431-1868ba74ac26
 )
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
-	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/google/btree v1.0.1 // indirect
 	github.com/kr/fs v0.1.0 // indirect
-	github.com/stretchr/testify v1.7.1 // indirect
-	github.com/tklauser/go-sysconf v0.3.10 // indirect
-	github.com/tklauser/numcpus v0.4.0 // indirect
-	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 )

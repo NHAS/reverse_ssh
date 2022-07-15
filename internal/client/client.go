@@ -179,6 +179,9 @@ func Run(addr, fingerprint, proxyAddr string) {
 			log.Fatal(err)
 		}
 
+		//Do not register new client callbacks here, they are actually within the JumpHandler
+		//session is handled here as a legacy hangerover from allowing a client who has directly connected to the servers console to run the connect command
+		//Otherwise anything else should be done via jumphost syntax -J
 		err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
 			"session": handlers.Session,
 			"jump":    handlers.JumpHandler(sshPriv),
