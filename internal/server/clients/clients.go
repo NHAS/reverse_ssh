@@ -80,6 +80,8 @@ func GetAll() map[string][]string {
 }
 
 func Search(filter string) (out map[string]*ssh.ServerConn, err error) {
+
+	filter = filter + "*"
 	_, err = filepath.Match(filter, "")
 	if err != nil {
 		return nil, fmt.Errorf("Filter is not well formed")
@@ -118,6 +120,7 @@ outer:
 		}
 
 	}
+
 	return
 }
 
