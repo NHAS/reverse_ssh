@@ -24,7 +24,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "Url", "Homeserver", "GOOS", "GOARCH", "Version", "Type", "Hits")
+		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "GOOS", "GOARCH", "Version", "Type", "Hits")
 
 		files, err := webserver.List(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
