@@ -32,9 +32,24 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return fmt.Errorf(c.Help(false))
 	}
 
-	target, err := clients.Get(line.Arguments[0].Value())
+	foundClients, err := clients.Search(line.Arguments[0].Value())
 	if err != nil {
 		return err
+	}
+
+	if len(foundClients) == 0 {
+		return fmt.Errorf("No clients matched '%s'", line.Arguments[0].Value())
+	}
+
+	if len(foundClients) > 1 {
+		return fmt.Errorf("'%s' matches multiple clients please choose a more specific identifier", line.Arguments[0].Value())
+	}
+
+	var target ssh.Conn
+	//Horrible way of getting the first element of a map in go
+	for k := range foundClients {
+		target = foundClients[k]
+		break
 	}
 
 	defer func() {
