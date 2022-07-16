@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	defaultConnectBack string
+	DefaultConnectBack string
 	defaultFingerPrint string
 	projectRoot        string
 	webserverOn        bool
@@ -24,7 +24,7 @@ var (
 
 func Start(webListener net.Listener, connectBackAddress, projRoot string, publicKey ssh.PublicKey) {
 	projectRoot = projRoot
-	defaultConnectBack = connectBackAddress
+	DefaultConnectBack = connectBackAddress
 	defaultFingerPrint = internal.FingerprintSHA256Hex(publicKey)
 
 	err := startBuildManager("./cache")
@@ -68,7 +68,7 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 
 		if linkExtension != "" {
 
-			host, port := getHostnameAndPort(defaultConnectBack)
+			host, port := getHostnameAndPort(DefaultConnectBack)
 
 			output, err := shellscripts.MakeTemplate(shellscripts.Args{
 				OS:       f.Goos,

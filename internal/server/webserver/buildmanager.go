@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,12 +17,13 @@ import (
 )
 
 type file struct {
-	Path     string
-	Goos     string
-	Goarch   string
-	FileType string
-	Hits     int
-	Version  string
+	CallbackAddress string
+	Path            string
+	Goos            string
+	Goarch          string
+	FileType        string
+	Hits            int
+	Version         string
 }
 
 const cacheDescriptionFile = "description.json"
@@ -51,7 +53,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 	}
 
 	if len(suppliedConnectBackAdress) == 0 {
-		suppliedConnectBackAdress = defaultConnectBack
+		suppliedConnectBackAdress = DefaultConnectBack
 	}
 
 	if len(fingerprint) == 0 {
@@ -62,6 +64,8 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 	defer c.Unlock()
 
 	var f file
+
+	f.CallbackAddress = suppliedConnectBackAdress
 
 	filename, err := internal.RandomString(16)
 	if err != nil {
@@ -289,10 +293,10 @@ func startBuildManager(cPath string) error {
 				Autocomplete.Add(id)
 			}
 		} else {
-			fmt.Println("Unable to load cache: ", err)
+			log.Println("Unable to load cache: ", err)
 		}
 	} else {
-		fmt.Println("Unable to load cache: ", err)
+		log.Println("Unable to load cache: ", err)
 	}
 
 	cachePath = cPath

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"sort"
 	"strings"
 
@@ -23,7 +24,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "ID", "GOOS", "GOARCH", "Version", "Type", "Hits")
+		t, _ := table.NewTable("Active Files", "Url", "Homeserver", "GOOS", "GOARCH", "Version", "Type", "Hits")
 
 		files, err := webserver.List(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
@@ -40,7 +41,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		for _, id := range ids {
 			file := files[id]
 
-			t.AddValues(id, file.Goos, file.Goarch, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits))
+			t.AddValues("http://"+path.Join(webserver.DefaultConnectBack, id), file.CallbackAddress, file.Goos, file.Goarch, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits))
 		}
 
 		t.Fprint(tty)
