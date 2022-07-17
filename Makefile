@@ -1,6 +1,3 @@
-ADDR=localhost:2200
-
-
 ifdef RSSH_HOMESERVER
 	LDFLAGS += -X main.destination=$(RSSH_HOMESERVER)
 endif
@@ -11,6 +8,10 @@ endif
 
 ifdef IGNORE
 	LDFLAGS += -X main.ignoreInput=$(IGNORE)
+endif
+
+ifndef CGO_ENABLED
+	export CGO_ENABLED=0
 endif
 
 
@@ -40,7 +41,7 @@ server:
 .generate_keys:
 	mkdir -p bin
 # Supress errors if user doesn't overwrite existing key
-	ssh-keygen -t ed25519 -N '' -f internal/client/keys/private_key || true
+	ssh-keygen -t ed25519 -N '' -C '' -f internal/client/keys/private_key || true
 # Avoid duplicate entries
 	touch bin/authorized_controllee_keys
 	@grep -q "$$(cat internal/client/keys/private_key.pub)" bin/authorized_controllee_keys || cat internal/client/keys/private_key.pub >> bin/authorized_controllee_keys
