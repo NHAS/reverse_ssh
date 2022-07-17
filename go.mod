@@ -9,11 +9,11 @@ require (
 	github.com/pkg/sftp v1.13.4
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	github.com/go-ping/ping v1.1.0
 )
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
-	github.com/go-ping/ping v1.1.0 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
