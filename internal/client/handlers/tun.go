@@ -33,6 +33,12 @@ import (
 
 func Tun(_ *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
 
+	defer func() {
+		if r := recover(); r != nil {
+			l.Error("Recovered panic from tun driver %v", r)
+		}
+	}()
+
 	var tunInfo struct {
 		Mode uint32
 		No   uint32
@@ -379,13 +385,8 @@ func icmpResponder(s *stack.Stack) error {
 					_, err := rawProto.Read(&buff, tcpip.ReadOptions{})
 
 					if err != nil {
-						if _, ok := err.(*tcpip.ErrWouldBlock); ok {
-							// Oh, a race condition?
-							continue
-						} else {
-							// This is bad.
-							panic(err)
-						}
+
+						continue
 					}
 
 					iph := header.IPv4(buff.Bytes())
