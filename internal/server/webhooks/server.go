@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"path"
 	"sort"
 	"sync"
 	"time"
@@ -19,6 +18,7 @@ import (
 	"net/url"
 
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
+	"github.com/NHAS/reverse_ssh/pkg/observer"
 )
 
 var m sync.RWMutex
@@ -48,21 +48,32 @@ func StartWebhooks(config string) {
 		log.Fatal(err)
 	}
 
-	messages := make(chan interface{})
+	messages := make(chan observer.Message)
 
-	observers.ConnectionState.Register(func(message interface{}) {
+	observers.ConnectionState.Register(func(message observer.Message) {
 		messages <- message
 	})
 
 	go func() {
 		for msg := range messages {
 
-			go func(msg interface{}) {
-				data, err := json.Marshal(msg)
+			go func(msg observer.Message) {
+
+				fullBytes, err := msg.Json()
 				if err != nil {
-					log.Println("Invalid websocket message: ", err)
+					log.Println("Bad webhook message: ", err)
 					return
 				}
+
+				wrapper := struct {
+					Full string
+					Text string `json:"text"`
+				}{
+					Full: string(fullBytes),
+					Text: msg.Summary(),
+				}
+
+				data, _ := json.Marshal(wrapper)
 
 				m.RLock()
 				for r, tlsCheck := range recipients {
@@ -107,8 +118,6 @@ func Add(newUrl string, checkTLS bool) (string, error) {
 	if len(addresses) == 0 {
 		return "", fmt.Errorf("No addresses found for '%s': %s", u.Hostname(), err)
 	}
-
-	u.Path = path.Join(u.Path, "rssh_webhook")
 
 	m.Lock()
 	recipients[u.String()] = checkTLS

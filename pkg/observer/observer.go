@@ -23,7 +23,7 @@ type observer struct {
 	typeName string
 }
 
-type Target func(message interface{})
+type Target func(message Message)
 
 func (o *observer) Register(t Target) (id string) {
 	o.Lock()
@@ -43,23 +43,24 @@ func (o *observer) Deregister(id string) {
 	delete(o.clients, id)
 }
 
-func (o *observer) Notify(message interface{}) {
+func (o *observer) Notify(message Message) {
 	o.RLock()
 	defer o.RUnlock()
-
-	if fmt.Sprintf("%T", message) != o.typeName {
-		panic("Message had type: " + fmt.Sprintf("%T", message) + " but this observer only takes: " + o.typeName)
-	}
 
 	for i := range o.clients {
 		go o.clients[i](message)
 	}
 }
 
-func New(msgType interface{}) observer {
+func New(msgType Message) observer {
 
 	return observer{
 		clients:  make(map[string]Target),
 		typeName: fmt.Sprintf("%T", msgType),
 	}
+}
+
+type Message interface {
+	Json() ([]byte, error)
+	Summary() string
 }
