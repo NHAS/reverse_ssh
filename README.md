@@ -185,6 +185,7 @@ This requires the web server component has been enabled.
 	--name	Set link name
 	--shared-object	Generate shared object file
     --fingerprint Set RSSH server fingerprint will default to server public key
+    --upx   Use upx to compress the final binary (requires upx to be installed)
 
 # Build a client binary
 catcher$ link --name test
