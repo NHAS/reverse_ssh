@@ -104,7 +104,9 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"))
+	useUpx := line.IsSet("upx")
+
+	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"), useUpx)
 	if err != nil {
 		return err
 	}
@@ -142,6 +144,7 @@ func (e *link) Help(explain bool) string {
 		"\t--name\tSet link name",
 		"\t--shared-object\tGenerate shared object file",
 		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
+		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
 	)
 }
 

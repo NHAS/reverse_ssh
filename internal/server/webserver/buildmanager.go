@@ -39,9 +39,9 @@ var (
 	cachePath string
 )
 
-func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared bool) (string, error) {
+func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared, upx bool) (string, error) {
 	if !webserverOn {
-		return "", fmt.Errorf("Web server is not enabled.")
+		return "", fmt.Errorf("web server is not enabled.")
 	}
 
 	if len(goarch) != 0 && !validArchs[goarch] {
@@ -58,6 +58,13 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 
 	if len(fingerprint) == 0 {
 		fingerprint = defaultFingerPrint
+	}
+
+	if upx {
+		_, err := exec.LookPath("upx")
+		if err != nil {
+			return "", errors.New("upx could not be found in PATH")
+		}
 	}
 
 	c.Lock()
@@ -80,7 +87,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 	}
 
 	if _, ok := cache[name]; ok {
-		return "", errors.New("This link name is already in use")
+		return "", errors.New("this link name is already in use")
 	}
 
 	f.Goos = runtime.GOOS
@@ -146,6 +153,13 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 
 	cache[name] = f
 
+	if upx {
+		output, err := exec.Command("upx", "-qq", "-f", f.Path).CombinedOutput()
+		if err != nil {
+			return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
+		}
+	}
+
 	os.Chmod(f.Path, 0600)
 
 	Autocomplete.Add(name)
@@ -174,7 +188,7 @@ func Get(key string) (file, error) {
 func List(filter string) (matchingFiles map[string]file, err error) {
 	_, err = filepath.Match(filter, "")
 	if err != nil {
-		return nil, fmt.Errorf("Filter is not well formed")
+		return nil, fmt.Errorf("filter is not well formed")
 	}
 
 	matchingFiles = make(map[string]file)
@@ -243,13 +257,13 @@ func startBuildManager(cPath string) error {
 	clientSource := filepath.Join(projectRoot, "/cmd/client")
 	info, err := os.Stat(clientSource)
 	if err != nil || !info.IsDir() {
-		return fmt.Errorf("The server doesnt appear to be in {project_root}/bin, please put it there.")
+		return fmt.Errorf("the server doesnt appear to be in {project_root}/bin, please put it there")
 	}
 
 	cmd := exec.Command("go", "tool", "dist", "list")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Unable to run the go compiler to get a list of compilation targets: %s", err)
+		return fmt.Errorf("unable to run the go compiler to get a list of compilation targets: %s", err)
 	}
 
 	platformAndArch := bytes.Split(output, []byte("\n"))
