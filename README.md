@@ -292,7 +292,7 @@ It does take a bit more setup than just a local or remote forward (`-L`, `-R`), 
 First set up a tun (layer 3) device on your local machine. 
 ```
 sudo ip tuntap add dev tun0 mode tun
-sudo ip addr add 172.16.0.1/24 dev tun1
+sudo ip addr add 172.16.0.1/24 dev tun0
 sudo ip link set dev tun0 up
 
 # This will defaultly route all non-local network traffic through the tunnel
