@@ -94,7 +94,7 @@ func (w *webhook) Help(explain bool) string {
 
 	return terminal.MakeHelpText(
 		"webhook [OPTIONS]",
-		"Watch shows joining and leaving of clients",
+		"Allows you to set webhooks which currently show the joining and leaving of clients",
 		"\t--on\tTurns on webhook/s, must supply output as url",
 		"\t--off\tTurns off existing webhook url",
 		"\t--insecure\tDisable TLS certificate checking",
