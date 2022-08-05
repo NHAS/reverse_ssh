@@ -127,6 +127,6 @@ func main() {
 
 	}
 
-	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, configPath, insecure)
+	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, configPath, insecure, webserver)
 
 }
