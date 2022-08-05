@@ -76,7 +76,7 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 			}
 		}
 
-		m[string(pubKey.Marshal())] = opts
+		m[string(ssh.MarshalAuthorizedKey(pubKey))] = opts
 	}
 
 	return
@@ -153,7 +153,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 
 	for key := range clients {
 		if _, ok := authorizedControllers[key]; ok {
-			log.Fatalf("[ERROR] Key %s is present in both authorized_controllee_keys and authorized_keys. It should only be in one.", key)
+			log.Fatalf("[ERROR] Key %s is present in both authorized_controllee_keys and authorized_keys. It should only be in one.", strings.TrimSpace(key))
 		}
 	}
 
@@ -185,7 +185,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 
 			//If insecure mode, then any unknown client will be connected as a controllable client.
 			//The server effectively ignores channel requests from controllable clients.
-			if opt, ok := authorizedKeysMap[string(key.Marshal())]; ok {
+			if opt, ok := authorizedKeysMap[string(ssh.MarshalAuthorizedKey(key))]; ok {
 				clientType = "user"
 
 				for _, deny := range opt.DenyList {
@@ -206,7 +206,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 					return nil, fmt.Errorf("not authorized %q (not on allow list)", conn.User())
 				}
 
-			} else if _, ok := authorizedControllees[string(key.Marshal())]; insecure || ok {
+			} else if _, ok := authorizedControllees[string(ssh.MarshalAuthorizedKey(key))]; insecure || ok {
 				clientType = "client"
 			} else {
 				return nil, fmt.Errorf("not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
