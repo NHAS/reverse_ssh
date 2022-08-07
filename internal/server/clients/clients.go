@@ -12,15 +12,16 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var lock sync.RWMutex
-var clients = map[string]*ssh.ServerConn{}
+var (
+	lock                 sync.RWMutex
+	clients              = map[string]*ssh.ServerConn{}
+	uniqueIdToAllAliases = map[string][]string{}
+	aliases              = map[string]map[string]bool{}
 
-var Autocomplete = trie.NewTrie()
+	Autocomplete = trie.NewTrie()
 
-var usernameRegex = regexp.MustCompile(`[^\w-]`)
-
-var uniqueIdToAllAliases = map[string][]string{}
-var aliases = map[string]map[string]bool{}
+	usernameRegex = regexp.MustCompile(`[^\w-]`)
+)
 
 func NormaliseHostname(hostname string) string {
 	hostname = strings.ToLower(hostname)
@@ -66,25 +67,12 @@ func Add(conn *ssh.ServerConn) (string, string, error) {
 
 }
 
-func GetAll() map[string][]string {
-	lock.RLock()
-	defer lock.RUnlock()
-
-	out := map[string][]string{}
-
-	for id := range uniqueIdToAllAliases {
-		out[id] = uniqueIdToAllAliases[id]
-	}
-
-	return out
-}
-
 func Search(filter string) (out map[string]*ssh.ServerConn, err error) {
 
 	filter = filter + "*"
 	_, err = filepath.Match(filter, "")
 	if err != nil {
-		return nil, fmt.Errorf("Filter is not well formed")
+		return nil, fmt.Errorf("filter is not well formed")
 	}
 
 	out = make(map[string]*ssh.ServerConn)
@@ -154,7 +142,7 @@ func Get(identifier string) (ssh.Conn, error) {
 
 	}
 
-	return nil, fmt.Errorf("%s Not found.", identifier)
+	return nil, fmt.Errorf("%s not found", identifier)
 }
 
 func Remove(uniqueId string) {
