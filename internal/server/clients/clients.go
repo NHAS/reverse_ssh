@@ -42,19 +42,9 @@ func Add(conn *ssh.ServerConn) (string, string, error) {
 
 	username := NormaliseHostname(conn.User())
 
-	if _, ok := aliases[username]; !ok {
-		aliases[username] = make(map[string]bool)
-	}
-
-	uniqueIdToAllAliases[idString] = append(uniqueIdToAllAliases[idString], username)
-	aliases[username][idString] = true
-
-	if _, ok := aliases[conn.RemoteAddr().String()]; !ok {
-		aliases[conn.RemoteAddr().String()] = make(map[string]bool)
-	}
-
-	uniqueIdToAllAliases[idString] = append(uniqueIdToAllAliases[idString], conn.RemoteAddr().String())
-	aliases[conn.RemoteAddr().String()][idString] = true
+	addAlias(idString, username)
+	addAlias(idString, conn.RemoteAddr().String())
+	addAlias(idString, conn.Permissions.Extensions["pubkey-fp"])
 
 	clients[idString] = conn
 
@@ -65,6 +55,15 @@ func Add(conn *ssh.ServerConn) (string, string, error) {
 
 	return idString, username, nil
 
+}
+
+func addAlias(uniqueId, newAlias string) {
+	if _, ok := aliases[newAlias]; !ok {
+		aliases[newAlias] = make(map[string]bool)
+	}
+
+	uniqueIdToAllAliases[uniqueId] = append(uniqueIdToAllAliases[uniqueId], newAlias)
+	aliases[newAlias][uniqueId] = true
 }
 
 func Search(filter string) (out map[string]*ssh.ServerConn, err error) {

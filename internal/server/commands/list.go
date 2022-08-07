@@ -17,15 +17,15 @@ type list struct {
 }
 
 type displayItem struct {
-	sc ssh.Conn
+	sc ssh.ServerConn
 	id string
 }
 
 func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 
-	t, _ := table.NewTable("Targets", "ID", "Hostname", "IP Address", "Version")
+	t, _ := table.NewTable("Targets", "ID", "Public Key Hash", "Hostname", "IP Address", "Version")
 	for _, a := range applicable {
-		t.AddValues(a.id, clients.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String(), string(a.sc.ClientVersion()))
+		t.AddValues(a.id, a.sc.Permissions.Extensions["pubkey-fp"], clients.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String(), string(a.sc.ClientVersion()))
 	}
 
 	t.Fprint(tty)
@@ -71,7 +71,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	sort.Strings(ids)
 
 	for _, id := range ids {
-		toReturn = append(toReturn, displayItem{id: id, sc: matchingClients[id]})
+		toReturn = append(toReturn, displayItem{id: id, sc: *matchingClients[id]})
 	}
 
 	if line.IsSet("t") {
@@ -83,7 +83,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	for i, tr := range toReturn {
 
-		fmt.Fprintf(tty, "%s %s %s, version: %s", tr.id, clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion())
+		fmt.Fprintf(tty, "%s %s %s %s, version: %s", tr.id, tr.sc.Permissions.Extensions["pubkey-fp"], clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion())
 
 		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)
@@ -109,7 +109,7 @@ func (l *list) Help(explain bool) string {
 
 	return terminal.MakeHelpText(
 		"ls [OPTION] [FILTER]",
-		"Filter uses glob matching against all attributes of a target (hostname, ip, id)",
+		"Filter uses glob matching against all attributes of a target (id, public key hash, hostname, ip)",
 		"\t-t\tPrint all attributes in pretty table",
 		"\t-h\tPrint help",
 	)
