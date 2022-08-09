@@ -18,7 +18,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-//The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
+// The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
 func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
 	if user.Pty == nil {
@@ -64,9 +64,17 @@ func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Lo
 	}
 	defer cpty.Close()
 
+	path, err := exec.LookPath("powershell.exe")
+	if err != nil {
+		path, err = exec.LookPath("cmd.exe")
+		if err != nil {
+			path = "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+		}
+	}
+
 	// Spawn and catch new powershell process
 	pid, _, err := cpty.Spawn(
-		"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+		path,
 		[]string{},
 		&syscall.ProcAttr{
 			Env: os.Environ(),
