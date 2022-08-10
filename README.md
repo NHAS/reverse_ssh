@@ -35,6 +35,26 @@ And more!
                                                        +---------+
 ```
 
+- [Reverse SSH](#reverse-ssh)
+  - [TL;DR](#tldr)
+  - [Setup Instructions](#setup-instructions)
+  - [Fancy Features](#fancy-features)
+    - [Default Server](#default-server)
+    - [Built in Web Server](#built-in-web-server)
+    - [Windows DLL Generation](#windows-dll-generation)
+    - [SSH Subsystem](#ssh-subsystem)
+      - [All](#all)
+      - [Linux](#linux)
+      - [Windows](#windows)
+    - [Windows Service Integration](#windows-service-integration)
+    - [Full Windows Shell Support](#full-windows-shell-support)
+    - [Webhooks](#webhooks)
+    - [Tuntap](#tuntap)
+- [Help](#help)
+  - [Permission denied (publickey).](#permission-denied-publickey)
+  - [Windows and SFTP](#windows-and-sftp)
+  - [Foreground vs Background (Important note about clients)](#foreground-vs-background-important-note-about-clients)
+
 ## TL;DR
 
 ```sh
@@ -309,6 +329,18 @@ This has some limitations, it is only able to send UDP/TCP/ICMP, and not arbitra
 This also does not support `tap` devices, e.g layer 2 VPN, as this would require administrative access.
 
 # Help
+
+## Permission denied (publickey).
+Unfortunately the golang `crypto/ssh` upstream library does not support `rsa-sha2-*` algorithms, and work is currently ongoing here:
+
+https://github.com/golang/go/issues/49952
+
+So until that work is completed, you will have to generate a different (non-rsa) key. I recommend the following: 
+
+```
+ssh-keygen -t ed25519
+```
+
 
 ## Windows and SFTP
 
