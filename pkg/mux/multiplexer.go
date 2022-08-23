@@ -2,6 +2,7 @@ package mux
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"log"
 	"net"
@@ -33,7 +34,11 @@ func (m *Multiplexer) StartListener(network, address string) error {
 		return errors.New("Address " + address + " already listening")
 	}
 
-	listener, err := net.Listen(network, address)
+	lc := net.ListenConfig{
+		KeepAlive: 2 * time.Hour,
+	}
+
+	listener, err := lc.Listen(context.Background(), network, address)
 	if err != nil {
 		return err
 	}
