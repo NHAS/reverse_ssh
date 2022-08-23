@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -26,6 +27,7 @@ func printHelp() {
 	fmt.Println("  Network")
 	fmt.Println("\t--webserver\tEnable webserver on the listen_address port")
 	fmt.Println("\t--external_address\tIf the external IP and port of the RSSH server is different from the listening address, set that here")
+	fmt.Println("\t--timeout\tSet rssh client timeout (when a client is considered disconnected) defaults, in seconds, defaults to 5, if set to 0 timeout is disabled")
 	fmt.Println("  Utility")
 	fmt.Println("\t--fingerprint\tPrint fingerprint and exit. (Will generate server key if none exists)")
 }
@@ -42,6 +44,7 @@ func main() {
 		"config":           true,
 		"h":                true,
 		"help":             true,
+		"timeout":          true,
 	})
 
 	if err != nil {
@@ -88,6 +91,26 @@ func main() {
 		authorizedKeysPath = "authorized_keys"
 	}
 
+	var timeout int = 5
+	if timeoutString, err := options.GetArgString("timeout"); err == nil {
+		timeout, err = strconv.Atoi(timeoutString)
+		if err != nil {
+			fmt.Printf("Unable to convert '%s' to int\n", timeoutString)
+			printHelp()
+			return
+		}
+
+		if timeout < 0 {
+			fmt.Printf("Timeout cannot be below 0 (I cant believe I have to say that)\n")
+			printHelp()
+			return
+		}
+
+		if timeout == 0 {
+			log.Println("Timeout/keepalives disabled, this may cause issues if you are connected to a client and it disconnects")
+		}
+	}
+
 	insecure := options.IsSet("insecure")
 
 	webserver := options.IsSet("webserver")
@@ -127,6 +150,6 @@ func main() {
 
 	}
 
-	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, configPath, insecure, webserver)
+	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, configPath, insecure, webserver, timeout)
 
 }

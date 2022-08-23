@@ -44,7 +44,7 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 	return private, nil
 }
 
-func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress, configPath string, insecure, enabledWebserver bool) {
+func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress, configPath string, insecure, enabledWebserver bool, timeout int) {
 
 	c := mux.MultiplexerConfig{
 		SSH:  true,
@@ -85,6 +85,6 @@ func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress,
 
 	go webhooks.StartWebhooks(configPath)
 
-	StartSSHServer(multiplexer.ServerMultiplexer.SSH(), private, insecure, authorizedKeys)
+	StartSSHServer(multiplexer.ServerMultiplexer.SSH(), private, insecure, authorizedKeys, timeout)
 
 }
