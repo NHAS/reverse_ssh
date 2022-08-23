@@ -14,8 +14,9 @@ import (
 )
 
 type MultiplexerConfig struct {
-	SSH  bool
-	HTTP bool
+	SSH          bool
+	HTTP         bool
+	TcpKeepAlive int
 }
 
 type Multiplexer struct {
@@ -24,6 +25,8 @@ type Multiplexer struct {
 	done           bool
 	listeners      map[string]net.Listener
 	newConnections chan net.Conn
+
+	config MultiplexerConfig
 }
 
 func (m *Multiplexer) StartListener(network, address string) error {
@@ -34,8 +37,12 @@ func (m *Multiplexer) StartListener(network, address string) error {
 		return errors.New("Address " + address + " already listening")
 	}
 
+	d := time.Duration(time.Duration(m.config.TcpKeepAlive) * time.Second)
+	if m.config.TcpKeepAlive == 0 {
+		d = time.Duration(-1)
+	}
 	lc := net.ListenConfig{
-		KeepAlive: 2 * time.Hour,
+		KeepAlive: d,
 	}
 
 	listener, err := lc.Listen(context.Background(), network, address)
@@ -102,24 +109,25 @@ func (m *Multiplexer) GetListeners() []string {
 	return listeners
 }
 
-func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexer, error) {
+func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplexer, error) {
 
 	var m Multiplexer
 
 	m.newConnections = make(chan net.Conn)
 	m.listeners = make(map[string]net.Listener)
 	m.protocols = map[string]*multiplexerListener{}
+	m.config = _c
 
 	err := m.StartListener(network, address)
 	if err != nil {
 		return nil, err
 	}
 
-	if c.SSH {
+	if m.config.SSH {
 		m.protocols["ssh"] = newMultiplexerListener(m.listeners[address].Addr(), "ssh")
 	}
 
-	if c.HTTP {
+	if m.config.HTTP {
 		m.protocols["http"] = newMultiplexerListener(m.listeners[address].Addr(), "http")
 	}
 
@@ -167,8 +175,9 @@ func ListenWithConfig(network, address string, c MultiplexerConfig) (*Multiplexe
 
 func Listen(network, address string) (*Multiplexer, error) {
 	c := MultiplexerConfig{
-		SSH:  true,
-		HTTP: true,
+		SSH:          true,
+		HTTP:         true,
+		TcpKeepAlive: 7200, // Linux default timeout is 2 hours
 	}
 
 	return ListenWithConfig(network, address, c)

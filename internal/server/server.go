@@ -47,8 +47,9 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress, configPath string, insecure, enabledWebserver bool, timeout int) {
 
 	c := mux.MultiplexerConfig{
-		SSH:  true,
-		HTTP: enabledWebserver,
+		SSH:          true,
+		TcpKeepAlive: timeout,
+		HTTP:         enabledWebserver,
 	}
 
 	log.Println("Version: ", internal.Version)
