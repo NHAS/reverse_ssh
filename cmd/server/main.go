@@ -19,17 +19,17 @@ func printHelp() {
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[options] listen_address")
 	fmt.Println("\nOptions:")
 	fmt.Println("  Data")
-	fmt.Println("\t--config\t\t\tLocation to store saved configurations (defaults to working directory)")
+	fmt.Println("\t--config\t\tLocation to store saved configurations (defaults to working directory)")
 	fmt.Println("  Authorisation")
 	fmt.Println("\t--key\t\t\tServer SSH private key path (will be generated if not specified)")
 	fmt.Println("\t--authorizedkeys\tPath to the authorized_keys file, if omitted an adjacent 'authorized_keys' file is required")
 	fmt.Println("\t--insecure\t\tIgnore authorized_controllee_keys file and allow any RSSH client to connect")
 	fmt.Println("  Network")
-	fmt.Println("\t--webserver\tEnable webserver on the listen_address port")
+	fmt.Println("\t--webserver\t\tEnable webserver on the listen_address port")
 	fmt.Println("\t--external_address\tIf the external IP and port of the RSSH server is different from the listening address, set that here")
-	fmt.Println("\t--timeout\tSet rssh client timeout (when a client is considered disconnected) defaults, in seconds, defaults to 5, if set to 0 timeout is disabled")
+	fmt.Println("\t--timeout\t\tSet rssh client timeout (when a client is considered disconnected) defaults, in seconds, defaults to 5, if set to 0 timeout is disabled")
 	fmt.Println("  Utility")
-	fmt.Println("\t--fingerprint\tPrint fingerprint and exit. (Will generate server key if none exists)")
+	fmt.Println("\t--fingerprint\t\tPrint fingerprint and exit. (Will generate server key if none exists)")
 }
 
 func main() {
