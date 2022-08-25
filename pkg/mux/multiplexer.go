@@ -41,6 +41,7 @@ func (m *Multiplexer) StartListener(network, address string) error {
 	if m.config.TcpKeepAlive == 0 {
 		d = time.Duration(-1)
 	}
+
 	lc := net.ListenConfig{
 		KeepAlive: d,
 	}

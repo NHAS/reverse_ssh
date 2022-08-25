@@ -39,9 +39,13 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	if len(proxy) != 0 {
 		log.Println("Setting HTTP proxy address as: ", proxy)
 
-		proxyCon, err := net.DialTimeout("tcp", proxy, timeout)
+		proxyCon, err := net.DialTimeout("tcp", addr, timeout)
 		if err != nil {
 			return conn, err
+		}
+
+		if tcpC, ok := proxyCon.(*net.TCPConn); ok {
+			tcpC.SetKeepAlivePeriod(2 * time.Hour)
 		}
 
 		req := []string{
@@ -80,7 +84,16 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 		return proxyCon, nil
 	}
 
-	return net.DialTimeout("tcp", addr, timeout)
+	conn, err = net.DialTimeout("tcp", addr, timeout)
+	if err != nil {
+		return conn, err
+	}
+
+	if tcpC, ok := conn.(*net.TCPConn); ok {
+		tcpC.SetKeepAlivePeriod(2 * time.Hour)
+	}
+
+	return
 }
 
 func Run(addr, fingerprint, proxyAddr string) {
