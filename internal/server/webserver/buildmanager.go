@@ -14,6 +14,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
+	"golang.org/x/crypto/ssh"
 )
 
 type file struct {
@@ -122,6 +123,28 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 
 	}
 
+	newPrivateKey, err := internal.GeneratePrivateKey()
+	if err != nil {
+		return "", err
+	}
+
+	sshPriv, err := ssh.ParsePrivateKey(newPrivateKey)
+	if err != nil {
+		return "", err
+	}
+
+	err = os.WriteFile(filepath.Join(projectRoot, "internal/client/keys/private_key"), newPrivateKey, 0600)
+	if err != nil {
+		return "", err
+	}
+
+	publicKeyBytes := ssh.MarshalAuthorizedKey(sshPriv.PublicKey())
+
+	err = os.WriteFile(filepath.Join(projectRoot, "internal/client/keys/private_key.pub"), publicKeyBytes, 0600)
+	if err != nil {
+		return "", err
+	}
+
 	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", suppliedConnectBackAdress, fingerprint, f.Version))
 	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
 
@@ -165,6 +188,16 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 	Autocomplete.Add(name)
 
 	writeCache()
+
+	authorizedControlleeKeys, err := os.OpenFile(filepath.Join(cachePath, "../authorized_controllee_keys"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return "", errors.New("cant open authorized controllee keys file: " + err.Error())
+	}
+
+	defer authorizedControlleeKeys.Close()
+	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s\n", publicKeyBytes)); err != nil {
+		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
+	}
 
 	return "http://" + suppliedConnectBackAdress + "/" + name, nil
 }
