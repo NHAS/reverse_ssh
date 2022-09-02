@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -29,18 +28,10 @@ var configPath string
 func StartWebhooks(config string) {
 	configPath = config
 
-	_, err := os.Stat(configPath)
-	if err != nil {
-		err := ioutil.WriteFile(configPath, []byte("{}"), 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	activeWebhooks, err := ioutil.ReadFile(configPath)
-
-	if err != nil {
-		log.Fatal(err)
+	if err != nil || len(activeWebhooks) == 0 {
+		activeWebhooks = []byte("{}")
+		log.Println("Was unable to read webhooks configuration file")
 	}
 
 	err = json.Unmarshal(activeWebhooks, &recipients)
