@@ -6,7 +6,7 @@ RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y upx-ucl gcc-mingw-w64
 
-COPY go.mod go.sum .
+COPY go.mod go.sum ./
 RUN go mod download -x
 
 COPY . .
