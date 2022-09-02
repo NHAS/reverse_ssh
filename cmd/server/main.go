@@ -19,10 +19,8 @@ func printHelp() {
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "[options] listen_address")
 	fmt.Println("\nOptions:")
 	fmt.Println("  Data")
-	fmt.Println("\t--config\t\tLocation to store saved configurations (defaults to working directory)")
+	fmt.Println("\t--datadir\t\tDirectory to search for keys, config files, and to store compile cache (defaults to working directory)")
 	fmt.Println("  Authorisation")
-	fmt.Println("\t--key\t\t\tServer SSH private key path (will be generated if not specified)")
-	fmt.Println("\t--authorizedkeys\tPath to the authorized_keys file, if omitted an adjacent 'authorized_keys' file is required")
 	fmt.Println("\t--insecure\t\tIgnore authorized_controllee_keys file and allow any RSSH client to connect")
 	fmt.Println("  Network")
 	fmt.Println("\t--webserver\t\tEnable webserver on the listen_address port")
@@ -35,13 +33,11 @@ func printHelp() {
 func main() {
 
 	options, err := terminal.ParseLineValidFlags(strings.Join(os.Args, " "), 0, map[string]bool{
-		"key":              true,
-		"authorizedkeys":   true,
 		"insecure":         true,
 		"external_address": true,
 		"fingerprint":      true,
 		"webserver":        true,
-		"config":           true,
+		"datadir":          true,
 		"h":                true,
 		"help":             true,
 		"timeout":          true,
@@ -58,13 +54,29 @@ func main() {
 		return
 	}
 
-	privkeyPath, err := options.GetArgString("key")
+	dataDir, err := options.GetArgString("datadir")
 	if err != nil {
-		privkeyPath = "id_ed25519"
+		dataDir = "."
 	}
 
+	dataDir, err = filepath.Abs(dataDir)
+	if err != nil {
+		log.Fatalf("couldn't resolve supplied datadir path: %v", err)
+	}
+
+	dataDirStat, err := os.Stat(dataDir)
+	if err != nil {
+		log.Fatalf("Could not stat datadir %s - does it exist and have correct permissions?", dataDir)
+	}
+
+	if !dataDirStat.IsDir() {
+		log.Fatalf("Specified datadir %s is not a directory", dataDir)
+	}
+
+	log.Printf("Loading files from %s\n", dataDir)
+
 	if options.IsSet("fingerprint") {
-		private, err := server.CreateOrLoadServerKeys(privkeyPath)
+		private, err := server.CreateOrLoadServerKeys(filepath.Join(dataDir, "id_ed25519"))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -79,17 +91,7 @@ func main() {
 		return
 	}
 
-	configPath, err := options.GetArgString("config")
-	if err != nil {
-		configPath = "./config.json"
-	}
-
 	listenAddress := options.Arguments[len(options.Arguments)-1].Value()
-
-	authorizedKeysPath, err := options.GetArgString("authorizedkeys")
-	if err != nil {
-		authorizedKeysPath = "authorized_keys"
-	}
 
 	var timeout int = 5
 	if timeoutString, err := options.GetArgString("timeout"); err == nil {
@@ -150,6 +152,5 @@ func main() {
 
 	}
 
-	server.Run(listenAddress, privkeyPath, authorizedKeysPath, connectBackAddress, configPath, insecure, webserver, timeout)
-
+	server.Run(listenAddress, dataDir, connectBackAddress, insecure, webserver, timeout)
 }

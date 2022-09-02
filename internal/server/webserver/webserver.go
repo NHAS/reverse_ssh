@@ -22,12 +22,12 @@ var (
 	webserverOn        bool
 )
 
-func Start(webListener net.Listener, connectBackAddress, projRoot string, publicKey ssh.PublicKey) {
+func Start(webListener net.Listener, connectBackAddress, projRoot, dataDir string, publicKey ssh.PublicKey) {
 	projectRoot = projRoot
 	DefaultConnectBack = connectBackAddress
 	defaultFingerPrint = internal.FingerprintSHA256Hex(publicKey)
 
-	err := startBuildManager("./cache")
+	err := startBuildManager(filepath.Join(dataDir, "cache"))
 	if err != nil {
 		log.Fatal(err)
 	}
