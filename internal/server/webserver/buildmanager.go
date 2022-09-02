@@ -250,7 +250,6 @@ func writeCache() {
 }
 
 func startBuildManager(cPath string) error {
-
 	c.Lock()
 	defer c.Unlock()
 

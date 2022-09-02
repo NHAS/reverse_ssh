@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -134,15 +135,18 @@ func ParseDirective(address string) (cidr []*net.IPNet, err error) {
 	return
 }
 
-func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bool, authorizedKeys string, timeout int) {
+func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bool, dataDir string, timeout int) {
 	//Taken from the server example, authorized keys are required for controllers
-	log.Printf("Loading authorized keys from: %s\n", authorizedKeys)
-	authorizedControllers, err := readPubKeys(authorizedKeys)
+	authorizedKeysPath := filepath.Join(dataDir, "authorized_keys")
+	authorizedControlleeKeysPath := filepath.Join(dataDir, "authorized_controllee_keys")
+
+	log.Printf("Loading authorized keys from: %s\n", authorizedKeysPath)
+	authorizedControllers, err := readPubKeys(authorizedKeysPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	clients, err := readPubKeys("authorized_controllee_keys")
+	clients, err := readPubKeys(authorizedControlleeKeysPath)
 	if err != nil {
 		if !insecure {
 			log.Fatal(err)
@@ -165,12 +169,12 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 		ServerVersion: "SSH-2.0-OpenSSH_7.4",
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 
-			authorizedKeysMap, err := readPubKeys(authorizedKeys)
+			authorizedKeysMap, err := readPubKeys(authorizedKeysPath)
 			if err != nil {
 				log.Println("Reloading authorized_keys failed: ", err)
 			}
 
-			authorizedControllees, err := readPubKeys("authorized_controllee_keys")
+			authorizedControllees, err := readPubKeys(authorizedControlleeKeysPath)
 			if err != nil {
 				log.Println("Reloading authorized_controllee_keys failed: ", err)
 			}
