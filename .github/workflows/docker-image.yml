@@ -19,7 +19,7 @@ jobs:
       run: | 
         docker login -u $DOCKER_USER -p $DOCKER_ACCESS_TOKEN
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag reverse_ssh:$(date +%s)
+      run: docker build . --file Dockerfile --tag reversessh/reverse_ssh:$(date +%s)
       
     - name: Docker Push
-      run: docker push ${{secrets.DOCKER_USER}}/reverse_ssh
+      run: docker push ${{secrets.DOCKER_USER}}/reverse_ssh:main
