@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -134,15 +135,18 @@ func ParseDirective(address string) (cidr []*net.IPNet, err error) {
 	return
 }
 
-func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bool, authorizedKeys string) {
+func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bool, dataDir string, timeout int) {
 	//Taken from the server example, authorized keys are required for controllers
-	log.Printf("Loading authorized keys from: %s\n", authorizedKeys)
-	authorizedControllers, err := readPubKeys(authorizedKeys)
+	authorizedKeysPath := filepath.Join(dataDir, "authorized_keys")
+	authorizedControlleeKeysPath := filepath.Join(dataDir, "authorized_controllee_keys")
+
+	log.Printf("Loading authorized keys from: %s\n", authorizedKeysPath)
+	authorizedControllers, err := readPubKeys(authorizedKeysPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	clients, err := readPubKeys("authorized_controllee_keys")
+	clients, err := readPubKeys(authorizedControlleeKeysPath)
 	if err != nil {
 		if !insecure {
 			log.Fatal(err)
@@ -165,12 +169,12 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 		ServerVersion: "SSH-2.0-OpenSSH_7.4",
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 
-			authorizedKeysMap, err := readPubKeys(authorizedKeys)
+			authorizedKeysMap, err := readPubKeys(authorizedKeysPath)
 			if err != nil {
 				log.Println("Reloading authorized_keys failed: ", err)
 			}
 
-			authorizedControllees, err := readPubKeys("authorized_controllee_keys")
+			authorizedControllees, err := readPubKeys(authorizedControlleeKeysPath)
 			if err != nil {
 				log.Println("Reloading authorized_controllee_keys failed: ", err)
 			}
@@ -234,7 +238,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 			continue
 		}
 
-		go acceptConn(tcpConn, config)
+		go acceptConn(tcpConn, config, timeout)
 	}
 }
 
@@ -248,10 +252,10 @@ func getIP(ip string) net.IP {
 	return nil
 }
 
-func acceptConn(c net.Conn, config *ssh.ServerConfig) {
+func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int) {
 
 	//Initially set the timeout high, so people who type in their ssh key password can actually use rssh
-	realConn := &internal.TimeoutConn{c, 5 * time.Minute}
+	realConn := &internal.TimeoutConn{c, time.Duration(timeout) * time.Minute}
 
 	// Before use, a handshake must be performed on the incoming net.Conn.
 	sshConn, chans, reqs, err := ssh.NewServerConn(realConn, config)
@@ -260,22 +264,25 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig) {
 		return
 	}
 
-	//Set the actual timeout much lower
-	realConn.Timeout = 10 * time.Second
-
 	clientLog := logger.NewLog(sshConn.RemoteAddr().String())
 
-	go func() {
-		for {
-			_, _, err = sshConn.SendRequest("keepalive@golang.org", true, nil)
-			if err != nil {
-				clientLog.Info("Failed to send keepalive, assuming client has disconnected")
-				sshConn.Close()
-				return
+	if timeout > 0 {
+		//If we are using timeouts
+		//Set the actual timeout much lower to whatever the user specifies it as (defaults to 5 second keepalive, 10 second timeout)
+		realConn.Timeout = time.Duration(timeout*2) * time.Second
+
+		go func() {
+			for {
+				_, _, err = sshConn.SendRequest("keepalive@golang.org", true, nil)
+				if err != nil {
+					clientLog.Info("Failed to send keepalive, assuming client has disconnected")
+					sshConn.Close()
+					return
+				}
+				time.Sleep(time.Duration(timeout) * time.Second)
 			}
-			time.Sleep(5 * time.Second)
-		}
-	}()
+		}()
+	}
 
 	switch sshConn.Permissions.Extensions["type"] {
 	case "user":

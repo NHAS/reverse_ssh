@@ -39,9 +39,13 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	if len(proxy) != 0 {
 		log.Println("Setting HTTP proxy address as: ", proxy)
 
-		proxyCon, err := net.DialTimeout("tcp", proxy, timeout)
+		proxyCon, err := net.DialTimeout("tcp", addr, timeout)
 		if err != nil {
 			return conn, err
+		}
+
+		if tcpC, ok := proxyCon.(*net.TCPConn); ok {
+			tcpC.SetKeepAlivePeriod(2 * time.Hour)
 		}
 
 		req := []string{
@@ -80,7 +84,16 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 		return proxyCon, nil
 	}
 
-	return net.DialTimeout("tcp", addr, timeout)
+	conn, err = net.DialTimeout("tcp", addr, timeout)
+	if err != nil {
+		return conn, err
+	}
+
+	if tcpC, ok := conn.(*net.TCPConn); ok {
+		tcpC.SetKeepAlivePeriod(2 * time.Hour)
+	}
+
+	return
 }
 
 func Run(addr, fingerprint, proxyAddr string) {
@@ -142,15 +155,15 @@ func Run(addr, fingerprint, proxyAddr string) {
 			<-time.After(10 * time.Second)
 			continue
 		}
-		defer conn.Close()
 
 		sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 		if err != nil {
+			conn.Close()
+
 			log.Printf("Unable to start a new client connection: %s\n", err)
 			<-time.After(10 * time.Second)
 			continue
 		}
-		defer sshConn.Close()
 
 		log.Println("Successfully connnected", addr)
 
@@ -164,6 +177,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 					os.Exit(0)
 
 				default:
+					log.Println("Got: ", req.Type)
 					if req.WantReply {
 						req.Reply(false, nil)
 					}
@@ -186,6 +200,8 @@ func Run(addr, fingerprint, proxyAddr string) {
 			"session": handlers.Session,
 			"jump":    handlers.JumpHandler(sshPriv),
 		})
+
+		sshConn.Close()
 
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)

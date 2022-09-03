@@ -22,12 +22,12 @@ var (
 	webserverOn        bool
 )
 
-func Start(webListener net.Listener, connectBackAddress, projRoot string, publicKey ssh.PublicKey) {
+func Start(webListener net.Listener, connectBackAddress, projRoot, dataDir string, publicKey ssh.PublicKey) {
 	projectRoot = projRoot
 	DefaultConnectBack = connectBackAddress
 	defaultFingerPrint = internal.FingerprintSHA256Hex(publicKey)
 
-	err := startBuildManager("./cache")
+	err := startBuildManager(filepath.Join(dataDir, "cache"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,39 +58,39 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 		filename := filepath.Base(req.URL.Path)
 		linkExtension := filepath.Ext(filename)
 
-		filename = strings.TrimSuffix(filename, linkExtension)
+		filenameWithoutExtension := strings.TrimSuffix(filename, linkExtension)
 
 		f, err := Get(filename)
 		if err != nil {
-			http.NotFound(w, req)
-			return
-		}
-
-		if linkExtension != "" {
-
-			host, port := getHostnameAndPort(DefaultConnectBack)
-
-			output, err := shellscripts.MakeTemplate(shellscripts.Args{
-				OS:       f.Goos,
-				Arch:     f.Goarch,
-				Name:     filename,
-				Host:     host,
-				Port:     port,
-				Protocol: "http",
-			}, linkExtension[1:])
+			f, err = Get(filenameWithoutExtension)
 			if err != nil {
 				http.NotFound(w, req)
-				log.Printf("[%s] ERROR failed to get extension:  %v\n", req.RemoteAddr, err)
-
 				return
 			}
 
-			w.Header().Set("Content-Disposition", "attachment; filename="+filename+linkExtension)
-			w.Header().Set("Content-Type", "application/octet-stream")
+			if linkExtension != "" {
 
-			w.Write(output)
+				host, port := getHostnameAndPort(DefaultConnectBack)
 
-			return
+				output, err := shellscripts.MakeTemplate(shellscripts.Args{
+					OS:       f.Goos,
+					Arch:     f.Goarch,
+					Name:     filenameWithoutExtension,
+					Host:     host,
+					Port:     port,
+					Protocol: "http",
+				}, linkExtension[1:])
+				if err != nil {
+					http.NotFound(w, req)
+					return
+				}
+
+				w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+				w.Header().Set("Content-Type", "application/octet-stream")
+
+				w.Write(output)
+				return
+			}
 		}
 
 		file, err := os.Open(f.Path)
@@ -117,7 +117,7 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 
 		}
 
-		w.Header().Set("Content-Disposition", "attachment; filename="+filename+extension)
+		w.Header().Set("Content-Disposition", "attachment; filename="+strings.TrimSuffix(filename, extension)+extension)
 		w.Header().Set("Content-Type", "application/octet-stream")
 
 		_, err = io.Copy(w, file)

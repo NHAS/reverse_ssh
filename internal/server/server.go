@@ -44,12 +44,15 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 	return private, nil
 }
 
-func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress, configPath string, insecure, enabledWebserver bool) {
-
+func Run(addr, dataDir, connectBackAddress string, insecure, enabledWebserver bool, timeout int) {
 	c := mux.MultiplexerConfig{
-		SSH:  true,
-		HTTP: enabledWebserver,
+		SSH:          true,
+		TcpKeepAlive: timeout,
+		HTTP:         enabledWebserver,
 	}
+
+	privateKeyPath := filepath.Join(dataDir, "id_ed25519")
+	configPath := filepath.Join(dataDir, "config.json")
 
 	log.Println("Version: ", internal.Version)
 	var err error
@@ -61,17 +64,12 @@ func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress,
 
 	log.Printf("Listening on %s\n", addr)
 
-	s, err := filepath.Abs(privateKeyPath)
-	if err != nil {
-		log.Fatalf("Unable to make absolute path from private key path [%s]: %s", privateKeyPath, err)
-	}
-
 	private, err := CreateOrLoadServerKeys(privateKeyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("Loading private key from: %s (%s)\n", privateKeyPath, s)
+	log.Printf("Loading private key from: %s\n", privateKeyPath)
 
 	log.Println("Server key fingerprint: ", internal.FingerprintSHA256Hex(private.PublicKey()))
 
@@ -79,12 +77,11 @@ func Run(addr, privateKeyPath string, authorizedKeys string, connectBackAddress,
 		if len(connectBackAddress) == 0 {
 			connectBackAddress = addr
 		}
-		go webserver.Start(multiplexer.ServerMultiplexer.HTTP(), connectBackAddress, "../", private.PublicKey())
+		go webserver.Start(multiplexer.ServerMultiplexer.HTTP(), connectBackAddress, "../", dataDir, private.PublicKey())
 
 	}
 
 	go webhooks.StartWebhooks(configPath)
 
-	StartSSHServer(multiplexer.ServerMultiplexer.SSH(), private, insecure, authorizedKeys)
-
+	StartSSHServer(multiplexer.ServerMultiplexer.SSH(), private, insecure, dataDir, timeout)
 }

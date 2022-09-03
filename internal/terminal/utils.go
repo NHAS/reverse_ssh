@@ -127,6 +127,7 @@ func (pl *ParsedLine) GetArg(flag string) (Argument, error) {
 	return arg[0], nil
 }
 
+// Gets a single argument, will return error if flag is not set, or if it has no contents (e.g --blah)
 func (pl *ParsedLine) GetArgString(flag string) (string, error) {
 	f, ok := pl.Flags[flag]
 	if !ok {
