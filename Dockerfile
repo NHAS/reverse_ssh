@@ -6,6 +6,10 @@ RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y upx-ucl gcc-mingw-w64
 
+RUN go install mvdan.cc/garble@f9d9919
+
+ENV PATH="${PATH}:$(go env GOPATH)/bin"
+
 COPY go.mod go.sum ./
 RUN go mod download -x
 
