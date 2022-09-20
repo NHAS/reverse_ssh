@@ -40,7 +40,7 @@ var (
 	cachePath string
 )
 
-func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared, upx bool) (string, error) {
+func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared, upx, garble bool) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("web server is not enabled.")
 	}
@@ -66,6 +66,15 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 		if err != nil {
 			return "", errors.New("upx could not be found in PATH")
 		}
+	}
+
+	buildTool := "go"
+	if garble {
+		_, err := exec.LookPath("garble")
+		if err != nil {
+			return "", errors.New("garble could not be found in PATH")
+		}
+		buildTool = "garble"
 	}
 
 	c.Lock()
@@ -148,7 +157,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", suppliedConnectBackAdress, fingerprint, f.Version))
 	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
 
-	cmd := exec.Command("go", buildArguments...)
+	cmd := exec.Command(buildTool, buildArguments...)
 
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, "GOOS="+f.Goos)

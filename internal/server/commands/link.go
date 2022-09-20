@@ -19,7 +19,7 @@ type link struct {
 
 func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	if line.IsSet("h") {
+	if line.IsSet("h") || line.IsSet("help") {
 		return errors.New(l.Help(false))
 	}
 
@@ -104,9 +104,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	useUpx := line.IsSet("upx")
-
-	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"), useUpx)
+	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"))
 	if err != nil {
 		return err
 	}
@@ -145,6 +143,7 @@ func (e *link) Help(explain bool) string {
 		"\t--shared-object\tGenerate shared object file",
 		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
 		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
+		"\t--garble\tUse garble to obfuscate the binary (requires garble to be installed)",
 	)
 }
 

@@ -53,6 +53,7 @@ And more!
     - [Webhooks](#webhooks)
     - [Tuntap](#tuntap)
 - [Help](#help)
+  - [Garble](#garble)
   - [Permission denied (publickey).](#permission-denied-publickey)
   - [Windows and SFTP](#windows-and-sftp)
   - [Foreground vs Background (Important note about clients)](#foreground-vs-background-important-note-about-clients)
@@ -218,8 +219,9 @@ This requires the web server component has been enabled.
 	--goarch	Set the target build architecture (default to runtime GOARCH)
 	--name	Set link name
 	--shared-object	Generate shared object file
-    --fingerprint Set RSSH server fingerprint will default to server public key
-    --upx   Use upx to compress the final binary (requires upx to be installed)
+  --fingerprint Set RSSH server fingerprint will default to server public key
+  --upx   Use upx to compress the final binary (requires upx to be installed)
+  --garble	Use garble to obfuscate the binary (requires garble to be installed)
 
 # Build a client binary
 catcher$ link --name test
@@ -343,6 +345,17 @@ This has some limitations, it is only able to send UDP/TCP/ICMP, and not arbitra
 This also does not support `tap` devices, e.g layer 2 VPN, as this would require administrative access.
 
 # Help
+
+## Garble
+
+To enable the `--garble` flag in the `link` command you must install garble, a system for obfuscating golang binaries. However the `@latest` release has a bug that causes panics with generic code.   
+If you are installing this manually use the following:
+
+```sh
+go install mvdan.cc/garble@f9d9919
+```
+
+Then make sure that the `go/bin/` directory is in your `$PATH`
 
 ## Permission denied (publickey).
 Unfortunately the golang `crypto/ssh` upstream library does not support `rsa-sha2-*` algorithms, and work is currently ongoing here:
