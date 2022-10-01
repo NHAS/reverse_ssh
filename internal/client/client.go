@@ -177,7 +177,6 @@ func Run(addr, fingerprint, proxyAddr string) {
 					os.Exit(0)
 
 				default:
-					log.Println("Got: ", req.Type)
 					if req.WantReply {
 						req.Reply(false, nil)
 					}
@@ -190,7 +189,8 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 		user, err := internal.CreateUser(sshConn)
 		if err != nil {
-			log.Fatal(err)
+			clientLog.Warning("Unable to create internal user")
+			return
 		}
 
 		//Do not register new client callbacks here, they are actually within the JumpHandler

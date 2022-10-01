@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,7 +64,6 @@ func main() {
 
 	err = Fork(destination, fingerprint, proxyaddress)
 	if err != nil {
-		log.Fatal("Unable to fork: ", err)
 		Run(destination, fingerprint, proxyaddress)
 	}
 

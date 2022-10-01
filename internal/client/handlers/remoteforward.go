@@ -80,7 +80,7 @@ func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh
 
 			e, err := strconv.Atoi(originatorAddress[i+1:])
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			originatorPort = uint32(e)

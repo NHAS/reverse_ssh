@@ -23,7 +23,7 @@ func Fork(destination, fingerprint, proxyaddress string) error {
 	inService, err := svc.IsWindowsService()
 	if err != nil {
 		elog.Error(1, fmt.Sprintf("failed to determine if we are running in service: %v", err))
-		log.Fatalf("failed to determine if we are running in service: %v", err)
+		return fmt.Errorf("failed to determine if we are running in service: %v", err)
 	}
 
 	if !inService {
@@ -110,7 +110,8 @@ func Run(destination, fingerprint, proxyaddress string) {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {
-		log.Fatalf("failed to determine if we are running in service: %v", err)
+		log.Printf("failed to determine if we are running in service: %v", err)
+		client.Run(destination, fingerprint, proxyaddress)
 	}
 
 	if !inService {
