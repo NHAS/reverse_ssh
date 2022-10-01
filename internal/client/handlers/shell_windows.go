@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"github.com/ActiveState/termtest/conpty"
@@ -26,37 +27,57 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 		return
 	}
 
-	vsn := windows.RtlGetVersion()
-	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
-
-		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
-
-		winpty, err := winpty.Open("powershell.exe", user.Pty.Columns, user.Pty.Rows)
+	path, err := exec.LookPath("powershell.exe")
+	if err != nil {
+		path, err = exec.LookPath("cmd.exe")
 		if err != nil {
-			log.Info("Winpty failed. %s", err)
-			basicShell(connection, requests, log)
-			return
-		}
-
-		go func() {
-			io.Copy(connection, winpty)
-			connection.Close()
-		}()
-
-		io.Copy(winpty, connection)
-		winpty.Close()
-	} else {
-		err := conptyShell(connection, requests, log, *user.Pty)
-		if err != nil {
-			log.Error("%v", err)
+			path = "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 		}
 	}
+
+	runCommandWithPty(path, nil, user, requests, log, connection)
 
 	connection.Close()
 
 }
 
-func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq) error {
+func runCommandWithPty(command string, args []string, user *internal.User, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
+
+	fullCommand := command + strings.Join(args, " ")
+	vsn := windows.RtlGetVersion()
+	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
+
+		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
+		runWithWinPty(fullCommand, connection, requests, log, *user.Pty)
+
+	} else {
+		err := runWithConpty(fullCommand, connection, requests, log, *user.Pty)
+		if err != nil {
+			log.Error("unable to run with conpty, falling back to winpty: %v", err)
+			runWithWinPty(fullCommand, connection, requests, log, *user.Pty)
+		}
+	}
+}
+
+func runWithWinPty(command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq) error {
+	winpty, err := winpty.Open(command, ptyReq.Columns, ptyReq.Rows)
+	if err != nil {
+		log.Info("Winpty failed. %s", err)
+		return err
+	}
+
+	go func() {
+		io.Copy(connection, winpty)
+		connection.Close()
+	}()
+
+	io.Copy(winpty, connection)
+	winpty.Close()
+
+	return nil
+}
+
+func runWithConpty(command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq) error {
 
 	cpty, err := conpty.New(int16(ptyReq.Columns), int16(ptyReq.Rows))
 	if err != nil {
@@ -64,12 +85,9 @@ func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Lo
 	}
 	defer cpty.Close()
 
-	path, err := exec.LookPath("powershell.exe")
+	path, err := exec.LookPath(command)
 	if err != nil {
-		path, err = exec.LookPath("cmd.exe")
-		if err != nil {
-			path = "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
-		}
+		return err
 	}
 
 	// Spawn and catch new powershell process
@@ -86,7 +104,7 @@ func conptyShell(connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Lo
 	log.Info("New process with pid %d spawned", pid)
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		log.Fatal("Failed to find process: %v", err)
+		return fmt.Errorf("Failed to find process: %v", err)
 	}
 
 	// Dynamically handle resizes of terminal window

@@ -19,6 +19,10 @@ import (
 
 var Version string
 
+type ShellStruct struct {
+	Shell string
+}
+
 type RemoteForwardRequest struct {
 	BindAddr string
 	BindPort uint32

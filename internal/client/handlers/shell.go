@@ -55,16 +55,15 @@ func init() {
 
 }
 
-//This basically handles exactly like a SSH server would
-func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
+func runCommandWithPty(command string, args []string, user *internal.User, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
 
-	path := ""
-	if len(shells) != 0 {
-		path = shells[0]
+	if user.Pty == nil {
+		log.Error("Requested to run a command with a pty, but did not start a pty")
+		return
 	}
 
 	// Fire up a shell for this session
-	shell := exec.Command(path)
+	shell := exec.Command(command, args...)
 	shell.Env = os.Environ()
 
 	close := func() {
@@ -84,33 +83,17 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 	var err error
 	var shellIO io.ReadWriteCloser
 
-	if user.Pty != nil {
-		shell.Env = append(shell.Env, "TERM="+user.Pty.Term)
+	shell.Env = append(shell.Env, "TERM="+user.Pty.Term)
 
-		log.Info("Creating pty...")
-		shellIO, err = pty.StartWithSize(shell, &pty.Winsize{Cols: uint16(user.Pty.Columns), Rows: uint16(user.Pty.Rows)})
-		if err != nil {
-			log.Info("Could not start pty (%s)", err)
-			close()
-			return
-		}
-	} else {
-
-		stdinPipe, err := shell.StdinPipe()
-		stdoutPipe, err := shell.StdoutPipe()
-		shell.Stderr = shell.Stdout
-
-		shellIO = &ReaderWriteCloser{in: stdinPipe, out: stdoutPipe}
-
-		err = shell.Start()
-		if err != nil {
-			log.Info("Could not start shell (%s)", err)
-			close()
-			return
-		}
+	log.Info("Creating pty...")
+	shellIO, err = pty.StartWithSize(shell, &pty.Winsize{Cols: uint16(user.Pty.Columns), Rows: uint16(user.Pty.Rows)})
+	if err != nil {
+		log.Info("Could not start pty (%s)", err)
+		close()
+		return
 	}
 
-	//pipe session to bash and visa-versa
+	// pipe session to bash and visa-versa
 	var once sync.Once
 	go func() {
 		io.Copy(connection, shellIO)
@@ -145,26 +128,21 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 
 	defer once.Do(close)
 	shell.Wait()
-
 }
 
-type ReaderWriteCloser struct {
-	in  io.WriteCloser
-	out io.ReadCloser
-}
+// This basically handles exactly like a SSH server would
+func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
-func (c *ReaderWriteCloser) Read(b []byte) (n int, err error) {
-	return c.out.Read(b)
-}
+	path := ""
+	if len(shells) != 0 {
+		path = shells[0]
+	}
 
-func (c *ReaderWriteCloser) Write(b []byte) (n int, err error) {
-	return c.in.Write(b)
-}
+	if user.Pty != nil {
+		runCommandWithPty(path, nil, user, requests, log, connection)
+		return
+	}
 
-func (c *ReaderWriteCloser) Close() error {
-	c.in.Close()
+	runCommand(path, nil, connection)
 
-	err := c.out.Close()
-
-	return err
 }

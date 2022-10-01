@@ -28,21 +28,25 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return fmt.Errorf("connect can only be called from the terminal, if you want to connect to your clients without connecting to the terminal use jumphost syntax -J")
 	}
 
-	if len(line.Arguments) != 1 {
+	if len(line.Arguments) < 1 {
 		return fmt.Errorf(c.Help(false))
 	}
 
-	foundClients, err := clients.Search(line.Arguments[0].Value())
+	shell, _ := line.GetArgString("shell")
+
+	client := line.Arguments[len(line.Arguments)-1].Value()
+
+	foundClients, err := clients.Search(client)
 	if err != nil {
 		return err
 	}
 
 	if len(foundClients) == 0 {
-		return fmt.Errorf("No clients matched '%s'", line.Arguments[0].Value())
+		return fmt.Errorf("No clients matched '%s'", client)
 	}
 
 	if len(foundClients) > 1 {
-		return fmt.Errorf("'%s' matches multiple clients please choose a more specific identifier", line.Arguments[0].Value())
+		return fmt.Errorf("'%s' matches multiple clients please choose a more specific identifier", client)
 	}
 
 	var target ssh.Conn
@@ -59,7 +63,7 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	//Attempt to connect to remote host and send inital pty request and screen size
 	// If we cant, report and error to the clients terminal
-	newSession, err := createSession(target, *c.user.Pty)
+	newSession, err := createSession(target, *c.user.Pty, shell)
 	if err != nil {
 
 		c.log.Error("Creating session failed: %s", err)
@@ -93,7 +97,8 @@ func (c *connect) Help(explain bool) string {
 	}
 
 	return terminal.MakeHelpText(
-		"connect " + autocomplete.RemoteId,
+		"connect "+autocomplete.RemoteId,
+		"\t--shell\tSet the shell (or program) to start on connection",
 	)
 }
 
@@ -106,7 +111,7 @@ func Connect(
 	}
 }
 
-func createSession(sshConn ssh.Conn, ptyReq internal.PtyReq) (sc ssh.Channel, err error) {
+func createSession(sshConn ssh.Conn, ptyReq internal.PtyReq, shell string) (sc ssh.Channel, err error) {
 
 	splice, newrequests, err := sshConn.OpenChannel("session", nil)
 	if err != nil {
@@ -119,7 +124,7 @@ func createSession(sshConn ssh.Conn, ptyReq internal.PtyReq) (sc ssh.Channel, er
 		return sc, fmt.Errorf("Unable to send PTY request: %s", err)
 	}
 
-	_, err = splice.SendRequest("shell", true, nil)
+	_, err = splice.SendRequest("shell", true, ssh.Marshal(internal.ShellStruct{Shell: shell}))
 	if err != nil {
 		return sc, fmt.Errorf("Unable to start shell: %s", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -13,9 +14,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-//Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
-//However these calls are done through requests, rather than opening a new channel
-//This callback just sorts out what the client wants to be doing
+// Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
+// However these calls are done through requests, rather than opening a new channel
+// This callback just sorts out what the client wants to be doing
 func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	defer log.Info("Session disconnected")
@@ -65,48 +66,28 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 					return
 				}
 
-				//Set a path if no path is set to search
-				if len(os.Getenv("PATH")) == 0 {
-					os.Setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin")
-				}
-
-				cmd := exec.Command(parts[0], parts[1:]...)
-
-				stdout, err := cmd.StdoutPipe()
-				if err != nil {
-					fmt.Fprintf(connection, "%s", err.Error())
+				if user.Pty != nil {
+					runCommandWithPty(parts[0], parts[1:], user, requests, log, connection)
 					return
 				}
-				defer stdout.Close()
-
-				cmd.Stderr = cmd.Stdout
-
-				stdin, err := cmd.StdinPipe()
-				if err != nil {
-					fmt.Fprintf(connection, "%s", err.Error())
-					return
-				}
-				defer stdin.Close()
-
-				go io.Copy(stdin, connection)
-				go io.Copy(connection, stdout)
-
-				err = cmd.Run()
-				if err != nil {
-					fmt.Fprintf(connection, "%s", err.Error())
-					return
-				}
+				runCommand(parts[0], parts[1:], connection)
 			}
 
 			return
 		case "shell":
-			// We only accept the default shell
-			// (i.e. no command in the Payload)
-			req.Reply(len(req.Payload) == 0, nil)
+			//We accept the shell request
+			req.Reply(true, nil)
 
-			//This blocks so will keep the channel from defer closing
-			shell(user, connection, requests, log)
+			var shellPath internal.ShellStruct
+			err := ssh.Unmarshal(req.Payload, &shellPath)
+			if err != nil || shellPath.Shell == "" {
 
+				//This blocks so will keep the channel from defer closing
+				shell(user, connection, requests, log)
+				return
+			}
+
+			runCommandWithPty(shellPath.Shell, nil, user, requests, log, connection)
 			return
 			//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
 		case "pty-req":
@@ -129,4 +110,42 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 		}
 	}
 
+}
+
+func runCommand(command string, args []string, connection ssh.Channel) {
+	//Set a path if no path is set to search
+	if len(os.Getenv("PATH")) == 0 {
+		if runtime.GOOS != "windows" {
+			os.Setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin")
+		} else {
+			os.Setenv("PATH", "C:\\Windows\\system32;C:\\Windows;C:\\Windows\\System32\\Wbem;C:\\Windows\\System32\\WindowsPowerShell\v1.0\\")
+		}
+	}
+
+	cmd := exec.Command(command, args...)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Fprintf(connection, "%s", err.Error())
+		return
+	}
+	defer stdout.Close()
+
+	cmd.Stderr = cmd.Stdout
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		fmt.Fprintf(connection, "%s", err.Error())
+		return
+	}
+	defer stdin.Close()
+
+	go io.Copy(stdin, connection)
+	go io.Copy(connection, stdout)
+
+	err = cmd.Run()
+	if err != nil {
+		fmt.Fprintf(connection, "%s", err.Error())
+		return
+	}
 }
