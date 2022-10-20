@@ -8,8 +8,8 @@ require (
 	github.com/go-ping/ping v1.1.0
 	github.com/nicocha30/gvisor-ligolo v0.0.0-20220711100921-110ade85d411
 	github.com/pkg/sftp v1.13.5
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664
+	golang.org/x/crypto v0.1.0
+	golang.org/x/sys v0.1.0
 )
 
 require (
@@ -18,7 +18,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/stretchr/testify v1.7.1 // indirect
-	golang.org/x/net v0.0.0-20220809012201-f428fae20770 // indirect
-	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9 // indirect
+	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/time v0.1.0 // indirect
 )
