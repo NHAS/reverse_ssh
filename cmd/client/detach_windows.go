@@ -85,6 +85,7 @@ func (m *rsshService) Execute(args []string, r <-chan svc.ChangeRequest, changes
 	go client.Run(m.Dest, m.Fingerprint, m.Proxy)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
+Outer:
 	for c := range r {
 		switch c.Cmd {
 		case svc.Interrogate:
@@ -93,7 +94,7 @@ func (m *rsshService) Execute(args []string, r <-chan svc.ChangeRequest, changes
 			time.Sleep(100 * time.Millisecond)
 			changes <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
-			break
+			break Outer
 		default:
 			elog.Error(1, fmt.Sprintf("unexpected control request #%d", c))
 		}
