@@ -39,7 +39,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	if len(proxy) != 0 {
 		log.Println("Setting HTTP proxy address as: ", proxy)
 
-		proxyCon, err := net.DialTimeout("tcp", addr, timeout)
+		proxyCon, err := net.DialTimeout("tcp", proxy, timeout)
 		if err != nil {
 			return conn, err
 		}
