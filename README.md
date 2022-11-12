@@ -321,6 +321,9 @@ Accept-Encoding: gzip
 {"Status":"connected","ID":"ae92b6535a30566cbae122ebb2a5e754dd58f0ca","IP":"[::1]:52608","HostName":"user.computer","Timestamp":"2022-06-12T12:23:40.626775318+12:00"}%  
 ```
 
+
+As an additional note, please use the `/slack` endpoint if connecting this to discord. 
+
 ### Tuntap
 
 RSSH and SSH support creating tuntap interfaces that allow you to route traffic and create pseudo-VPN.
