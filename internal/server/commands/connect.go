@@ -124,7 +124,7 @@ func createSession(sshConn ssh.Conn, ptyReq internal.PtyReq, shell string) (sc s
 		return sc, fmt.Errorf("Unable to send PTY request: %s", err)
 	}
 
-	_, err = splice.SendRequest("shell", true, ssh.Marshal(internal.ShellStruct{Shell: shell}))
+	_, err = splice.SendRequest("shell", true, ssh.Marshal(internal.ShellStruct{Cmd: shell}))
 	if err != nil {
 		return sc, fmt.Errorf("Unable to start shell: %s", err)
 	}

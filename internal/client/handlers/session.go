@@ -3,8 +3,11 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"runtime"
 	"strings"
 
@@ -45,10 +48,8 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			return
 
 		case "exec":
-			var command struct {
-				Cmd string
-			}
-			err = ssh.Unmarshal(req.Payload, &command)
+			var cmd internal.ShellStruct
+			err = ssh.Unmarshal(req.Payload, &cmd)
 			if err != nil {
 				log.Warning("Human client sent an undecodable exec payload: %s\n", err)
 				req.Reply(false, nil)
@@ -57,21 +58,30 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 
 			req.Reply(true, nil)
 
-			parts := strings.Split(command.Cmd, " ")
-			if len(parts) > 0 {
-				if parts[0] == "scp" {
-
-					scp(parts, connection, log)
-
-					return
-				}
-
-				if user.Pty != nil {
-					runCommandWithPty(parts[0], parts[1:], user, requests, log, connection)
-					return
-				}
-				runCommand(parts[0], parts[1:], connection)
+			parts := strings.Split(cmd.Cmd, " ")
+			if len(parts) == 0 {
+				return
 			}
+
+			if parts[0] == "scp" {
+				scp(parts, connection, log)
+				return
+			}
+
+			command := parts[0]
+			if u, ok := isUrl(parts[0]); ok {
+				command, err = download(u)
+				if err != nil {
+					fmt.Fprintf(connection, "%s", err.Error())
+					return
+				}
+			}
+
+			if user.Pty != nil {
+				runCommandWithPty(command, parts[1:], user, requests, log, connection)
+				return
+			}
+			runCommand(command, parts[1:], connection)
 
 			return
 		case "shell":
@@ -80,14 +90,26 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 
 			var shellPath internal.ShellStruct
 			err := ssh.Unmarshal(req.Payload, &shellPath)
-			if err != nil || shellPath.Shell == "" {
+			if err != nil || shellPath.Cmd == "" {
 
 				//This blocks so will keep the channel from defer closing
 				shell(user, connection, requests, log)
 				return
 			}
+			log.Info("cmm: %+v", shellPath)
+			parts := strings.Split(shellPath.Cmd, " ")
+			if len(parts) > 0 {
+				command := parts[0]
+				if u, ok := isUrl(parts[0]); ok {
+					command, err = download(u)
+					if err != nil {
+						fmt.Fprintf(connection, "%s", err.Error())
+						return
+					}
+				}
 
-			runCommandWithPty(shellPath.Shell, nil, user, requests, log, connection)
+				runCommandWithPty(command, parts[1:], user, requests, log, connection)
+			}
 			return
 			//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
 		case "pty-req":
@@ -148,4 +170,55 @@ func runCommand(command string, args []string, connection ssh.Channel) {
 		fmt.Fprintf(connection, "%s", err.Error())
 		return
 	}
+}
+
+func isUrl(data string) (*url.URL, bool) {
+	u, err := url.Parse(data)
+	if err != nil {
+		return u, false
+	}
+
+	switch u.Scheme {
+	case "http", "https", "rssh":
+		return u, true
+	}
+	return u, false
+}
+
+func download(fromUrl *url.URL) (result string, err error) {
+	file := path.Base(fromUrl.Path)
+	if file == "" {
+		file, err = internal.RandomString(16)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	out, err := os.Create(file)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+
+	switch fromUrl.Scheme {
+	case "http", "https":
+		resp, err := http.Get(fromUrl.String())
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+
+		_, err = io.Copy(out, resp.Body)
+		if err != nil {
+			return "", err
+		}
+
+		err = os.Chmod(file, 0700)
+		if err != nil {
+			return "", err
+		}
+		file = "./" + file
+	}
+
+	return file, nil
 }

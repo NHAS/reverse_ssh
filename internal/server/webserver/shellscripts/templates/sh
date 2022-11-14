@@ -4,7 +4,7 @@ export PATH="$PATH:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/sbin"
 
 for i in "~" "." $(find / -maxdepth 3 -type d \( -perm -o+w \)); do
 
-    if ! touch "$i/{{.Name}}"; then 
+    if ! touch $i/{{.Name}}; then 
         continue
     fi
 

@@ -20,7 +20,7 @@ import (
 var Version string
 
 type ShellStruct struct {
-	Shell string
+	Cmd string
 }
 
 type RemoteForwardRequest struct {
