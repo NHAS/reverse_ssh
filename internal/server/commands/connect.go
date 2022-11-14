@@ -98,7 +98,7 @@ func (c *connect) Help(explain bool) string {
 
 	return terminal.MakeHelpText(
 		"connect "+autocomplete.RemoteId,
-		"\t--shell\tSet the shell (or program) to start on connection",
+		"\t--shell\tSet the shell (or program) to start on connection, this may take an http/https url that the rssh binary will attempt to download to disk",
 	)
 }
 

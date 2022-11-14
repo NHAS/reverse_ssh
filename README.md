@@ -349,6 +349,19 @@ ssh -J your.rssh.server.com:3232 user.wombo -w 0:any
 This has some limitations, it is only able to send UDP/TCP/ICMP, and not arbitrary layer 3 protocols. ICMP is best effort and may use the remote hosts `ping` tool, as ICMP sockets are privileged on most machines.
 This also does not support `tap` devices, e.g layer 2 VPN, as this would require administrative access.
 
+### Executable Downloading
+
+When specifying what executable the rssh binary should run, either when connecting with a full PTY session or just executing a command the client can download external programs and execute them. 
+
+For example. 
+
+```
+connect --shell https://your.host/program <rssh_client_id>
+ssh -J your.rssh.server:3232 <rssh_client_id> https://your.host/program 
+```
+
+This will attempt to write the binary to disk and execute it. 
+
 # Help
 
 ## Garble
