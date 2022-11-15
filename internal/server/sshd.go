@@ -244,7 +244,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 			continue
 		}
 
-		go acceptConn(tcpConn, config, timeout)
+		go acceptConn(tcpConn, config, timeout, dataDir)
 	}
 }
 
@@ -258,7 +258,7 @@ func getIP(ip string) net.IP {
 	return nil
 }
 
-func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int) {
+func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir string) {
 
 	//Initially set the timeout high, so people who type in their ssh key password can actually use rssh
 	realConn := &internal.TimeoutConn{c, time.Duration(timeout) * time.Minute}
