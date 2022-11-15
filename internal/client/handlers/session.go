@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -70,7 +71,7 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 
 			command := parts[0]
 			if u, ok := isUrl(parts[0]); ok {
-				command, err = download(u)
+				command, err = download(user.ServerConnection, u)
 				if err != nil {
 					fmt.Fprintf(connection, "%s", err.Error())
 					return
@@ -96,12 +97,11 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 				shell(user, connection, requests, log)
 				return
 			}
-			log.Info("cmm: %+v", shellPath)
 			parts := strings.Split(shellPath.Cmd, " ")
 			if len(parts) > 0 {
 				command := parts[0]
 				if u, ok := isUrl(parts[0]); ok {
-					command, err = download(u)
+					command, err = download(user.ServerConnection, u)
 					if err != nil {
 						fmt.Fprintf(connection, "%s", err.Error())
 						return
@@ -185,20 +185,12 @@ func isUrl(data string) (*url.URL, bool) {
 	return u, false
 }
 
-func download(fromUrl *url.URL) (result string, err error) {
-	file := path.Base(fromUrl.Path)
-	if file == "" {
-		file, err = internal.RandomString(16)
-		if err != nil {
-			return "", err
-		}
-	}
+func download(serverConnection ssh.Conn, fromUrl *url.URL) (result string, err error) {
 
-	out, err := os.Create(file)
-	if err != nil {
-		return "", err
-	}
-	defer out.Close()
+	var (
+		reader   io.ReadCloser
+		filename string
+	)
 
 	switch fromUrl.Scheme {
 	case "http", "https":
@@ -208,17 +200,49 @@ func download(fromUrl *url.URL) (result string, err error) {
 		}
 		defer resp.Body.Close()
 
-		_, err = io.Copy(out, resp.Body)
-		if err != nil {
-			return "", err
+		reader = resp.Body
+
+		filename = path.Base(fromUrl.Path)
+		if filename == "." {
+			filename, err = internal.RandomString(16)
+			if err != nil {
+				return "", err
+			}
 		}
 
-		err = os.Chmod(file, 0700)
+	case "rssh":
+		filename = path.Base(strings.TrimSuffix(fromUrl.String(), "rssh://"))
+
+		ch, reqs, err := serverConnection.OpenChannel("rssh-download", []byte(filename))
 		if err != nil {
 			return "", err
 		}
-		file = "./" + file
+		go ssh.DiscardRequests(reqs)
+
+		reader = ch
+
+	default:
+		return "", errors.New("unknown uri handler: " + fromUrl.Scheme)
+
 	}
 
-	return file, nil
+	out, err := os.Create(filename)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+
+	err = os.Chmod(filename, 0700)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = io.Copy(out, reader)
+	if err != nil {
+		return "", err
+	}
+
+	filename = "./" + filename
+
+	return filename, nil
 }

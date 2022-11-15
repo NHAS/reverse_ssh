@@ -14,9 +14,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-//Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
-//However these calls are done through requests, rather than opening a new channel
-//This callback just sorts out what the client wants to be doing
+// Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
+// However these calls are done through requests, rather than opening a new channel
+// This callback just sorts out what the client wants to be doing
 func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 	defer log.Info("Session disconnected: %s", user.ServerConnection.ClientVersion())
