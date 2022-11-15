@@ -54,6 +54,8 @@ And more!
     - [Full Windows Shell Support](#full-windows-shell-support)
     - [Webhooks](#webhooks)
     - [Tuntap](#tuntap)
+    - [Executable Downloading](#executable-downloading)
+      - [Supported URI Schemes](#supported-uri-schemes)
 - [Help](#help)
   - [Garble](#garble)
   - [Permission denied (publickey).](#permission-denied-publickey)
@@ -361,6 +363,14 @@ ssh -J your.rssh.server:3232 <rssh_client_id> https://your.host/program
 ```
 
 This will attempt to write the binary to disk and execute it. 
+
+#### Supported URI Schemes
+
+`http/https`: Pure web downloading
+
+`rssh`: Download via the rssh server
+The rssh server will only serve content from the `downloads` directory in the executables working directory. 
+
 
 # Help
 
