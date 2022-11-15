@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -144,6 +145,11 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 	authorizedControllers, err := readPubKeys(authorizedKeysPath)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if _, err := os.Stat("downloads"); err != nil && os.IsNotExist(err) {
+		os.Mkdir("downloads", 0700)
+		log.Println("Created downloads directory")
 	}
 
 	clients, err := readPubKeys(authorizedControlleeKeysPath)
