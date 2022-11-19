@@ -353,7 +353,7 @@ This also does not support `tap` devices, e.g layer 2 VPN, as this would require
 
 ### Executable Downloading
 
-When specifying what executable the rssh binary should run, either when connecting with a full PTY session or just executing a command the client can download external programs and execute them. 
+When specifying what executable the rssh binary should run, either when connecting with a full PTY session or raw execution the client supports URI schemes to download offhost executables.
 
 For example. 
 
@@ -362,7 +362,6 @@ connect --shell https://your.host/program <rssh_client_id>
 ssh -J your.rssh.server:3232 <rssh_client_id> https://your.host/program 
 ```
 
-This will attempt to write the binary to disk and execute it. 
 
 #### Supported URI Schemes
 
