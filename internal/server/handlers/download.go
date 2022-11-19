@@ -14,11 +14,11 @@ func Download(dataDir string) func(user *internal.User, newChannel ssh.NewChanne
 	return func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 		downloadPath := path.Join("/", string(newChannel.ExtraData()))
 		//Has to be done in two steps, doing Join("./downloads/", path) leads to path traversal (thanks go)
-		downloadPath = path.Join("./", dataDir, "downloads", downloadPath)
+		downloadPath = path.Join(dataDir, "downloads", downloadPath)
 
 		if stats, err := os.Stat(downloadPath); err != nil && (os.IsNotExist(err) || !stats.IsDir()) {
 			log.Warning("remote client requested non-existant path: '%s'", downloadPath)
-			newChannel.Reject(ssh.Prohibited, "not found")
+			newChannel.Reject(ssh.Prohibited, "file not found")
 			return
 		}
 
@@ -28,7 +28,7 @@ func Download(dataDir string) func(user *internal.User, newChannel ssh.NewChanne
 		if err != nil {
 			log.Warning("unable to open requested path: '%s': %s", downloadPath, err)
 
-			newChannel.Reject(ssh.Prohibited, "not found")
+			newChannel.Reject(ssh.Prohibited, "cannot open file")
 			return
 		}
 		defer f.Close()

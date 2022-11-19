@@ -15,6 +15,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/client/handlers/subsystems"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/NHAS/reverse_ssh/pkg/storage"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -226,23 +227,5 @@ func download(serverConnection ssh.Conn, fromUrl *url.URL) (result string, err e
 
 	}
 
-	out, err := os.Create(filename)
-	if err != nil {
-		return "", err
-	}
-	defer out.Close()
-
-	err = os.Chmod(filename, 0700)
-	if err != nil {
-		return "", err
-	}
-
-	_, err = io.Copy(out, reader)
-	if err != nil {
-		return "", err
-	}
-
-	filename = "./" + filename
-
-	return filename, nil
+	return storage.Store(filename, reader)
 }
