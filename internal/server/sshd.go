@@ -330,7 +330,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 			go ssh.DiscardRequests(reqs)
 
 			err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]internal.ChannelHandler{
-				"rssh-download": handlers.Download,
+				"rssh-download": handlers.Download(dataDir),
 			})
 
 			clientLog.Info("SSH client disconnected")
