@@ -369,7 +369,9 @@ This will attempt to write the binary to disk and execute it.
 `http/https`: Pure web downloading
 
 `rssh`: Download via the rssh server
-The rssh server will only serve content from the `downloads` directory in the executables working directory. 
+The rssh server will serve content from the `downloads` directory in the executables working directory.  
+  
+Both of these methods will opportunistically use [memfd](https://man7.org/linux/man-pages/man2/memfd_create.2.html) which will not write any executables to disk. 
 
 
 # Help
