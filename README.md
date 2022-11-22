@@ -58,7 +58,6 @@ And more!
       - [Supported URI Schemes](#supported-uri-schemes)
 - [Help](#help)
   - [Garble](#garble)
-  - [Permission denied (publickey).](#permission-denied-publickey)
   - [Windows and SFTP](#windows-and-sftp)
   - [Foreground vs Background (Important note about clients)](#foreground-vs-background-important-note-about-clients)
 
@@ -385,17 +384,6 @@ go install mvdan.cc/garble@f9d9919
 ```
 
 Then make sure that the `go/bin/` directory is in your `$PATH`
-
-## Permission denied (publickey).
-Unfortunately the golang `crypto/ssh` upstream library does not support `rsa-sha2-*` algorithms, and work is currently ongoing here:
-
-https://github.com/golang/go/issues/49952
-
-So until that work is completed, you will have to generate a different (non-rsa) key. I recommend the following: 
-
-```
-ssh-keygen -t ed25519
-```
 
 
 ## Windows and SFTP
