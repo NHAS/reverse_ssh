@@ -3,6 +3,7 @@ package terminal
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var ErrFlagNotSet = errors.New("Flag not set")
@@ -169,17 +170,52 @@ func parseFlag(line string, startPos int) (f Flag, endPos int) {
 }
 
 func parseSingleArg(line string, startPos int) (arg Argument, endPos int) {
+
+	var (
+		isInString  = false
+		literalNext = false
+	)
+
+	if line[startPos] == '"' {
+		startPos++
+		isInString = true
+	}
+
 	arg.start = startPos
+
+	var sb strings.Builder
+
+	defer func() {
+		arg.value = sb.String()
+	}()
 
 	for arg.end = startPos; arg.end < len(line); arg.end++ {
 		endPos = arg.end
 
-		if line[endPos] == ' ' {
+		if !literalNext {
+
+			if line[endPos] == '\\' {
+				literalNext = true
+				continue
+			}
+
+			if line[endPos] == '"' {
+				isInString = false
+				continue
+			}
+		}
+
+		if line[endPos] == ' ' && !isInString && !literalNext {
 			return
 		}
 
+		sb.WriteByte(line[endPos])
+
 		arg.end = endPos
-		arg.value += string(line[endPos])
+
+		if literalNext {
+			literalNext = false
+		}
 	}
 
 	return

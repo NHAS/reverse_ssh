@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal/terminal"
@@ -29,6 +30,7 @@ func main() {
 		return
 	}
 
+	os.Args[0] = strconv.Quote(os.Args[0])
 	var argv = strings.Join(os.Args, " ")
 
 	line := terminal.ParseLine(argv, 0)
