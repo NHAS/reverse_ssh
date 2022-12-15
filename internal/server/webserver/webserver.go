@@ -47,15 +47,10 @@ func Start(webListener net.Listener, connectBackAddress, projRoot, dataDir strin
 
 func buildAndServe(project, connectBackAddress string, validPlatforms, validArchs map[string]bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		parts := strings.Split(req.URL.Path[1:], "/")
 
 		log.Printf("[%s] INFO Web Server got hit:  %s\n", req.RemoteAddr, req.URL.Path)
-		if len(parts) == 0 { // This should never happen
-			http.Error(w, "Error", 501)
-			return
-		}
 
-		filename := filepath.Base(req.URL.Path)
+		filename := strings.TrimPrefix(req.URL.Path, "/")
 		linkExtension := filepath.Ext(filename)
 
 		filenameWithoutExtension := strings.TrimSuffix(filename, linkExtension)
