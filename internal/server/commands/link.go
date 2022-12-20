@@ -103,8 +103,16 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
+	username, err := line.GetArgString("username")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		username = "unknown"
+	}
+	password, err := line.GetArgString("password")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		password = "unknown"
+	}
 
-	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"))
+	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), username, password)
 	if err != nil {
 		return err
 	}

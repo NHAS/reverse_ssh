@@ -66,7 +66,7 @@ func Run(addr, dataDir, connectBackAddress string, insecure, enabledWebserver bo
 
 	private, err := CreateOrLoadServerKeys(privateKeyPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Create or load server key fail :", err)
 	}
 
 	log.Printf("Loading private key from: %s\n", privateKeyPath)

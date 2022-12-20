@@ -36,7 +36,8 @@ func StartWebhooks(config string) {
 
 	err = json.Unmarshal(activeWebhooks, &recipients)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	messages := make(chan observer.Message)

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/config"
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
@@ -144,7 +145,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 	log.Printf("Loading authorized keys from: %s\n", authorizedKeysPath)
 	authorizedControllers, err := readPubKeys(authorizedKeysPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("read authorizekeys fail :", err)
 	}
 
 	if _, err := os.Stat("downloads"); err != nil && os.IsNotExist(err) {
@@ -152,13 +153,11 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 		log.Println("Created downloads directory")
 	}
 
+	conf := config.LoadConfig(filepath.Join(dataDir, "config.json"))
+
 	clients, err := readPubKeys(authorizedControlleeKeysPath)
 	if err != nil {
-		if !insecure {
-			log.Fatal(err)
-		} else {
-			log.Println(err)
-		}
+		log.Println("read authorizedControlleeKey fail :", err)
 	}
 
 	for key := range clients {
@@ -230,6 +229,20 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 				},
 			}, nil
 
+		},
+		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
+			params := make(map[string]string, 0)
+			res, err := Post(conf.ExternalAuthApi, params)
+			if err != nil {
+				return nil, fmt.Errorf("call external auth api %v get error", conf.ExternalAuthApi)
+			}
+
+			return &ssh.Permissions{
+				// Record the public key used for authentication.
+				Extensions: map[string]string{
+					"type": string(res),
+				},
+			}, nil
 		},
 	}
 

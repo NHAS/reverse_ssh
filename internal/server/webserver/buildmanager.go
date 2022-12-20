@@ -40,7 +40,7 @@ var (
 	cachePath string
 )
 
-func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared, upx, garble bool) (string, error) {
+func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared, upx, garble bool, username, password string) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("web server is not enabled.")
 	}
@@ -154,7 +154,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 		return "", err
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", suppliedConnectBackAdress, fingerprint, f.Version))
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s -X github.com/NHAS/reverse_ssh/internal.server.webserver.username=%s -X github.com/NHAS/reverse_ssh/internal.server.webserver.password=%s", suppliedConnectBackAdress, fingerprint, f.Version, username, password))
 	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)

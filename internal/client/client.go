@@ -18,6 +18,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var (
+	username string
+	password string
+)
+
 func WriteHTTPReq(lines []string, conn net.Conn) error {
 	lines = append(lines, "") // Add an empty line for completing the HTTP request
 	for _, line := range lines {
@@ -100,30 +105,33 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
 	if sysinfoError != nil {
-		log.Fatal("Getting private key failed: ", sysinfoError)
+		log.Println("Getting private key failed: ", sysinfoError)
 	}
 
 	l := logger.NewLog("client")
 
-	var username string
-	userInfo, sysinfoError := user.Current()
-	if sysinfoError != nil {
-		l.Warning("Couldnt get username: %s", sysinfoError.Error())
-		username = "Unknown"
-	} else {
-		username = userInfo.Username
+	if username == "" {
+		userInfo, sysinfoError := user.Current()
+		if sysinfoError != nil {
+			l.Warning("Couldnt get username: %s", sysinfoError.Error())
+		} else {
+			username = userInfo.Username
+		}
 	}
 
-	hostname, sysinfoError := os.Hostname()
-	if sysinfoError != nil {
-		hostname = "Unknown Hostname"
-		l.Warning("Couldnt get host name: %s", sysinfoError)
-	}
+	/*
+		hostname, sysinfoError := os.Hostname()
+		if sysinfoError != nil {
+			hostname = "Unknown Hostname"
+			l.Warning("Couldnt get host name: %s", sysinfoError)
+		}
+	*/
 
 	config := &ssh.ClientConfig{
-		User: fmt.Sprintf("%s.%s", username, hostname),
+		User: username, //fmt.Sprintf("%s.%s", username, hostname),
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(sshPriv),
+			ssh.Password(password),
 		},
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			if fingerprint == "" { // If a server key isnt supplied, fail open. Potentially should change this for more paranoid people
@@ -137,6 +145,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 			return nil
 		},
+
 		ClientVersion: "SSH-" + internal.Version,
 	}
 
