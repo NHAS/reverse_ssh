@@ -232,6 +232,8 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 		},
 		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			params := make(map[string]string, 0)
+			params["username"] = conn.User()
+			params["password"] = string(password)
 			res, err := Post(conf.ExternalAuthApi, params)
 			if err != nil {
 				return nil, fmt.Errorf("call external auth api %v get error", conf.ExternalAuthApi)
