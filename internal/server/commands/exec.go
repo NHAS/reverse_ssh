@@ -89,7 +89,6 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			continue
 		}
 		go ssh.DiscardRequests(r)
-		defer newChan.Close()
 
 		response, err := newChan.SendRequest("exec", true, commandByte)
 		if err != nil && !line.IsSet("q") {
@@ -108,6 +107,7 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		}
 
 		io.Copy(tty, newChan)
+		newChan.Close()
 	}
 
 	fmt.Fprint(tty, "\n")

@@ -16,8 +16,25 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client/handlers/subsystems"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/storage"
+
 	"golang.org/x/crypto/ssh"
 )
+
+func ServerConsoleSession(ServerConn ssh.Conn) internal.ChannelHandler {
+
+	user, err := internal.CreateUser(ServerConn)
+
+	return func(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+		if err != nil {
+			log.Error("Unable to add user %s\n", err)
+			newChannel.Reject(ssh.ConnectionFailed, err.Error())
+			return
+		}
+
+		Session(user, newChannel, log)
+	}
+
+}
 
 // Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
 // However these calls are done through requests, rather than opening a new channel
