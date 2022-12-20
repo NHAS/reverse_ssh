@@ -25,19 +25,8 @@ func download(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		f, err = Get(filenameWithoutExtension)
 		if err != nil {
-			if strings.HasPrefix(req.RequestURI, "compile") {
-
-				goos := req.URL.Query().Get("goos")
-				goarch := req.URL.Query().Get("goarch")
-				username := req.URL.Query().Get("username")
-				password := req.URL.Query().Get("password")
-				filename = username + "_" + goos + "_" + goarch
-				Build(goos, goarch, "", "", filename, false, false, false, username, password)
-			} else {
-				http.NotFound(w, req)
-				return
-			}
-
+			http.NotFound(w, req)
+			return
 		}
 
 		if linkExtension != "" {
@@ -98,5 +87,10 @@ func download(w http.ResponseWriter, req *http.Request) {
 	}
 }
 func build(w http.ResponseWriter, req *http.Request) {
-
+	goos := req.URL.Query().Get("goos")
+	goarch := req.URL.Query().Get("goarch")
+	username := req.URL.Query().Get("username")
+	password := req.URL.Query().Get("password")
+	filename := username + "_" + goos + "_" + goarch
+	Build(goos, goarch, "", "", filename, false, false, false, username, password)
 }
