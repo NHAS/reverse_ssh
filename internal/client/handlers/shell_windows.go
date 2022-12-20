@@ -43,7 +43,7 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 
 func runCommandWithPty(command string, args []string, user *internal.User, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
 
-	fullCommand := command + strings.Join(args, " ")
+	fullCommand := command + " " + strings.Join(args, " ")
 	vsn := windows.RtlGetVersion()
 	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
 
