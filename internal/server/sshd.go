@@ -243,13 +243,17 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 			if err != nil {
 				return nil, fmt.Errorf("call external auth api %v get error", conf.ExternalAuthApi)
 			}
+			if strings.EqualFold("client", string(res)) || strings.EqualFold("user", string(res)) {
+				return &ssh.Permissions{
+					// Record the public key used for authentication.
+					Extensions: map[string]string{
+						"type": string(res),
+					},
+				}, nil
+			} else {
+				return nil, fmt.Errorf("unknown client type %v", string(res))
+			}
 
-			return &ssh.Permissions{
-				// Record the public key used for authentication.
-				Extensions: map[string]string{
-					"type": string(res),
-				},
-			}, nil
 		},
 	}
 
