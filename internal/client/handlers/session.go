@@ -14,6 +14,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/client/handlers/subsystems"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/storage"
 
@@ -77,18 +78,21 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 
 			req.Reply(true, nil)
 
-			parts := strings.Split(cmd.Cmd, " ")
-			if len(parts) == 0 {
+			line := terminal.ParseLine(cmd.Cmd, 0)
+
+			if line.Empty() {
+				log.Warning("Human client sent an empty exec payload: %s\n", err)
 				return
 			}
 
-			if parts[0] == "scp" {
-				scp(parts, connection, log)
+			command := line.Command.Value()
+
+			if command == "scp" {
+				scp(line.Chunks[1:], connection, log)
 				return
 			}
 
-			command := parts[0]
-			if u, ok := isUrl(parts[0]); ok {
+			if u, ok := isUrl(command); ok {
 				command, err = download(user.ServerConnection, u)
 				if err != nil {
 					fmt.Fprintf(connection, "%s", err.Error())
@@ -97,10 +101,10 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			}
 
 			if user.Pty != nil {
-				runCommandWithPty(command, parts[1:], user, requests, log, connection)
+				runCommandWithPty(command, line.Chunks[1:], user, requests, log, connection)
 				return
 			}
-			runCommand(command, parts[1:], connection)
+			runCommand(command, line.Chunks[1:], connection)
 
 			return
 		case "shell":

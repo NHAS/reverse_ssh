@@ -139,3 +139,43 @@ func TestHelperFunctionsErrors(t *testing.T) {
 	}
 
 }
+
+func TestStrings(t *testing.T) {
+	line := ParseLine("lala --long_arg \"test ''``-t a\" --zero -m", 0)
+
+	_, err := line.GetArgString("long_arg")
+	if err != nil {
+		t.Fatalf("Getting single string arg on 'long_arg' should work: %s", err)
+	}
+
+	_, err = line.GetArgString("zero")
+	if err == nil {
+		t.Fatalf("Expected error, 'zero' has no arg, yet we are still nil")
+	}
+
+	_, err = line.GetArgString("m")
+	if err == nil {
+		t.Fatalf("Expected error, 'm' has no arg, yet we are still nil")
+	}
+
+	e, err := line.ExpectArgs("long_arg", 1)
+	if err != nil {
+		t.Fatalf("Long arg supplies correct number of expected args, should not error: %s", err)
+	}
+
+	if len(e) != 1 || e[0].Value() != "test ''``-t a" {
+		t.Fatal("String was not handled correct as the value is incorrect")
+	}
+
+	if line.Chunks[0] != "lala" || line.Chunks[0] != line.Command.Value() {
+		t.Fatal("First chunk should be command")
+	}
+
+	if line.Chunks[1] != "--long_arg" {
+		t.Fatal("Next chunk should be flag")
+	}
+
+	if line.Chunks[2] != "test ''``-t a" {
+		t.Fatal("Next chunk should be argument string")
+	}
+}
