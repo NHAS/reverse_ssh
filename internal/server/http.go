@@ -3,8 +3,8 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
@@ -24,8 +24,13 @@ func Request(url, method string, params interface{}) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	body, err := ioutil.ReadAll(resp.Body)
-	return body, err
+	if resp.StatusCode == 200 {
+		body, err := ioutil.ReadAll(resp.Body)
+		return body, err
+	} else {
+		return []byte{}, fmt.Errorf("unknown auth error")
+	}
+
 }
 
 func Put(url string, params interface{}) ([]byte, error) {
@@ -34,9 +39,4 @@ func Put(url string, params interface{}) ([]byte, error) {
 
 func Post(url string, params interface{}) ([]byte, error) {
 	return Request(url, "POST", params)
-}
-func HandleErrorWithLog(err error) {
-	if err != nil {
-		log.Println(err)
-	}
 }
