@@ -396,6 +396,11 @@ sftp -r -J your.rssh.server.com:3232 test-pc.user.test-pc:'/C:/Windows/system32'
 
 Note the `/` before the starting character. 
 
+## Server started with `--insecure` still has `Failed to handshake`
+  
+If the client binary was generated with the `link` command this client has the server public key fingerprint baked in by default. If you lose your server private key, the clients will no longer be able to connect.  
+You can also generate clients with `link --fingerprint <fingerprint here>` to specify a fingerprint, there isnt currently a way to disable this as per version 1.0.13.  
+
 ## Foreground vs Background (Important note about clients)
 
 By default, clients will run in the background. When started they will execute a new background instance (thus forking a new child process) and then the parent process will exit. If the fork is successful the message "Ending parent" will be printed.
