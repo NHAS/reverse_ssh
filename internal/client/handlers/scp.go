@@ -26,7 +26,7 @@ func scp(commandParts []string, connection ssh.Channel, log logger.Logger) error
 	//Find what the target file path is, essentially ignore anything that is a flag '-t'
 	loc := -1
 	mode := ""
-	for i := 1; i < len(commandParts); i++ {
+	for i := 0; i < len(commandParts); i++ {
 		if mode == "" && (commandParts[i] == "-t" || commandParts[i] == "-f") {
 			mode = commandParts[i]
 			continue
