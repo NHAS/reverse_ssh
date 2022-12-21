@@ -67,6 +67,8 @@ func (f *Flag) ArgValues() (out []string) {
 }
 
 type ParsedLine struct {
+	Chunks []string
+
 	FlagsOrdered []Flag
 	Flags        map[string]Flag
 
@@ -78,6 +80,10 @@ type ParsedLine struct {
 	Command *Cmd
 
 	RawLine string
+}
+
+func (pl *ParsedLine) Empty() bool {
+	return pl.RawLine == ""
 }
 
 func (pl *ParsedLine) ArgumentsAsStrings() (out []string) {
@@ -172,14 +178,10 @@ func parseFlag(line string, startPos int) (f Flag, endPos int) {
 func parseSingleArg(line string, startPos int) (arg Argument, endPos int) {
 
 	var (
-		isInString  = false
-		literalNext = false
+		inString        = false
+		stringDelimiter = byte(0)
+		literalNext     = false
 	)
-
-	if line[startPos] == '"' {
-		startPos++
-		isInString = true
-	}
 
 	arg.start = startPos
 
@@ -192,6 +194,14 @@ func parseSingleArg(line string, startPos int) (arg Argument, endPos int) {
 	for arg.end = startPos; arg.end < len(line); arg.end++ {
 		endPos = arg.end
 
+		if !inString && (line[endPos] == '"' || line[endPos] == '\'' || line[endPos] == '`') {
+
+			inString = true
+			stringDelimiter = line[endPos]
+
+			continue
+		}
+
 		if !literalNext {
 
 			if line[endPos] == '\\' {
@@ -199,14 +209,15 @@ func parseSingleArg(line string, startPos int) (arg Argument, endPos int) {
 				continue
 			}
 
-			if line[endPos] == '"' {
-				isInString = false
+			if inString && line[endPos] == stringDelimiter {
+				stringDelimiter = byte(0)
+				inString = false
 				continue
 			}
-		}
 
-		if line[endPos] == ' ' && !isInString && !literalNext {
-			return
+			if line[endPos] == ' ' && !inString {
+				return
+			}
 		}
 
 		sb.WriteByte(line[endPos])
@@ -260,6 +271,7 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 	pl.RawLine = line
 
 	for i := 0; i < len(line); i++ {
+
 		if line[i] == '-' {
 
 			if capture != nil {
@@ -278,6 +290,8 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 				pl.Focus = &newFlag
 				pl.Section = &newFlag
 			}
+
+			pl.Chunks = append(pl.Chunks, pl.RawLine[newFlag.start:newFlag.end])
 
 			//First start parsing long options --blah
 			if newFlag.long {
@@ -313,6 +327,8 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 		args, i = parseArgs(line, i)
 
 		for m, arg := range args {
+			pl.Chunks = append(pl.Chunks, arg.value)
+
 			if cursorPosition >= arg.start && cursorPosition <= arg.end {
 				pl.Focus = &args[m]
 
