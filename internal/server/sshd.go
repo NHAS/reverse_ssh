@@ -232,7 +232,12 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 		},
 		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			params := make(map[string]string, 0)
-			params["username"] = conn.User()
+			userInfo := conn.User()
+			_users := strings.Split(userInfo, ".")
+			if len(_users) > 1 {
+				userInfo = _users[0]
+			}
+			params["username"] = userInfo
 			params["password"] = string(password)
 			res, err := Post(conf.ExternalAuthApi, params)
 			if err != nil {

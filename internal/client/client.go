@@ -119,16 +119,14 @@ func Run(addr, fingerprint, proxyAddr string) {
 		}
 	}
 
-	/*
-		hostname, sysinfoError := os.Hostname()
-		if sysinfoError != nil {
-			hostname = "Unknown Hostname"
-			l.Warning("Couldnt get host name: %s", sysinfoError)
-		}
-	*/
+	hostname, sysinfoError := os.Hostname()
+	if sysinfoError != nil {
+		hostname = "Unknown Hostname"
+		l.Warning("Couldnt get host name: %s", sysinfoError)
+	}
 
 	config := &ssh.ClientConfig{
-		User: username, //fmt.Sprintf("%s.%s", username, hostname),
+		User: fmt.Sprintf("%s.%s", username, hostname),
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(sshPriv),
 			ssh.Password(password),
