@@ -36,7 +36,7 @@ func StartWebhooks(config string) {
 
 	err = json.Unmarshal(activeWebhooks, &recipients)
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
 		return
 	}
 
