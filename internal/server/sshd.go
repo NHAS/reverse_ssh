@@ -23,6 +23,7 @@ import (
 type Options struct {
 	AllowList []*net.IPNet
 	DenyList  []*net.IPNet
+	Comment   string
 }
 
 func readPubKeys(path string) (m map[string]Options, err error) {
@@ -40,12 +41,14 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 			continue
 		}
 
-		pubKey, _, options, _, err := ssh.ParseAuthorizedKey(key)
+		pubKey, comment, options, _, err := ssh.ParseAuthorizedKey(key)
 		if err != nil {
 			return m, fmt.Errorf("unable to parse public key. %s line %d. Reason: %s", path, i+1, err)
 		}
 
 		var opts Options
+		opts.Comment = comment
+
 		for _, o := range options {
 			parts := strings.Split(o, "=")
 			if len(parts) == 2 && parts[0] == "from" {
@@ -185,8 +188,6 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 				log.Println("Reloading authorized_controllee_keys failed: ", err)
 			}
 
-			var clientType string
-
 			remoteIp := getIP(conn.RemoteAddr().String())
 
 			if remoteIp == nil {
@@ -195,8 +196,8 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 
 			//If insecure mode, then any unknown client will be connected as a controllable client.
 			//The server effectively ignores channel requests from controllable clients.
+
 			if opt, ok := authorizedKeysMap[string(ssh.MarshalAuthorizedKey(key))]; ok {
-				clientType = "user"
 
 				for _, deny := range opt.DenyList {
 					if deny.Contains(remoteIp) {
@@ -216,20 +217,30 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 					return nil, fmt.Errorf("not authorized %q (not on allow list)", conn.User())
 				}
 
-			} else if _, ok := authorizedControllees[string(ssh.MarshalAuthorizedKey(key))]; insecure || ok {
-				clientType = "client"
-			} else {
-				return nil, fmt.Errorf("not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
+				return &ssh.Permissions{
+					// Record the public key used for authentication.
+					Extensions: map[string]string{
+						"comment":   opt.Comment,
+						"pubkey-fp": internal.FingerprintSHA1Hex(key),
+						"type":      "user",
+					},
+				}, nil
+
 			}
 
-			return &ssh.Permissions{
-				// Record the public key used for authentication.
-				Extensions: map[string]string{
-					"pubkey-fp": internal.FingerprintSHA1Hex(key),
-					"type":      clientType,
-				},
-			}, nil
+			if opt, ok := authorizedControllees[string(ssh.MarshalAuthorizedKey(key))]; insecure || ok {
 
+				return &ssh.Permissions{
+					// Record the public key used for authentication.
+					Extensions: map[string]string{
+						"comment":   opt.Comment,
+						"pubkey-fp": internal.FingerprintSHA1Hex(key),
+						"type":      "client",
+					},
+				}, nil
+			}
+
+			return nil, fmt.Errorf("not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
 		},
 	}
 

@@ -99,12 +99,17 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
+	comment, err := line.GetArgString("C")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
 	fingerprint, err := line.GetArgString("fingerprint")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
 
-	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"))
+	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, comment, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"))
 	if err != nil {
 		return err
 	}
@@ -137,6 +142,7 @@ func (e *link) Help(explain bool) string {
 		"\t-s\tSet homeserver address, defaults to server --external_address if set, or server listen address if not.",
 		"\t-l\tList currently active download links",
 		"\t-r\tRemove download link",
+		"\t-C\tComment to add as the public key (acts as the name)",
 		"\t--goos\tSet the target build operating system (default to runtime GOOS)",
 		"\t--goarch\tSet the target build architecture (default to runtime GOARCH)",
 		"\t--name\tSet link name",

@@ -45,7 +45,9 @@ func Add(conn *ssh.ServerConn) (string, string, error) {
 	addAlias(idString, username)
 	addAlias(idString, conn.RemoteAddr().String())
 	addAlias(idString, conn.Permissions.Extensions["pubkey-fp"])
-
+	if conn.Permissions.Extensions["comment"] != "" {
+		addAlias(idString, conn.Permissions.Extensions["comment"])
+	}
 	clients[idString] = conn
 
 	Autocomplete.Add(idString)

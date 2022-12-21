@@ -40,7 +40,7 @@ var (
 	cachePath string
 )
 
-func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, shared, upx, garble bool) (string, error) {
+func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment string, shared, upx, garble bool) (string, error) {
 	if !webserverOn {
 		return "", fmt.Errorf("web server is not enabled.")
 	}
@@ -204,7 +204,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name string, sh
 	}
 
 	defer authorizedControlleeKeys.Close()
-	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s\n", publicKeyBytes)); err != nil {
+	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s\n", publicKeyBytes[:len(publicKeyBytes)-1], comment)); err != nil {
 		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
 	}
 

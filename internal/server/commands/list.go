@@ -23,9 +23,15 @@ type displayItem struct {
 
 func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 
-	t, _ := table.NewTable("Targets", "ID", "Public Key Hash", "Hostname", "IP Address", "Version")
+	t, _ := table.NewTable("Targets", "ID", "Public Key ID", "Hostname", "IP Address", "Version")
 	for _, a := range applicable {
-		t.AddValues(a.id, a.sc.Permissions.Extensions["pubkey-fp"], clients.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String(), string(a.sc.ClientVersion()))
+
+		keyId := a.sc.Permissions.Extensions["pubkey-fp"]
+		if a.sc.Permissions.Extensions["comment"] != "" {
+			keyId = a.sc.Permissions.Extensions["comment"]
+		}
+
+		t.AddValues(a.id, keyId, clients.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String(), string(a.sc.ClientVersion()))
 	}
 
 	t.Fprint(tty)
@@ -83,7 +89,12 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	for i, tr := range toReturn {
 
-		fmt.Fprintf(tty, "%s %s %s %s, version: %s", tr.id, tr.sc.Permissions.Extensions["pubkey-fp"], clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion())
+		keyId := tr.sc.Permissions.Extensions["pubkey-fp"]
+		if tr.sc.Permissions.Extensions["comment"] != "" {
+			keyId = tr.sc.Permissions.Extensions["comment"]
+		}
+
+		fmt.Fprintf(tty, "%s %s %s %s, version: %s", tr.id, keyId, clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion())
 
 		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)
