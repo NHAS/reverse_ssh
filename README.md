@@ -416,5 +416,7 @@ The easiest way to give back to the RSSH project is by finding bugs, opening fea
 However, if you want to give something back to me, you can do so either throught Kofi (under "Sponsor this Project" on the right hand side).   
 Or donate to me directly by sending to the either of the following wallets:  
 
-Monero (XMR): `8A8TRqsBKpMMabvt5RxMhCFWcuCSZqGV5L849XQndZB4bcbgkenH8KWJUXinYbF6ySGBznLsunrd1WA8YNPiejGp3FFfPND`
-Bitcoin (BTC): `bc1qm9e9sfrm7l7tnq982nrm6khnsfdlay07h0dxfr`
+Monero (XMR):  
+`8A8TRqsBKpMMabvt5RxMhCFWcuCSZqGV5L849XQndZB4bcbgkenH8KWJUXinYbF6ySGBznLsunrd1WA8YNPiejGp3FFfPND`
+Bitcoin (BTC):  
+`bc1qm9e9sfrm7l7tnq982nrm6khnsfdlay07h0dxfr`
