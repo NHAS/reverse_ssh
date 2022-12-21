@@ -59,7 +59,9 @@ And more!
 - [Help](#help)
   - [Garble](#garble)
   - [Windows and SFTP](#windows-and-sftp)
+  - [Server started with `--insecure` still has `Failed to handshake`](#server-started-with---insecure-still-has-failed-to-handshake)
   - [Foreground vs Background (Important note about clients)](#foreground-vs-background-important-note-about-clients)
+- [Donations, Support, or Giving Back](#donations-support-or-giving-back)
 
 ## TL;DR
 
@@ -406,3 +408,13 @@ You can also generate clients with `link --fingerprint <fingerprint here>` to sp
 By default, clients will run in the background. When started they will execute a new background instance (thus forking a new child process) and then the parent process will exit. If the fork is successful the message "Ending parent" will be printed.
 
 This has one important ramification: once in the background a client will not show any output, including connection failure messages. If you need to debug your client, use the `--foreground` flag.
+
+# Donations, Support, or Giving Back
+  
+The easiest way to give back to the RSSH project is by finding bugs, opening feature requests and word-of-mouth advertising it to people you think will find it useful!  
+  
+However, if you want to give something back to me, you can do so either throught Kofi (under "Sponsor this Project" on the right hand side).   
+Or donate to me directly by sending to the either of the following wallets:  
+
+Monero (XMR): `8A8TRqsBKpMMabvt5RxMhCFWcuCSZqGV5L849XQndZB4bcbgkenH8KWJUXinYbF6ySGBznLsunrd1WA8YNPiejGp3FFfPND`
+Bitcoin (BTC): `bc1qm9e9sfrm7l7tnq982nrm6khnsfdlay07h0dxfr`
