@@ -60,11 +60,41 @@ func runCommandWithPty(command string, args []string, user *internal.User, reque
 }
 
 func runWithWinPty(command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq) error {
-	winpty, err := winpty.Open(command, ptyReq.Columns, ptyReq.Rows)
+
+	path, err := exec.LookPath(command)
+	if err != nil {
+		return err
+	}
+
+	options := winpty.Options{
+		Command:     path,
+		Env:         os.Environ(),
+		InitialCols: ptyReq.Columns,
+		InitialRows: ptyReq.Rows,
+	}
+
+	winpty, err := winpty.OpenWithOptions(options)
 	if err != nil {
 		log.Info("Winpty failed. %s", err)
 		return err
 	}
+
+	log.Info("New winpty process  spawned")
+
+	// Dynamically handle resizes of terminal window
+	go func() {
+		for req := range reqs {
+			switch req.Type {
+
+			case "window-change":
+				w, h := internal.ParseDims(req.Payload)
+				winpty.SetSize(w, h)
+
+			}
+		}
+
+		winpty.Close()
+	}()
 
 	go func() {
 		io.Copy(connection, winpty)
@@ -72,7 +102,6 @@ func runWithWinPty(command string, connection ssh.Channel, reqs <-chan *ssh.Requ
 	}()
 
 	io.Copy(winpty, connection)
-	winpty.Close()
 
 	return nil
 }
@@ -83,7 +112,6 @@ func runWithConpty(command string, connection ssh.Channel, reqs <-chan *ssh.Requ
 	if err != nil {
 		return fmt.Errorf("Could not open a conpty terminal: %v", err)
 	}
-	defer cpty.Close()
 
 	path, err := exec.LookPath(command)
 	if err != nil {
@@ -117,8 +145,9 @@ func runWithConpty(command string, connection ssh.Channel, reqs <-chan *ssh.Requ
 				cpty.Resize(uint16(w), uint16(h))
 
 			}
-
 		}
+
+		cpty.Close()
 	}()
 
 	// Link data streams of ssh session and conpty
