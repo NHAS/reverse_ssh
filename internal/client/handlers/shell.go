@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -17,33 +19,100 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var shells []string
+var (
+	shells []string
+
+	goodShells = []string{
+		"zsh",
+		"bash",
+		"fish",
+		"dash",
+		"ash",
+		"csh",
+		"ksh",
+		"tcsh",
+		"sh",
+	}
+)
+
+func getSystemShells() ([]string, error) {
+	file, err := os.Open("/etc/shells")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	allSystemShells := []string{}
+	potentialShells := []string{}
+
+	search := make(map[string]bool)
+
+	for _, goodShell := range goodShells {
+		search[goodShell] = true
+	}
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if len(line) > 0 && line[0] == '#' || strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		allSystemShells = append(allSystemShells, line)
+
+		shellPath := strings.TrimSpace(line)
+
+		//if shell name is not in our list of known good shells skip it
+		if !search[filepath.Base(shellPath)] {
+			continue
+		}
+
+		potentialShells = append(potentialShells, shellPath)
+	}
+
+	if len(potentialShells) == 0 {
+		potentialShells = allSystemShells
+	}
+
+	return potentialShells, nil
+}
 
 func init() {
 
-	var potentialShells []string
-	file, err := os.Open("/etc/shells")
-	if err == nil {
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			if len(line) > 0 && line[0] == '#' || strings.TrimSpace(line) == "" {
-				continue
-			}
-			potentialShells = append(potentialShells, strings.TrimSpace(line))
-		}
-	} else {
-		//If the host did not have a /etc/shells, guess a few common shells
-		potentialShells = []string{
-			"/bin/bash",
-			"/bin/zsh",
-			"/bin/ash",
-			"/bin/sh",
+	var (
+		err             error
+		potentialShells []string
+	)
+	for _, goodShell := range goodShells {
+		good, err := exec.LookPath(goodShell)
+		if err != nil {
+			continue
 		}
 
+		potentialShells = append(potentialShells, good)
 	}
+
+	if len(potentialShells) == 0 {
+
+		potentialShells, err = getSystemShells()
+		if err != nil {
+
+			//Last ditch effort to find a shell
+			for _, goodShell := range goodShells {
+				potentialShells = append(potentialShells, path.Join("/opt/bin/", goodShell))
+				potentialShells = append(potentialShells, path.Join("/opt/", goodShell))
+				potentialShells = append(potentialShells, path.Join("/user/local/bin", goodShell))
+				potentialShells = append(potentialShells, path.Join("/user/local/sbin", goodShell))
+				potentialShells = append(potentialShells, path.Join("/usr/bin/", goodShell))
+				potentialShells = append(potentialShells, path.Join("/bin/", goodShell))
+				potentialShells = append(potentialShells, path.Join("/sbin/", goodShell))
+
+			}
+		}
+	}
+
 	for _, s := range potentialShells {
 
 		if stats, err := os.Stat(s); err != nil && (os.IsNotExist(err) || !stats.IsDir()) {
