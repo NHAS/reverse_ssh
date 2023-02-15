@@ -88,15 +88,17 @@ func JumpHandler(sshPriv ssh.Signer) internal.ChannelHandler {
 		}(reqs)
 
 		err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
-			"session":         Session,
-			"direct-tcpip":    LocalForward,
-			"tun@openssh.com": Tun,
+			"session":      Session,
+			"direct-tcpip": LocalForward,
 		})
+
+		if err != nil {
+			log.Error("Channel call back error: %s", err)
+		}
 
 		for rf := range user.SupportedRemoteForwards {
 			go StopRemoteForward(rf)
 		}
 
-		return
 	}
 }

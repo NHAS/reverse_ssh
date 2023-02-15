@@ -145,9 +145,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 		conn, err := Connect(addr, proxyAddr, config.Timeout)
 		if err != nil {
 
-			errMsg := err.Error()
-			switch {
-			case strings.Contains(errMsg, "no such host"), strings.Contains(errMsg, "missing port in address"):
+			if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
 				log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", addr, errMsg)
 			}
 
