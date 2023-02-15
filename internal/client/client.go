@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"strconv"
 	"strings"
 	"time"
 
@@ -154,9 +155,11 @@ func Run(addr, fingerprint, proxyAddr string) {
 			continue
 		}
 
-		sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
+		realConn := &internal.TimeoutConn{conn, 4 * time.Minute}
+
+		sshConn, chans, reqs, err := ssh.NewClientConn(realConn, addr, config)
 		if err != nil {
-			conn.Close()
+			realConn.Close()
 
 			log.Printf("Unable to start a new client connection: %s\n", err)
 			<-time.After(10 * time.Second)
@@ -173,6 +176,15 @@ func Run(addr, fingerprint, proxyAddr string) {
 				case "kill":
 					log.Println("Got kill command, goodbye")
 					os.Exit(0)
+
+				case "keepalive-rssh@golang.org":
+					req.Reply(false, nil)
+					timeout, err := strconv.Atoi(string(req.Payload))
+					if err != nil {
+						continue
+					}
+
+					realConn.Timeout = time.Duration(timeout*2) * time.Second
 
 				default:
 					if req.WantReply {

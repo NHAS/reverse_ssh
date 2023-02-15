@@ -290,7 +290,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 
 		go func() {
 			for {
-				_, _, err = sshConn.SendRequest("keepalive@golang.org", true, nil)
+				_, _, err = sshConn.SendRequest("keepalive-rssh@golang.org", true, []byte(fmt.Sprintf("%d", timeout)))
 				if err != nil {
 					clientLog.Info("Failed to send keepalive, assuming client has disconnected")
 					sshConn.Close()
