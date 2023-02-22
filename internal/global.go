@@ -80,6 +80,13 @@ type PtyReq struct {
 	Modes         string
 }
 
+type ClientInfo struct {
+	Username string
+	Hostname string
+	GoArch   string
+	GoOS     string
+}
+
 // =======================
 
 func ParsePtyReq(req []byte) (out PtyReq, err error) {

@@ -2,12 +2,14 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
 	"os/user"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -176,6 +178,18 @@ func Run(addr, fingerprint, proxyAddr string) {
 				case "kill":
 					log.Println("Got kill command, goodbye")
 					os.Exit(0)
+
+				case "info":
+					c := internal.ClientInfo{
+						GoOS:   runtime.GOOS,
+						GoArch: runtime.GOARCH,
+					}
+
+					r, _ := json.Marshal(c)
+					err := req.Reply(true, r)
+					if err != nil {
+						continue
+					}
 
 				case "keepalive-rssh@golang.org":
 					req.Reply(false, nil)

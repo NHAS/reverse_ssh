@@ -1,11 +1,14 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"sort"
 	"strings"
 
+	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
@@ -23,15 +26,32 @@ type displayItem struct {
 
 func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 
-	t, _ := table.NewTable("Targets", "ID", "Public Key ID", "Hostname", "IP Address", "Version")
+	t, _ := table.NewTable("Targets", "IDs", "Version", "Arch")
 	for _, a := range applicable {
+
+		ok, result, err := a.sc.SendRequest("info", true, nil)
+		if err != nil {
+			continue
+		}
+
+		arch := "-"
+		if ok {
+			c := internal.ClientInfo{}
+			err = json.Unmarshal(result, &c)
+			if err == nil {
+				arch = c.GoOS + "_" + c.GoArch
+			}
+		}
 
 		keyId := a.sc.Permissions.Extensions["pubkey-fp"]
 		if a.sc.Permissions.Extensions["comment"] != "" {
 			keyId = a.sc.Permissions.Extensions["comment"]
 		}
 
-		t.AddValues(a.id, keyId, clients.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String(), string(a.sc.ClientVersion()))
+		if err := t.AddValues(fmt.Sprintf("%s\n%s\n%s\n%s\n", a.id, keyId, clients.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String()), string(a.sc.ClientVersion()), arch); err != nil {
+			log.Println("Error drawing pretty ls table (THIS IS A BUG): ", err)
+			return
+		}
 	}
 
 	t.Fprint(tty)
@@ -89,12 +109,26 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	for i, tr := range toReturn {
 
+		ok, result, err := tr.sc.SendRequest("info", true, nil)
+		if err != nil {
+			continue
+		}
+
+		arch := "-"
+		if ok {
+			c := internal.ClientInfo{}
+			err = json.Unmarshal(result, &c)
+			if err == nil {
+				arch = c.GoOS + "_" + c.GoArch
+			}
+		}
+
 		keyId := tr.sc.Permissions.Extensions["pubkey-fp"]
 		if tr.sc.Permissions.Extensions["comment"] != "" {
 			keyId = tr.sc.Permissions.Extensions["comment"]
 		}
 
-		fmt.Fprintf(tty, "%s %s %s %s, version: %s", tr.id, keyId, clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion())
+		fmt.Fprintf(tty, "%s %s %s %s, version: %s arch: %s", tr.id, keyId, clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion(), arch)
 
 		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)
