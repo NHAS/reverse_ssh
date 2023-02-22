@@ -25,7 +25,7 @@ func (w *watch) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			arrowDirection = "->"
 		}
 
-		messages <- fmt.Sprintf("%s %s %s (%s %s) %s %s", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, c.HostName, c.IP, c.ID, c.Status, c.Version)
+		messages <- fmt.Sprintf("%s %s %s (%s %s) %s %s", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, c.HostName, c.IP, c.ID, c.Version, c.Status)
 
 	})
 

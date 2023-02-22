@@ -18,7 +18,7 @@ type ClientState struct {
 }
 
 func (cs ClientState) Summary() string {
-	return fmt.Sprintf("%s (%s) %s %s", cs.HostName, cs.ID, cs.Status, cs.Version)
+	return fmt.Sprintf("%s (%s) %s %s", cs.HostName, cs.ID, cs.Version, cs.Status)
 }
 
 func (cs ClientState) Json() ([]byte, error) {
