@@ -2,7 +2,6 @@ package client
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -140,7 +139,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 			return nil
 		},
-		ClientVersion: "SSH-" + internal.Version,
+		ClientVersion: "SSH-" + internal.Version + "-" + runtime.GOOS + "_" + runtime.GOARCH,
 	}
 
 	for { // My take on a golang do {} while loop :P
@@ -178,18 +177,6 @@ func Run(addr, fingerprint, proxyAddr string) {
 				case "kill":
 					log.Println("Got kill command, goodbye")
 					os.Exit(0)
-
-				case "info":
-					c := internal.ClientInfo{
-						GoOS:   runtime.GOOS,
-						GoArch: runtime.GOARCH,
-					}
-
-					r, _ := json.Marshal(c)
-					err := req.Reply(true, r)
-					if err != nil {
-						continue
-					}
 
 				case "keepalive-rssh@golang.org":
 					req.Reply(false, nil)

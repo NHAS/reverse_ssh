@@ -352,6 +352,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 				ID:        id,
 				IP:        sshConn.RemoteAddr().String(),
 				HostName:  username,
+				Version:   string(sshConn.ClientVersion()),
 				Timestamp: time.Now(),
 			})
 		}()
@@ -363,6 +364,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 			ID:        id,
 			IP:        sshConn.RemoteAddr().String(),
 			HostName:  username,
+			Version:   string(sshConn.ClientVersion()),
 			Timestamp: time.Now(),
 		})
 

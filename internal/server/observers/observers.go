@@ -13,11 +13,12 @@ type ClientState struct {
 	ID        string
 	IP        string
 	HostName  string
+	Version   string
 	Timestamp time.Time
 }
 
 func (cs ClientState) Summary() string {
-	return fmt.Sprintf("%s (%s) %s", cs.HostName, cs.ID, cs.Status)
+	return fmt.Sprintf("%s (%s) %s %s", cs.HostName, cs.ID, cs.Status, cs.Version)
 }
 
 func (cs ClientState) Json() ([]byte, error) {
