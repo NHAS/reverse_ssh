@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func JumpHandler(sshPriv ssh.Signer) internal.ChannelHandler {
+func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandler {
 
 	return func(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 		connection, requests, err := newChannel.Accept()
@@ -48,10 +48,10 @@ func JumpHandler(sshPriv ssh.Signer) internal.ChannelHandler {
 		}
 		defer conn.Close()
 
-		clientLog := logger.NewLog(conn.RemoteAddr().String())
+		clientLog := logger.NewLog(serverConn.RemoteAddr().String())
 		clientLog.Info("New SSH connection, version %s", conn.ClientVersion())
 
-		user, err := internal.CreateUser(conn)
+		user, err := internal.CreateUser(serverConn)
 		if err != nil {
 			log.Error("Unable to add user %s\n", err)
 			return
