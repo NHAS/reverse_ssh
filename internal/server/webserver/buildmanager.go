@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -112,7 +113,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment s
 
 	f.Path = filepath.Join(cachePath, filename)
 	f.FileType = "executable"
-	f.Version = internal.Version + " (guess)"
+	f.Version = internal.Version + "_guess"
 
 	repoVersion, err := exec.Command("git", "describe", "--tags").CombinedOutput()
 	if err == nil {
@@ -154,7 +155,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment s
 		return "", err
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", suppliedConnectBackAdress, fingerprint, f.Version))
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", suppliedConnectBackAdress, fingerprint, strings.TrimSpace(f.Version)))
 	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)
