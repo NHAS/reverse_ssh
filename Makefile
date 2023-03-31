@@ -28,7 +28,7 @@ release: .generate_keys
 	GOOS=windows GOARCH=amd64 go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
 client: .generate_keys
-	go build -ldflags=" $(LDFLAGS_RELEASE)" -o bin ./cmd/client
+	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client
 
 client_dll: .generate_keys
 	test -n "$(RSSH_HOMESERVER)" # Shared objects cannot take arguments, so must have a callback server baked in (define RSSH_HOMESERVER)
@@ -36,7 +36,7 @@ client_dll: .generate_keys
 
 server:
 	mkdir -p bin
-	go build -ldflags="-s -w" -o bin ./cmd/server
+	go build -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/server
 
 .generate_keys:
 	mkdir -p bin
