@@ -169,7 +169,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment s
 	if shared {
 
 		var crossCompiler string
-		if runtime.GOOS == "linux" && f.Goos == "windows" && f.Goarch == "amd64" {
+		if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && f.Goos == "windows" && f.Goarch == "amd64" {
 			crossCompiler = "x86_64-w64-mingw32-gcc"
 		}
 
