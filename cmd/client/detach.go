@@ -5,7 +5,6 @@ package main
 import (
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"syscall"
 
@@ -24,34 +23,20 @@ func Run(destination, fingerprint, proxyaddress string) {
 	client.Run(destination, fingerprint, proxyaddress)
 }
 
-func Fork(destination, fingerprint, proxyaddress string) error {
+func Fork(destination, fingerprint, proxyaddress string, pretendArgv ...string) error {
 	log.Println("Forking")
 
-	err := fork("/proc/self/exe")
+	err := fork("/proc/self/exe", nil, pretendArgv...)
 	if err != nil {
 		log.Println("Forking from /proc/self/exe failed: ", err)
 
 		binary, err := os.Executable()
 		if err == nil {
-			err = fork(binary)
+			err = fork(binary, nil, pretendArgv...)
 		}
 
 		log.Println("Forking from argv[0] failed: ", err)
 		return err
-	}
-	return nil
-}
-
-func fork(path string) error {
-
-	cmd := exec.Command(path, append([]string{"--foreground"}, os.Args[1:]...)...)
-	err := cmd.Start()
-	if err != nil {
-		return err
-	}
-
-	if cmd.Process != nil {
-		cmd.Process.Release()
 	}
 	return nil
 }

