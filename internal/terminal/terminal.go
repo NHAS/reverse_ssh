@@ -1122,7 +1122,10 @@ func (t *Terminal) readLine() (line string, err error) {
 		if lineOk {
 			if t.echo {
 				t.historyIndex = -1
-				t.history.Add(line)
+				line2 := strings.TrimSpace(line)
+				if line2 != "" {
+					t.history.Add(line2)
+				}
 			}
 			if lineIsPasted {
 				err = ErrPasteIndicator
