@@ -6,14 +6,20 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"golang.org/x/crypto/ssh"
 )
 
-var currentRemoteForwards = map[internal.RemoteForwardRequest]net.Listener{}
+var (
+	currentRemoteForwardsLck sync.RWMutex
+	currentRemoteForwards    = map[internal.RemoteForwardRequest]net.Listener{}
+)
 
 func StopRemoteForward(rf internal.RemoteForwardRequest) error {
+	currentRemoteForwardsLck.Lock()
+	defer currentRemoteForwardsLck.Unlock()
 
 	if _, ok := currentRemoteForwards[rf]; !ok {
 		return fmt.Errorf("Unable to find remote forward request")
@@ -55,8 +61,10 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 
 	log.Println("Started listening on: ", l.Addr())
 
-	currentRemoteForwards[rf] = l
+	currentRemoteForwardsLck.Lock()
 
+	currentRemoteForwards[rf] = l
+	currentRemoteForwardsLck.Unlock()
 	for {
 
 		proxyCon, err := l.Accept()
