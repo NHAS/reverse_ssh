@@ -68,7 +68,6 @@ func (m *Multiplexer) StartListener(network, address string) error {
 				continue
 
 			}
-
 			go func() {
 				select {
 				case m.newConnections <- conn:
@@ -108,6 +107,15 @@ func (m *Multiplexer) GetListeners() []string {
 	sort.Strings(listeners)
 
 	return listeners
+}
+
+func (m *Multiplexer) QueueConn(c net.Conn) error {
+	select {
+	case m.newConnections <- c:
+		return nil
+	case <-time.After(250 * time.Millisecond):
+		return errors.New("too busy to queue connection")
+	}
 }
 
 func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplexer, error) {

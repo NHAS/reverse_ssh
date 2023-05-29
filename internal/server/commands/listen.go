@@ -15,6 +15,14 @@ type listen struct {
 	log logger.Logger
 }
 
+func client() {
+
+}
+
+func server() {
+
+}
+
 func (w *listen) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	if line.IsSet("h") || len(line.Flags) < 1 {
 		fmt.Fprintf(tty, "%s", w.Help(false))
@@ -91,6 +99,8 @@ func (w *listen) Help(explain bool) string {
 	return terminal.MakeHelpText(
 		"listen [OPTION] [PORT]",
 		"listen starts or stops listening ports",
+		"\t--client (-c)\tSpecify client/s to act on, e.g -c *, --client your.hostname.here",
+		"\t--server (-s)\tSpecify to change the server listeners",
 		"\t--on\tTurn on port, e.g --on :8080 127.0.0.1:4444",
 		"\t--off\tTurn off port, e.g --off :8080 127.0.0.1:4444",
 		"\t-l\tList all enabled addresses",

@@ -28,6 +28,7 @@ type RemoteForwardRequest struct {
 	BindPort uint32
 }
 
+// https://tools.ietf.org/html/rfc4254
 type ChannelOpenDirectMsg struct {
 	Raddr string
 	Rport uint32

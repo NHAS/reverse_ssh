@@ -175,7 +175,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in effect, upgrading the net.Conn
 	// into an ssh.ServerConn
 	config := &ssh.ServerConfig{
-		ServerVersion: "SSH-2.0-OpenSSH_7.4",
+		ServerVersion: "SSH-2.0-OpenSSH_8.0",
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 
 			authorizedKeysMap, err := readPubKeys(authorizedKeysPath)
@@ -247,7 +247,6 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 	config.AddHostKey(privateKey)
 
 	// Accept all connections
-
 	for {
 		tcpConn, err := sshListener.Accept()
 		if err != nil {
@@ -341,7 +340,8 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 			go ssh.DiscardRequests(reqs)
 
 			err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]internal.ChannelHandler{
-				"rssh-download": handlers.Download(dataDir),
+				"rssh-download":   handlers.Download(dataDir),
+				"forwarded-tcpip": handlers.ServerPortForward(id),
 			})
 
 			clientLog.Info("SSH client disconnected")

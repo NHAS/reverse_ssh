@@ -48,7 +48,13 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 	}
 	defer l.Close()
 
-	user.SupportedRemoteForwards[rf] = true
+	defer StopRemoteForward(rf)
+
+	if user != nil {
+		user.Lock()
+		user.SupportedRemoteForwards[rf] = true
+		user.Unlock()
+	}
 
 	//https://datatracker.ietf.org/doc/html/rfc4254
 	responseData := []byte{}
@@ -62,9 +68,9 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 	log.Println("Started listening on: ", l.Addr())
 
 	currentRemoteForwardsLck.Lock()
-
 	currentRemoteForwards[rf] = l
 	currentRemoteForwardsLck.Unlock()
+
 	for {
 
 		proxyCon, err := l.Accept()

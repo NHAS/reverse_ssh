@@ -15,6 +15,7 @@ var lUsers sync.RWMutex
 var users map[string]bool = make(map[string]bool)
 
 type User struct {
+	sync.RWMutex
 	// This is the users connection to the server itself, creates new channels and whatnot. NOT to get io.Copy'd
 	ServerConnection ssh.Conn
 
@@ -22,7 +23,7 @@ type User struct {
 
 	ShellRequests <-chan *ssh.Request
 
-	// Remote forwards sent by user
+	// Remote forwards sent by user, used to just close user specific remote forwards
 	SupportedRemoteForwards map[RemoteForwardRequest]bool //(set)
 
 	// So we can capture details about who is currently using the rssh server

@@ -71,7 +71,7 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandle
 						return
 					}
 
-					go func() {
+					go func(r *ssh.Request) {
 						err := StopRemoteForward(rf)
 						if err != nil {
 							r.Reply(false, []byte(err.Error()))
@@ -79,7 +79,7 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandle
 						}
 
 						r.Reply(true, nil)
-					}()
+					}(r)
 				default:
 					//Ignore any unspecified global requests
 					r.Reply(false, nil)
@@ -96,9 +96,11 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandle
 			log.Error("Channel call back error: %s", err)
 		}
 
+		user.Lock()
 		for rf := range user.SupportedRemoteForwards {
 			go StopRemoteForward(rf)
 		}
+		user.Unlock()
 
 	}
 }

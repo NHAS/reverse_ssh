@@ -156,6 +156,8 @@ func Run(addr, fingerprint, proxyAddr string) {
 			continue
 		}
 
+		// Make initial timeout quite long so folks who type their ssh public key can actually do it
+		// After this the timeout gets updated by the server
 		realConn := &internal.TimeoutConn{conn, 4 * time.Minute}
 
 		sshConn, chans, reqs, err := ssh.NewClientConn(realConn, addr, config)
@@ -186,6 +188,28 @@ func Run(addr, fingerprint, proxyAddr string) {
 					}
 
 					realConn.Timeout = time.Duration(timeout*2) * time.Second
+
+				case "tcpip-forward":
+					go handlers.StartRemoteForward(nil, req, sshConn)
+
+				case "cancel-tcpip-forward":
+					var rf internal.RemoteForwardRequest
+
+					err := ssh.Unmarshal(req.Payload, &rf)
+					if err != nil {
+						req.Reply(false, []byte(fmt.Sprintf("Unable to unmarshal remote forward request in order to stop it: %s", err.Error())))
+						return
+					}
+
+					go func(r *ssh.Request) {
+						err := handlers.StopRemoteForward(rf)
+						if err != nil {
+							r.Reply(false, []byte(err.Error()))
+							return
+						}
+
+						r.Reply(true, nil)
+					}(req)
 
 				default:
 					if req.WantReply {
