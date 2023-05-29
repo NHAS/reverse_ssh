@@ -2,12 +2,11 @@ package commands
 
 import (
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
-//This is used for help, so we can generate the nice table
+// This is used for help, so we can generate the nice table
 // I would prefer if we could do some sort of autoregistration process for these
 var allCommands = map[string]terminal.Command{
 	"ls":      &list{},
@@ -36,7 +35,7 @@ func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.
 		"exec":    &exec{},
 		"who":     &who{},
 		"watch":   &watch{},
-		"listen":  Listen(multiplexer.ServerMultiplexer, log),
+		"listen":  Listen(log),
 		"webhook": &webhook{},
 		"version": &version{},
 	}
