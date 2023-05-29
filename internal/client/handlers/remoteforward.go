@@ -28,6 +28,8 @@ func StopRemoteForward(rf internal.RemoteForwardRequest) error {
 	currentRemoteForwards[rf].Close()
 	delete(currentRemoteForwards, rf)
 
+	log.Println("Stopped listening on: ", rf.BindAddr, rf.BindPort)
+
 	return nil
 }
 
