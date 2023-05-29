@@ -79,38 +79,41 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 		if err != nil {
 			return
 		}
-		go handleData(rf, proxyCon, sshConn)
+		go handleData(proxyCon, sshConn)
 	}
 
 }
 
-func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh.Conn) error {
+func handleData(proxyCon net.Conn, sshConn ssh.Conn) error {
 
 	log.Println("Accepted new connection: ", proxyCon.RemoteAddr())
 
-	originatorAddress := proxyCon.LocalAddr().String()
-	var originatorPort uint32
+	lHost, strPort, err := net.SplitHostPort(proxyCon.LocalAddr().String())
+	if err != nil {
+		return err
+	}
 
-	for i := len(originatorAddress) - 1; i > 0; i-- {
-		if originatorAddress[i] == ':' {
+	lPort, err := strconv.Atoi(strPort)
+	if err != nil {
+		return err
+	}
 
-			e, err := strconv.Atoi(originatorAddress[i+1:])
-			if err != nil {
-				return err
-			}
+	rHost, strPort, err := net.SplitHostPort(proxyCon.RemoteAddr().String())
+	if err != nil {
+		return err
+	}
 
-			originatorPort = uint32(e)
-			originatorAddress = originatorAddress[:i]
-			break
-		}
+	rPort, err := strconv.Atoi(strPort)
+	if err != nil {
+		return err
 	}
 
 	drtMsg := internal.ChannelOpenDirectMsg{
-		Raddr: rf.BindAddr,
-		Rport: rf.BindPort,
+		Raddr: rHost,
+		Rport: uint32(rPort),
 
-		Laddr: originatorAddress,
-		Lport: originatorPort,
+		Laddr: lHost,
+		Lport: uint32(lPort),
 	}
 
 	b := ssh.Marshal(&drtMsg)
