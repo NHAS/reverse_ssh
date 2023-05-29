@@ -65,6 +65,7 @@ func (c *chanConn) SetWriteDeadline(t time.Time) error {
 }
 
 func channelToConn(channel ssh.Channel, drtMsg internal.ChannelOpenDirectMsg) net.Conn {
+
 	return &chanConn{channel, drtMsg}
 }
 

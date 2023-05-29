@@ -123,7 +123,7 @@ func client(tty io.ReadWriter, line terminal.ParsedLine) error {
 			for c, sc := range foundClients {
 				result, message, err := sc.SendRequest("tcpip-forward", true, b)
 				if !result {
-					fmt.Fprintln(tty, "failed to start port on: ", c, ": ", message)
+					fmt.Fprintln(tty, "failed to start port on: ", c, ": ", string(message))
 					continue
 				}
 
@@ -166,7 +166,7 @@ func client(tty io.ReadWriter, line terminal.ParsedLine) error {
 			for c, sc := range foundClients {
 				result, message, err := sc.SendRequest("cancel-tcpip-forward", true, b)
 				if !result {
-					fmt.Fprintln(tty, "failed to stop port on: ", c, ": ", message)
+					fmt.Fprintln(tty, "failed to stop port on: ", c, ": ", string(message))
 					continue
 				}
 
