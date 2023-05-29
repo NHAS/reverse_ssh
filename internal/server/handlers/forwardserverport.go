@@ -87,7 +87,6 @@ func ServerPortForward(clientId string) func(_ *internal.User, newChannel ssh.Ne
 			log.Warning("Unable to accept new channel %s", err)
 			return
 		}
-		defer connection.Close()
 
 		go func() {
 			for req := range requests {
