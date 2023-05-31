@@ -81,29 +81,13 @@ func Search(filter string) (out map[string]*ssh.ServerConn, err error) {
 	lock.RLock()
 	defer lock.RUnlock()
 
-outer:
 	for id, conn := range clients {
 		if filter == "" {
 			out[id] = conn
 			continue
 		}
 
-		match, _ := filepath.Match(filter, id)
-		if match {
-			out[id] = conn
-			continue
-		}
-
-		for _, alias := range uniqueIdToAllAliases[id] {
-			match, _ = filepath.Match(filter, alias)
-			if match {
-				out[id] = conn
-				continue outer
-			}
-		}
-
-		match, _ = filepath.Match(filter, conn.RemoteAddr().String())
-		if match {
+		if _matches(filter, id, conn.RemoteAddr().String()) {
 			out[id] = conn
 			continue
 		}
@@ -111,6 +95,30 @@ outer:
 	}
 
 	return
+}
+
+func _matches(filter, clientId, remoteAddr string) bool {
+	match, _ := filepath.Match(filter, clientId)
+	if match {
+		return true
+	}
+
+	for _, alias := range uniqueIdToAllAliases[clientId] {
+		match, _ = filepath.Match(filter, alias)
+		if match {
+			return true
+		}
+	}
+
+	match, _ = filepath.Match(filter, remoteAddr)
+	return match
+}
+
+func Matches(filter, clientId, remoteAddr string) bool {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	return _matches(filter, clientId, remoteAddr)
 }
 
 func Get(identifier string) (ssh.Conn, error) {

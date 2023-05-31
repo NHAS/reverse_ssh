@@ -11,17 +11,26 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
+	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/NHAS/reverse_ssh/pkg/observer"
 	"golang.org/x/crypto/ssh"
 )
+
+type autostartEntry struct {
+	ObserverID string
+	Criteria   string
+}
+
+var autoStartServerPort = map[internal.RemoteForwardRequest]autostartEntry{}
 
 type listen struct {
 	log logger.Logger
 }
 
-func server(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *listen) server(tty io.ReadWriter, line terminal.ParsedLine) error {
 	if line.IsSet("l") {
 		listeners := multiplexer.ServerMultiplexer.GetListeners()
 
@@ -72,7 +81,15 @@ func server(tty io.ReadWriter, line terminal.ParsedLine) error {
 	return nil
 }
 
-func client(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine) error {
+
+	auto := line.IsSet("auto")
+	if line.IsSet("l") && auto {
+		for k, v := range autoStartServerPort {
+			fmt.Fprintf(tty, "%s %s:%d\n", v.Criteria, k.BindAddr, k.BindPort)
+		}
+		return nil
+	}
 
 	specifier, err := line.GetArgString("c")
 	if err != nil {
@@ -87,7 +104,7 @@ func client(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	if len(foundClients) == 0 {
+	if len(foundClients) == 0 && !auto {
 		return fmt.Errorf("No clients matched '%s'", specifier)
 	}
 
@@ -151,13 +168,47 @@ func client(tty io.ReadWriter, line terminal.ParsedLine) error {
 			for c, sc := range foundClients {
 				result, message, err := sc.SendRequest("tcpip-forward", true, b)
 				if !result {
-					fmt.Fprintln(tty, "failed to start port on: ", c, ": ", string(message))
+					fmt.Fprintln(tty, "failed to start port on (client may not support it): ", c, ": ", string(message))
 					continue
 				}
 
 				if err != nil {
 					fmt.Fprintln(tty, "error starting port on: ", c, ": ", err)
 				}
+			}
+
+			if auto {
+				var entry autostartEntry
+
+				entry.ObserverID = observers.ConnectionState.Register(func(m observer.Message) {
+					c := m.(observers.ClientState)
+
+					if !clients.Matches(specifier, c.ID, c.IP) || c.Status == "disconnected" {
+						return
+					}
+
+					client, err := clients.Get(c.ID)
+					if err != nil {
+						return
+					}
+
+					result, message, err := client.SendRequest("tcpip-forward", true, b)
+					if !result {
+						l.log.Warning("failed to start server tcpip-forward on client: %s: %s", c.ID, message)
+						return
+					}
+
+					if err != nil {
+						l.log.Warning("error auto starting port on: %s: %s", c.ID, err)
+						return
+					}
+
+				})
+
+				entry.Criteria = specifier
+
+				autoStartServerPort[r] = entry
+
 			}
 		}
 
@@ -202,6 +253,13 @@ func client(tty io.ReadWriter, line terminal.ParsedLine) error {
 					fmt.Fprintln(tty, "error stop port on: ", c, ": ", err)
 				}
 			}
+
+			if auto {
+				if _, ok := autoStartServerPort[r]; ok {
+					observers.ConnectionState.Deregister(autoStartServerPort[r].Criteria)
+				}
+				delete(autoStartServerPort, r)
+			}
 		}
 	}
 
@@ -215,9 +273,9 @@ func (w *listen) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if line.IsSet("server") || line.IsSet("s") {
-		return server(tty, line)
-	} else if line.IsSet("client") || line.IsSet("c") {
-		return client(tty, line)
+		return w.server(tty, line)
+	} else if line.IsSet("client") || line.IsSet("c") || line.IsSet("auto") {
+		return w.client(tty, line)
 	}
 
 	return errors.New("neither server or client were specified, please choose one")
@@ -243,9 +301,11 @@ func (w *listen) Help(explain bool) string {
 	return terminal.MakeHelpText(
 		"listen [OPTION] [PORT]",
 		"listen starts or stops listening control ports",
-		"\t--client (-c)\tSpecify client/s to act on, e.g -c *, --client your.hostname.here",
-		"\t--server (-s)\tSpecify to change the server listeners",
+		"it allows you to change the servers listening port, or open the servers control port on an rssh client, so that forwarding is easier",
+		"\t--client (-c)\tOpen server port on client/s takes a pattern, e.g -c *, --client your.hostname.here",
+		"\t--server (-s)\tChange the server listeners",
 		"\t--on\tTurn on port, e.g --on :8080 127.0.0.1:4444",
+		"\t--auto\tAutomatically turn on server control port on clients that match criteria, (use --off --auto to disable and --l --auto to view)",
 		"\t--off\tTurn off port, e.g --off :8080 127.0.0.1:4444",
 		"\t-l\tList all enabled addresses",
 	)
