@@ -12,10 +12,28 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type remoteforward struct {
+	Listener net.Listener
+	User     *internal.User
+}
+
 var (
 	currentRemoteForwardsLck sync.RWMutex
-	currentRemoteForwards    = map[internal.RemoteForwardRequest]net.Listener{}
+	currentRemoteForwards    = map[internal.RemoteForwardRequest]remoteforward{}
 )
+
+func GetServerRemoteForwards() (out []internal.RemoteForwardRequest) {
+	currentRemoteForwardsLck.RLock()
+	defer currentRemoteForwardsLck.RUnlock()
+
+	for a, c := range currentRemoteForwards {
+		if c.User == nil {
+			out = append(out, a)
+		}
+	}
+
+	return out
+}
 
 func StopRemoteForward(rf internal.RemoteForwardRequest) error {
 	currentRemoteForwardsLck.Lock()
@@ -25,7 +43,7 @@ func StopRemoteForward(rf internal.RemoteForwardRequest) error {
 		return fmt.Errorf("Unable to find remote forward request")
 	}
 
-	currentRemoteForwards[rf].Close()
+	currentRemoteForwards[rf].Listener.Close()
 	delete(currentRemoteForwards, rf)
 
 	log.Println("Stopped listening on: ", rf.BindAddr, rf.BindPort)
@@ -70,7 +88,10 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 	log.Println("Started listening on: ", l.Addr())
 
 	currentRemoteForwardsLck.Lock()
-	currentRemoteForwards[rf] = l
+	currentRemoteForwards[rf] = remoteforward{
+		Listener: l,
+		User:     user,
+	}
 	currentRemoteForwardsLck.Unlock()
 
 	for {

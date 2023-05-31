@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -172,6 +173,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 		log.Println("Successfully connnected", addr)
 
 		go func() {
+
 			for req := range reqs {
 
 				switch req.Type {
@@ -192,6 +194,16 @@ func Run(addr, fingerprint, proxyAddr string) {
 				case "tcpip-forward":
 					go handlers.StartRemoteForward(nil, req, sshConn)
 
+				case "query-tcpip-forwards":
+					serverRemoteForwards := handlers.GetServerRemoteForwards()
+					result, err := json.Marshal(&serverRemoteForwards)
+					if err != nil {
+						req.Reply(false, []byte(err.Error()))
+						continue
+					}
+
+					req.Reply(true, result)
+
 				case "cancel-tcpip-forward":
 					var rf internal.RemoteForwardRequest
 
@@ -202,6 +214,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 					}
 
 					go func(r *ssh.Request) {
+
 						err := handlers.StopRemoteForward(rf)
 						if err != nil {
 							r.Reply(false, []byte(err.Error()))

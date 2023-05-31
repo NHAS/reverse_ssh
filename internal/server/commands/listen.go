@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -86,7 +88,33 @@ func client(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if len(foundClients) == 0 {
-		return fmt.Errorf("No clients matched '%s'", client)
+		return fmt.Errorf("No clients matched '%s'", specifier)
+	}
+
+	if line.IsSet("l") {
+
+		for id, cc := range foundClients {
+			result, message, _ := cc.SendRequest("query-tcpip-forwards", true, nil)
+			if !result {
+				fmt.Fprintf(tty, "%s does not support querying server forwards\n", id)
+				continue
+			}
+
+			var remoteforwards []internal.RemoteForwardRequest
+			err := json.Unmarshal(message, &remoteforwards)
+			if err != nil {
+				fmt.Fprintf(tty, "%s sent an incompatiable message: %s\n", id, err)
+				continue
+			}
+
+			fmt.Fprintf(tty, "%s (%s %s): \n", id, clients.NormaliseHostname(cc.User()), cc.RemoteAddr().String())
+			for _, rf := range remoteforwards {
+				fmt.Fprintf(tty, "\t%s:%d\n", rf.BindAddr, rf.BindPort)
+			}
+
+		}
+
+		return nil
 	}
 
 	on := line.IsSet("on")
@@ -196,6 +224,14 @@ func (w *listen) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 }
 
 func (W *listen) Expect(line terminal.ParsedLine) []string {
+
+	if line.Section != nil {
+		switch line.Section.Value() {
+		case "c", "client":
+			return []string{autocomplete.RemoteId}
+		}
+	}
+
 	return nil
 }
 
