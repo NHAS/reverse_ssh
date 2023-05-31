@@ -180,6 +180,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 				case "kill":
 					log.Println("Got kill command, goodbye")
+					<-time.After(5 * time.Second)
 					os.Exit(0)
 
 				case "keepalive-rssh@golang.org":
