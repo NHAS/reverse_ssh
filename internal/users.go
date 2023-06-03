@@ -16,6 +16,7 @@ var users map[string]bool = make(map[string]bool)
 
 type User struct {
 	sync.RWMutex
+	
 	// This is the users connection to the server itself, creates new channels and whatnot. NOT to get io.Copy'd
 	ServerConnection ssh.Conn
 

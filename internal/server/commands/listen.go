@@ -30,7 +30,7 @@ type listen struct {
 	log logger.Logger
 }
 
-func (l *listen) server(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *listen) server(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, offAddrs []string) error {
 	if line.IsSet("l") {
 		listeners := multiplexer.ServerMultiplexer.GetListeners()
 
@@ -45,43 +45,26 @@ func (l *listen) server(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return nil
 	}
 
-	on := line.IsSet("on")
-	off := line.IsSet("off")
-
-	if on {
-		addrs, err := line.GetArgsString("on")
+	for _, addr := range onAddrs {
+		err := multiplexer.ServerMultiplexer.StartListener("tcp", addr)
 		if err != nil {
 			return err
 		}
-
-		for _, addr := range addrs {
-			err := multiplexer.ServerMultiplexer.StartListener("tcp", addr)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintln(tty, "started listening on: ", addr)
-		}
+		fmt.Fprintln(tty, "started listening on: ", addr)
 	}
 
-	if off {
-		addrs, err := line.GetArgsString("off")
+	for _, addr := range offAddrs {
+		err := multiplexer.ServerMultiplexer.StopListener(addr)
 		if err != nil {
 			return err
 		}
-
-		for _, addr := range addrs {
-			err := multiplexer.ServerMultiplexer.StopListener(addr)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintln(tty, "stopped listening on: ", addr)
-		}
+		fmt.Fprintln(tty, "stopped listening on: ", addr)
 	}
 
 	return nil
 }
 
-func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, offAddrs []string) error {
 
 	auto := line.IsSet("auto")
 	if line.IsSet("l") && auto {
@@ -134,132 +117,127 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return nil
 	}
 
-	on := line.IsSet("on")
-	off := line.IsSet("off")
+	var fwRequests []internal.RemoteForwardRequest
 
-	if on {
-		var fwRequests []internal.RemoteForwardRequest
-
-		addrs, err := line.GetArgsString("on")
+	for _, addr := range onAddrs {
+		ip, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return err
 		}
 
-		for _, addr := range addrs {
-			ip, port, err := net.SplitHostPort(addr)
-			if err != nil {
-				return err
-			}
-
-			p, err := strconv.Atoi(port)
-			if err != nil {
-				return err
-			}
-
-			fwRequests = append(fwRequests, internal.RemoteForwardRequest{
-				BindPort: uint32(p),
-				BindAddr: ip,
-			})
-
+		p, err := strconv.Atoi(port)
+		if err != nil {
+			return err
 		}
 
-		for _, r := range fwRequests {
-			b := ssh.Marshal(&r)
-			for c, sc := range foundClients {
-				result, message, err := sc.SendRequest("tcpip-forward", true, b)
-				if !result {
-					fmt.Fprintln(tty, "failed to start port on (client may not support it): ", c, ": ", string(message))
-					continue
-				}
-
-				if err != nil {
-					fmt.Fprintln(tty, "error starting port on: ", c, ": ", err)
-				}
-			}
-
-			if auto {
-				var entry autostartEntry
-
-				entry.ObserverID = observers.ConnectionState.Register(func(m observer.Message) {
-					c := m.(observers.ClientState)
-
-					if !clients.Matches(specifier, c.ID, c.IP) || c.Status == "disconnected" {
-						return
-					}
-
-					client, err := clients.Get(c.ID)
-					if err != nil {
-						return
-					}
-
-					result, message, err := client.SendRequest("tcpip-forward", true, b)
-					if !result {
-						l.log.Warning("failed to start server tcpip-forward on client: %s: %s", c.ID, message)
-						return
-					}
-
-					if err != nil {
-						l.log.Warning("error auto starting port on: %s: %s", c.ID, err)
-						return
-					}
-
-				})
-
-				entry.Criteria = specifier
-
-				autoStartServerPort[r] = entry
-
-			}
-		}
+		fwRequests = append(fwRequests, internal.RemoteForwardRequest{
+			BindPort: uint32(p),
+			BindAddr: ip,
+		})
 
 	}
 
-	if off {
-		var cancelFwRequests []internal.RemoteForwardRequest
+	for _, r := range fwRequests {
 
-		addrs, err := line.GetArgsString("off")
+		b := ssh.Marshal(&r)
+
+		applied := len(foundClients)
+		for c, sc := range foundClients {
+			result, message, err := sc.SendRequest("tcpip-forward", true, b)
+			if !result {
+				applied--
+				fmt.Fprintln(tty, "failed to start port on (client may not support it): ", c, ": ", string(message))
+				continue
+			}
+
+			if err != nil {
+				applied--
+				fmt.Fprintln(tty, "error starting port on: ", c, ": ", err)
+			}
+		}
+
+		fmt.Fprintf(tty, "started %s:%d on %d clients (total %d)\n", r.BindAddr, r.BindPort, applied, len(foundClients))
+
+		if auto {
+			var entry autostartEntry
+
+			entry.ObserverID = observers.ConnectionState.Register(func(m observer.Message) {
+				c := m.(observers.ClientState)
+
+				if !clients.Matches(specifier, c.ID, c.IP) || c.Status == "disconnected" {
+					return
+				}
+
+				client, err := clients.Get(c.ID)
+				if err != nil {
+					return
+				}
+
+				result, message, err := client.SendRequest("tcpip-forward", true, b)
+				if !result {
+					l.log.Warning("failed to start server tcpip-forward on client: %s: %s", c.ID, message)
+					return
+				}
+
+				if err != nil {
+					l.log.Warning("error auto starting port on: %s: %s", c.ID, err)
+					return
+				}
+
+			})
+
+			entry.Criteria = specifier
+
+			autoStartServerPort[r] = entry
+
+		}
+	}
+
+	var cancelFwRequests []internal.RemoteForwardRequest
+
+	for _, addr := range offAddrs {
+		ip, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return err
 		}
 
-		for _, addr := range addrs {
-			ip, port, err := net.SplitHostPort(addr)
-			if err != nil {
-				return err
-			}
-
-			p, err := strconv.Atoi(port)
-			if err != nil {
-				return err
-			}
-
-			cancelFwRequests = append(cancelFwRequests, internal.RemoteForwardRequest{
-				BindPort: uint32(p),
-				BindAddr: ip,
-			})
-
+		p, err := strconv.Atoi(port)
+		if err != nil {
+			return err
 		}
 
-		for _, r := range cancelFwRequests {
-			b := ssh.Marshal(&r)
-			for c, sc := range foundClients {
-				result, message, err := sc.SendRequest("cancel-tcpip-forward", true, b)
-				if !result {
-					fmt.Fprintln(tty, "failed to stop port on: ", c, ": ", string(message))
-					continue
-				}
+		cancelFwRequests = append(cancelFwRequests, internal.RemoteForwardRequest{
+			BindPort: uint32(p),
+			BindAddr: ip,
+		})
 
-				if err != nil {
-					fmt.Fprintln(tty, "error stop port on: ", c, ": ", err)
-				}
+	}
+
+	for _, r := range cancelFwRequests {
+		applied := len(foundClients)
+
+		b := ssh.Marshal(&r)
+		for c, sc := range foundClients {
+			result, message, err := sc.SendRequest("cancel-tcpip-forward", true, b)
+			if !result {
+				applied--
+				fmt.Fprintln(tty, "failed to stop port on: ", c, ": ", string(message))
+				continue
 			}
 
-			if auto {
-				if _, ok := autoStartServerPort[r]; ok {
-					observers.ConnectionState.Deregister(autoStartServerPort[r].Criteria)
-				}
-				delete(autoStartServerPort, r)
+			if err != nil {
+				applied--
+				fmt.Fprintln(tty, "error stop port on: ", c, ": ", err)
 			}
+		}
+
+		fmt.Fprintf(tty, "stopped %s:%d on %d clients\n", r.BindAddr, r.BindPort, applied)
+
+		if auto {
+			if _, ok := autoStartServerPort[r]; ok {
+				observers.ConnectionState.Deregister(autoStartServerPort[r].Criteria)
+			}
+			delete(autoStartServerPort, r)
 		}
 	}
 
@@ -272,10 +250,32 @@ func (w *listen) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return nil
 	}
 
+	onAddrs, err := line.GetArgsString("on")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	if len(onAddrs) == 0 && err != terminal.ErrFlagNotSet {
+		return errors.New("no value specified for --on, requires port e.g --on :4343")
+	}
+
+	offAddrs, err := line.GetArgsString("off")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	if len(offAddrs) == 0 && err != terminal.ErrFlagNotSet {
+		return errors.New("no value specified for --off, requires port e.g --off :4343")
+	}
+
+	if onAddrs == nil && offAddrs == nil && !line.IsSet("l") {
+		return errors.New("no actionable argument supplied, please add --on, --off or -l (list)")
+	}
+
 	if line.IsSet("server") || line.IsSet("s") {
-		return w.server(tty, line)
+		return w.server(tty, line, onAddrs, offAddrs)
 	} else if line.IsSet("client") || line.IsSet("c") || line.IsSet("auto") {
-		return w.client(tty, line)
+		return w.client(tty, line, onAddrs, offAddrs)
 	}
 
 	return errors.New("neither server or client were specified, please choose one")
