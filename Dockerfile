@@ -1,4 +1,4 @@
-FROM golang:1.19-bullseye
+FROM golang:1.20-bullseye
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y upx-ucl gcc-mingw-w64
 
-RUN go install mvdan.cc/garble@f9d9919
+RUN go install mvdan.cc/garble@latest
 
 ENV PATH="${PATH}:$(go env GOPATH)/bin"
 
