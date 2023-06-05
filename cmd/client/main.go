@@ -43,6 +43,7 @@ func fork(path string, sysProcAttr *syscall.SysProcAttr, pretendArgv ...string) 
 var (
 	destination string
 	fingerprint string
+	proxy       string
 	ignoreInput string
 )
 
@@ -58,7 +59,7 @@ func printHelp() {
 func main() {
 
 	if len(os.Args) == 0 || ignoreInput == "true" {
-		Run(destination, fingerprint, "")
+		Run(destination, fingerprint, proxy)
 		return
 	}
 
@@ -84,6 +85,9 @@ func main() {
 	fg := line.IsSet("foreground")
 
 	proxyaddress, _ := line.GetArgString("proxy")
+	if len(proxyaddress) > 0 {
+		proxy = proxyaddress
+	}
 
 	userSpecifiedFingerprint, err := line.GetArgString("fingerprint")
 	if err == nil {
@@ -113,13 +117,13 @@ func main() {
 	}
 
 	if fg || child {
-		Run(destination, fingerprint, proxyaddress)
+		Run(destination, fingerprint, proxy)
 		return
 	}
 
-	err = Fork(destination, fingerprint, proxyaddress, processArgv...)
+	err = Fork(destination, fingerprint, proxy, processArgv...)
 	if err != nil {
-		Run(destination, fingerprint, proxyaddress)
+		Run(destination, fingerprint, proxy)
 	}
 
 }
