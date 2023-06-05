@@ -109,7 +109,12 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, comment, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"))
+	proxy, err := line.GetArgString("proxy")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"))
 	if err != nil {
 		return err
 	}
@@ -146,6 +151,7 @@ func (e *link) Help(explain bool) string {
 		"\t--goos\tSet the target build operating system (default to runtime GOOS)",
 		"\t--goarch\tSet the target build architecture (default to runtime GOARCH)",
 		"\t--name\tSet link name",
+		"\t--proxy\tSet connect proxy address to bake it",
 		"\t--shared-object\tGenerate shared object file",
 		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
 		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
