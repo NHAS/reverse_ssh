@@ -18,7 +18,7 @@ func Run(destination, fingerprint, proxyaddress string) {
 
 	//Create our own process group, and ignore any  hang up signals
 	syscall.Setsid()
-	signal.Ignore(syscall.SIGHUP)
+	signal.Ignore(syscall.SIGHUP, syscall.SIGPIPE)
 
 	client.Run(destination, fingerprint, proxyaddress)
 }
