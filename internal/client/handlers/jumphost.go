@@ -88,8 +88,9 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandle
 		}(reqs)
 
 		err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
-			"session":      Session,
-			"direct-tcpip": LocalForward,
+			"session":         Session,
+			"direct-tcpip":    LocalForward,
+			"tun@openssh.com": Tun,
 		})
 
 		if err != nil {
