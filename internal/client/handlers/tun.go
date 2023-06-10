@@ -184,7 +184,6 @@ func forwardTCP(request *tcp.ForwarderRequest) {
 		var wq waiter.Queue
 		ep, errTcp := request.CreateEndpoint(&wq)
 		if errTcp != nil {
-			fmt.Printf("r.CreateEndpoint() = %v\n", errTcp)
 			request.Complete(true)
 			return
 		}
