@@ -57,7 +57,6 @@ And more!
     - [Executable Downloading](#executable-downloading)
       - [Supported URI Schemes](#supported-uri-schemes)
 - [Help](#help)
-  - [Garble](#garble)
   - [Windows and SFTP](#windows-and-sftp)
   - [Server started with `--insecure` still has `Failed to handshake`](#server-started-with---insecure-still-has-failed-to-handshake)
   - [Foreground vs Background (Important note about clients)](#foreground-vs-background-important-note-about-clients)
@@ -370,18 +369,6 @@ Both of these methods will opportunistically use [memfd](https://man7.org/linux/
 
 
 # Help
-
-## Garble
-
-However the `@latest` release has a bug that causes panics with generic code.   
-If you are installing this manually use the following, you will need `golang 1.20+` for this:
-
-```sh
-go install mvdan.cc/garble@latest
-```
-
-Then make sure that the `go/bin/` directory is in your `$PATH`
-
 
 ## Windows and SFTP
 
