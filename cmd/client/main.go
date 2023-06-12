@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -70,7 +69,6 @@ func main() {
 	o := os.NewFile(uintptr(3), "pipe")
 	child := false
 	orginialArgv, err := io.ReadAll(o)
-	log.Println("got ", orginialArgv, err)
 	if err == nil {
 		if len(orginialArgv) > 0 {
 			argv = string(orginialArgv)
