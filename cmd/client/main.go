@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,15 +70,14 @@ func main() {
 
 	o := os.NewFile(uintptr(3), "pipe")
 	child := false
-	if o != nil {
-		orginialArgv, err := io.ReadAll(o)
-		if err == nil {
-			if len(orginialArgv) > 0 {
-				argv = string(orginialArgv)
-				child = true
-			}
-			o.Close()
+	orginialArgv, err := io.ReadAll(o)
+	log.Println("got ", orginialArgv, err)
+	if err == nil {
+		if len(orginialArgv) > 0 {
+			argv = string(orginialArgv)
+			child = true
 		}
+		o.Close()
 	}
 
 	line := terminal.ParseLine(argv, 0)
