@@ -2,7 +2,6 @@ package client
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -197,13 +196,8 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 				case "query-tcpip-forwards":
 					serverRemoteForwards := handlers.GetServerRemoteForwards()
-					result, err := json.Marshal(&serverRemoteForwards)
-					if err != nil {
-						req.Reply(false, []byte(err.Error()))
-						continue
-					}
-
-					req.Reply(true, result)
+					// Use ssh.Marshal instead of json.Marshal so that garble doesnt cook things
+					req.Reply(true, ssh.Marshal(&serverRemoteForwards))
 
 				case "cancel-tcpip-forward":
 					var rf internal.RemoteForwardRequest

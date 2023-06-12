@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -101,7 +100,7 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 			}
 
 			var remoteforwards []internal.RemoteForwardRequest
-			err := json.Unmarshal(message, &remoteforwards)
+			err := ssh.Unmarshal(message, &remoteforwards)
 			if err != nil {
 				fmt.Fprintf(tty, "%s sent an incompatiable message: %s\n", id, err)
 				continue

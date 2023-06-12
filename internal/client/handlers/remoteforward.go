@@ -88,6 +88,8 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 	log.Println("Started listening on: ", l.Addr())
 
 	currentRemoteForwardsLck.Lock()
+
+	log.Println("adding: ", rf)
 	currentRemoteForwards[rf] = remoteforward{
 		Listener: l,
 		User:     user,
