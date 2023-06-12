@@ -24,7 +24,6 @@ func fork(path string, sysProcAttr *syscall.SysProcAttr, pretendArgv ...string) 
 	//Write original argv via fd 3, so we can more effectively change the client argv to be something innocuous
 	w.Write([]byte(strings.Join(os.Args, " ")))
 	w.Close()
-	r.Close()
 
 	cmd := exec.Command(path)
 	cmd.Args = pretendArgv

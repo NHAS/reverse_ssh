@@ -122,7 +122,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, 
 
 	var buildArguments []string
 	if garble {
-		//buildArguments = append(buildArguments, "-tiny", "-literals")
+		buildArguments = append(buildArguments, "-tiny", "-literals")
 	}
 
 	buildArguments = append(buildArguments, "build")
