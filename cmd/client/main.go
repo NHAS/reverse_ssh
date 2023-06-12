@@ -23,6 +23,7 @@ func fork(path string, sysProcAttr *syscall.SysProcAttr, pretendArgv ...string) 
 	//Write original argv via fd 3, so we can more effectively change the client argv to be something innocuous
 	w.Write([]byte(strings.Join(os.Args, " ")))
 	w.Close()
+	r.Close()
 
 	cmd := exec.Command(path)
 	cmd.Args = pretendArgv
@@ -67,13 +68,17 @@ func main() {
 	var argv = strings.Join(os.Args, " ")
 
 	o := os.NewFile(uintptr(3), "pipe")
-	orginialArgv, err := io.ReadAll(o)
 	child := false
-	if err == nil && len(orginialArgv) > 0 {
-		argv = string(orginialArgv)
-		child = true
+	if o != nil {
+		orginialArgv, err := io.ReadAll(o)
+		if err == nil {
+			if len(orginialArgv) > 0 {
+				argv = string(orginialArgv)
+				child = true
+			}
+			o.Close()
+		}
 	}
-	o.Close()
 
 	line := terminal.ParseLine(argv, 0)
 
