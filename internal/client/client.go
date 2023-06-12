@@ -195,9 +195,15 @@ func Run(addr, fingerprint, proxyAddr string) {
 					go handlers.StartRemoteForward(nil, req, sshConn)
 
 				case "query-tcpip-forwards":
-					serverRemoteForwards := handlers.GetServerRemoteForwards()
+
+					f := struct {
+						RemoteForwards []string
+					}{
+						RemoteForwards: handlers.GetServerRemoteForwards(),
+					}
+
 					// Use ssh.Marshal instead of json.Marshal so that garble doesnt cook things
-					req.Reply(true, ssh.Marshal(&serverRemoteForwards))
+					req.Reply(true, ssh.Marshal(f))
 
 				case "cancel-tcpip-forward":
 					var rf internal.RemoteForwardRequest

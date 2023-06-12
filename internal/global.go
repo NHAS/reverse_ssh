@@ -28,6 +28,10 @@ type RemoteForwardRequest struct {
 	BindPort uint32
 }
 
+func (r *RemoteForwardRequest) String() string {
+	return fmt.Sprintf("%s:%d", r.BindAddr, r.BindPort)
+}
+
 // https://tools.ietf.org/html/rfc4254
 type ChannelOpenDirectMsg struct {
 	Raddr string

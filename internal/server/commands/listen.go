@@ -99,16 +99,19 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 				continue
 			}
 
-			var remoteforwards []internal.RemoteForwardRequest
-			err := ssh.Unmarshal(message, &remoteforwards)
+			f := struct {
+				RemoteForwards []string
+			}{}
+
+			err := ssh.Unmarshal(message, &f)
 			if err != nil {
 				fmt.Fprintf(tty, "%s sent an incompatiable message: %s\n", id, err)
 				continue
 			}
 
 			fmt.Fprintf(tty, "%s (%s %s): \n", id, clients.NormaliseHostname(cc.User()), cc.RemoteAddr().String())
-			for _, rf := range remoteforwards {
-				fmt.Fprintf(tty, "\t%s:%d\n", rf.BindAddr, rf.BindPort)
+			for _, rf := range f.RemoteForwards {
+				fmt.Fprintf(tty, "\t%s\n", rf)
 			}
 
 		}

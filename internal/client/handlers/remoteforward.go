@@ -22,13 +22,13 @@ var (
 	currentRemoteForwards    = map[internal.RemoteForwardRequest]remoteforward{}
 )
 
-func GetServerRemoteForwards() (out []internal.RemoteForwardRequest) {
+func GetServerRemoteForwards() (out []string) {
 	currentRemoteForwardsLck.RLock()
 	defer currentRemoteForwardsLck.RUnlock()
 
 	for a, c := range currentRemoteForwards {
 		if c.User == nil {
-			out = append(out, a)
+			out = append(out, a.String())
 		}
 	}
 
@@ -89,7 +89,6 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 
 	currentRemoteForwardsLck.Lock()
 
-	log.Println("adding: ", rf)
 	currentRemoteForwards[rf] = remoteforward{
 		Listener: l,
 		User:     user,
