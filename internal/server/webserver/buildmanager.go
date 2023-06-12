@@ -120,7 +120,13 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, 
 		f.Version = string(repoVersion)
 	}
 
-	buildArguments := []string{"build"}
+	var buildArguments []string
+	if garble {
+		buildArguments = append(buildArguments, "-tiny", "-literals")
+	}
+
+	buildArguments = append(buildArguments, "build")
+
 	if shared {
 		buildArguments = append(buildArguments, "-buildmode=c-shared")
 		buildArguments = append(buildArguments, "-tags=cshared")
