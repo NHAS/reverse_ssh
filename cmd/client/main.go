@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,23 +14,14 @@ import (
 
 func fork(path string, sysProcAttr *syscall.SysProcAttr, pretendArgv ...string) error {
 
-	r, w, err := os.Pipe()
-	if err != nil {
-		return err
-	}
-
-	//Write original argv via fd 3, so we can more effectively change the client argv to be something innocuous
-	w.Write([]byte(strings.Join(os.Args, " ")))
-	w.Close()
-
 	cmd := exec.Command(path)
 	cmd.Args = pretendArgv
-	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
+	cmd.Env = append(os.Environ(), "F="+strings.Join(os.Args, " "))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = sysProcAttr
 
-	err = cmd.Start()
+	err := cmd.Start()
 
 	if cmd.Process != nil {
 		cmd.Process.Release()
@@ -66,16 +56,12 @@ func main() {
 	os.Args[0] = strconv.Quote(os.Args[0])
 	var argv = strings.Join(os.Args, " ")
 
-	o := os.NewFile(uintptr(3), "pipe")
-	child := false
-	orginialArgv, err := io.ReadAll(o)
-	if err == nil {
-		if len(orginialArgv) > 0 {
-			argv = string(orginialArgv)
-			child = true
-		}
-		o.Close()
+	realArgv, child := os.LookupEnv("F")
+	if child {
+		argv = realArgv
 	}
+
+	os.Unsetenv("F")
 
 	line := terminal.ParseLine(argv, 0)
 
