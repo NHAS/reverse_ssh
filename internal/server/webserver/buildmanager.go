@@ -125,7 +125,7 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, 
 		buildArguments = append(buildArguments, "-tiny", "-literals")
 	}
 
-	buildArguments = append(buildArguments, "build")
+	buildArguments = append(buildArguments, "build", "-trimpath")
 
 	if shared {
 		buildArguments = append(buildArguments, "-buildmode=c-shared")
