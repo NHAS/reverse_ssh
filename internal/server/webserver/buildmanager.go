@@ -41,7 +41,7 @@ var (
 	cachePath string
 )
 
-func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble bool) (string, error) {
+func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble, disableLibC bool) (string, error) {
 	if !webserverOn {
 		return "", errors.New("web server is not enabled")
 	}
@@ -165,6 +165,10 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, 
 	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)
+
+	if disableLibC {
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	}
 
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, "GOOS="+f.Goos)

@@ -114,7 +114,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"))
+	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"))
 	if err != nil {
 		return err
 	}
@@ -154,8 +154,9 @@ func (e *link) Help(explain bool) string {
 		"\t--proxy\tSet connect proxy address to bake it",
 		"\t--shared-object\tGenerate shared object file",
 		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
-		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
 		"\t--garble\tUse garble to obfuscate the binary (requires garble to be installed)",
+		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
+		"\t--no-lib-c\tCompile client without glibc",
 	)
 }
 
