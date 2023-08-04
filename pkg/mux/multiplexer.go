@@ -210,9 +210,9 @@ func (m *Multiplexer) Close() {
 func isHttp(b []byte) bool {
 
 	validMethods := [][]byte{
-		[]byte("GET"), []byte("HEAD"), []byte("POST"),
-		[]byte("PUT"), []byte("DELETE"), []byte("CONNECT"),
-		[]byte("OPTIONS"), []byte("TRACE"), []byte("PATCH"),
+		[]byte("GET"), []byte("HEA"), []byte("POS"),
+		[]byte("PUT"), []byte("DEL"), []byte("CON"),
+		[]byte("OPT"), []byte("TRA"), []byte("PAT"),
 	}
 
 	for _, vm := range validMethods {
