@@ -23,6 +23,7 @@ type file struct {
 	Path            string
 	Goos            string
 	Goarch          string
+	Goarm           string
 	FileType        string
 	Hits            int
 	Version         string
@@ -41,7 +42,7 @@ var (
 	cachePath string
 )
 
-func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble, disableLibC bool) (string, error) {
+func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble, disableLibC bool) (string, error) {
 	if !webserverOn {
 		return "", errors.New("web server is not enabled")
 	}
@@ -111,6 +112,8 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, 
 		f.Goarch = goarch
 	}
 
+	f.Goarm = goarm
+
 	f.Path = filepath.Join(cachePath, filename)
 	f.FileType = "executable"
 	f.Version = internal.Version + "_guess"
@@ -173,6 +176,9 @@ func Build(goos, goarch, suppliedConnectBackAdress, fingerprint, name, comment, 
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, "GOOS="+f.Goos)
 	cmd.Env = append(cmd.Env, "GOARCH="+f.Goarch)
+	if len(f.Goarm) != 0 {
+		cmd.Env = append(cmd.Env, "GOARM="+f.Goarm)
+	}
 
 	//Building a shared object for windows needs some extra beans
 	cgoOn := "0"
@@ -267,7 +273,7 @@ func List(filter string) (matchingFiles map[string]file, err error) {
 			continue
 		}
 
-		if match, _ := filepath.Match(filter, file.Goarch); match {
+		if match, _ := filepath.Match(filter, file.Goarch+file.Goarm); match {
 			matchingFiles[id] = cache[id]
 			continue
 		}

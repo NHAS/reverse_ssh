@@ -41,7 +41,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		for _, id := range ids {
 			file := files[id]
 
-			t.AddValues("http://"+path.Join(webserver.DefaultConnectBack, id), file.CallbackAddress, file.Goos, file.Goarch, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits))
+			t.AddValues("http://"+path.Join(webserver.DefaultConnectBack, id), file.CallbackAddress, file.Goos, file.Goarch+file.Goarm, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits))
 		}
 
 		t.Fprint(tty)
@@ -89,6 +89,11 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
+	goarm, err := line.GetArgString("goarm")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
 	homeserver_address, err := line.GetArgString("s")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
@@ -114,7 +119,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	url, err := webserver.Build(goos, goarch, homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"))
+	url, err := webserver.Build(goos, goarch, goarm, homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"))
 	if err != nil {
 		return err
 	}
@@ -150,6 +155,7 @@ func (e *link) Help(explain bool) string {
 		"\t-C\tComment to add as the public key (acts as the name)",
 		"\t--goos\tSet the target build operating system (default runtime GOOS)",
 		"\t--goarch\tSet the target build architecture (default runtime GOARCH)",
+		"\t--goarm\tSet the go arm variable (not set by default)",
 		"\t--name\tSet the link download url/filename (default random characters)",
 		"\t--proxy\tSet connect proxy address to bake it",
 		"\t--shared-object\tGenerate shared object file",
