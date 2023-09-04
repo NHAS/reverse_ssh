@@ -96,8 +96,10 @@ func Open(cmd string, InitialCols, InitialRows uint32) (*WinPTY, error) {
 }
 
 func OpenWithOptions(options Options) (*WinPTY, error) {
-	loadWinPty()
-
+	err := loadWinPty()
+	if err != nil {
+		return nil, err
+	}
 	// create config with specified Flags
 	agentCfg, err := createAgentCfg(options.Flags)
 
