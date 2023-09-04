@@ -59,7 +59,7 @@ func writeBinaries() error {
 	}
 
 	if _, err := os.Stat(winptyDllName); errors.Is(err, os.ErrNotExist) {
-		dll, err := binaries.ReadFile(path.Join("ia32", dllType, winptyDllName))
+		dll, err := binaries.ReadFile(path.Join("ia32", dllType, "winpty.dll"))
 		if err != nil {
 			panic(err)
 		}
@@ -70,7 +70,7 @@ func writeBinaries() error {
 	}
 
 	if _, err := os.Stat(winptyAgentName); errors.Is(err, os.ErrNotExist) {
-		dll, err := binaries.ReadFile(path.Join("ia32", dllType, winptyAgentName))
+		dll, err := binaries.ReadFile(path.Join("ia32", dllType, "winpty-agent.exe"))
 		if err != nil {
 			panic(err)
 		}

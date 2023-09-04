@@ -23,16 +23,6 @@ func writeBinaries() error {
 
 	vsn := windows.RtlGetVersion()
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		log.Println("unable to get cache directory for writing winpty pe's writing may fail if directory is ro")
-	}
-
-	if err == nil {
-		winptyDllName = cacheDir + "\\temp\\" + winptyDllName
-		winptyAgentName = cacheDir + "\\temp\\" + winptyAgentName
-	}
-
 	/*
 		https://msdn.microsoft.com/en-us/library/ms724832(VS.85).aspx
 		Windows 10					10.0*
@@ -57,8 +47,18 @@ func writeBinaries() error {
 		dllType = "xp"
 	}
 
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		log.Println("unable to get cache directory for writing winpty pe's writing may fail if directory is ro")
+	}
+
+	if err == nil {
+		winptyDllName = cacheDir + "\\temp\\" + winptyDllName
+		winptyAgentName = cacheDir + "\\temp\\" + winptyAgentName
+	}
+
 	if _, err := os.Stat(winptyDllName); errors.Is(err, os.ErrNotExist) {
-		dll, err := binaries.ReadFile(path.Join("x64", dllType, winptyDllName))
+		dll, err := binaries.ReadFile(path.Join("x64", dllType, "winpty.dll"))
 		if err != nil {
 			panic(err)
 		}
@@ -69,7 +69,7 @@ func writeBinaries() error {
 	}
 
 	if _, err := os.Stat(winptyAgentName); errors.Is(err, os.ErrNotExist) {
-		dll, err := binaries.ReadFile(path.Join("x64", dllType, winptyAgentName))
+		dll, err := binaries.ReadFile(path.Join("x64", dllType, "winpty-agent.exe"))
 		if err != nil {
 			panic(err)
 		}
