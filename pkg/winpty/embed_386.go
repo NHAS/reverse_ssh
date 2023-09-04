@@ -75,6 +75,10 @@ func writeBinaries() error {
 func createAgentCfg(flags uint32) (uintptr, error) {
 	var errorPtr uintptr
 
+	if winpty_error_free == nil {
+		return uintptr(0), errors.New("winpty was not initalised")
+	}
+
 	err := winpty_error_free.Find() // check if dll available
 	if err != nil {
 		return uintptr(0), err
