@@ -7,7 +7,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"syscall"
@@ -22,6 +22,16 @@ var binaries embed.FS
 func writeBinaries() error {
 
 	vsn := windows.RtlGetVersion()
+
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		log.Println("unable to get cache directory for writing winpty pe's writing may fail if directory is ro")
+	}
+
+	if err == nil {
+		winptyDllName = path.Join(cacheDir, winptyDllName)
+		winptyAgentName = path.Join(cacheDir, winptyAgentName)
+	}
 
 	/*
 		https://msdn.microsoft.com/en-us/library/ms724832(VS.85).aspx
@@ -52,7 +62,7 @@ func writeBinaries() error {
 		if err != nil {
 			panic(err)
 		}
-		err = ioutil.WriteFile(winptyDllName, dll, 0700)
+		err = os.WriteFile(winptyDllName, dll, 0700)
 		if err != nil {
 			return err
 		}
@@ -63,7 +73,7 @@ func writeBinaries() error {
 		if err != nil {
 			panic(err)
 		}
-		err = ioutil.WriteFile(winptyAgentName, dll, 0700)
+		err = os.WriteFile(winptyAgentName, dll, 0700)
 		if err != nil {
 			return err
 		}

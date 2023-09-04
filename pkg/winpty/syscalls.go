@@ -4,6 +4,7 @@
 package winpty
 
 import (
+	"errors"
 	"syscall"
 )
 
@@ -52,13 +53,17 @@ func loadWinPty() error {
 
 	err := writeBinaries()
 	if err != nil {
-		return err
+		return errors.New("writing PEs to disk failed: " + err.Error())
 	}
 
 	modWinPTY = syscall.NewLazyDLL(winptyDllName)
+	if modWinPTY == nil {
+		return errors.New("creating lazy dll failed")
+	}
 
 	// Error handling...
 	winpty_error_code = modWinPTY.NewProc("winpty_error_code")
+
 	winpty_error_msg = modWinPTY.NewProc("winpty_error_msg")
 	winpty_error_free = modWinPTY.NewProc("winpty_error_free")
 
