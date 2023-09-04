@@ -29,8 +29,8 @@ func writeBinaries() error {
 	}
 
 	if err == nil {
-		winptyDllName = path.Join(cacheDir, "\\temp\\", winptyDllName)
-		winptyAgentName = path.Join(cacheDir, "\\temp\\", winptyAgentName)
+		winptyDllName = cacheDir + "\\temp\\" + winptyDllName
+		winptyAgentName = cacheDir + "\\temp\\" + winptyAgentName
 	}
 
 	/*
