@@ -44,11 +44,15 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 	return private, nil
 }
 
-func Run(addr, dataDir, connectBackAddress string, insecure, enabledWebserver bool, timeout int) {
+func Run(addr, dataDir, connectBackAddress, TLSCertPath, TLSKeyPath string, insecure, enabledWebserver, enabletTLS bool, timeout int) {
 	c := mux.MultiplexerConfig{
-		SSH:          true,
-		TcpKeepAlive: timeout,
-		HTTP:         enabledWebserver,
+		SSH:               true,
+		HTTP:              enabledWebserver,
+		TLS:               enabletTLS,
+		TLSCertPath:       TLSCertPath,
+		TLSKeyPath:        TLSKeyPath,
+		AutoTLSCommonName: connectBackAddress,
+		TcpKeepAlive:      timeout,
 	}
 
 	privateKeyPath := filepath.Join(dataDir, "id_ed25519")

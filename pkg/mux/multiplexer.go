@@ -3,8 +3,14 @@ package mux
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"errors"
 	"log"
+	"math/big"
 	"net"
 	"sort"
 	"strings"
@@ -14,9 +20,56 @@ import (
 )
 
 type MultiplexerConfig struct {
-	SSH          bool
-	HTTP         bool
+	SSH  bool
+	HTTP bool
+
+	TLS               bool
+	AutoTLSCommonName string
+
+	TLSCertPath string
+	TLSKeyPath  string
+
 	TcpKeepAlive int
+
+	tlsConfig *tls.Config
+}
+
+// https://gist.github.com/shivakar/cd52b5594d4912fbeb46
+func genX509KeyPair(AutoTLSCommonName string) (tls.Certificate, error) {
+	now := time.Now()
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(now.Unix()),
+		Subject: pkix.Name{
+			CommonName:   AutoTLSCommonName,
+			Country:      []string{"US"},
+			Organization: []string{"Cloudflare, Inc"},
+		},
+		NotBefore:             now,
+		NotAfter:              now.AddDate(0, 0, 30), // Valid for 30 days
+		SubjectKeyId:          []byte{113, 117, 105, 99, 107, 115, 101, 114, 118, 101},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		KeyUsage: x509.KeyUsageKeyEncipherment |
+			x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+	}
+
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	cert, err := x509.CreateCertificate(rand.Reader, template, template,
+		priv.Public(), priv)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	var outCert tls.Certificate
+	outCert.Certificate = append(outCert.Certificate, cert)
+	outCert.PrivateKey = priv
+
+	return outCert, nil
 }
 
 type Multiplexer struct {
@@ -55,6 +108,7 @@ func (m *Multiplexer) StartListener(network, address string) error {
 
 	go func(listen net.Listener) {
 		for {
+			// Raw TCP connection
 			conn, err := listen.Accept()
 			if err != nil {
 				if strings.Contains(err.Error(), "use of closed network connection") {
@@ -156,7 +210,93 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 				defer atomic.AddInt32(&waitingConnections, -1)
 
 				conn.SetDeadline(time.Now().Add(2 * time.Second))
-				l, prefix, err := m.determineProtocol(conn)
+
+				header := make([]byte, 3)
+				n, err := conn.Read(header)
+				if err != nil {
+					conn.Close()
+					log.Println("Multiplexing failed: ", err)
+					return
+				}
+
+				if n <= 0 {
+					conn.Close()
+					log.Println("Multiplexing failed: ", err)
+					return
+				}
+
+				viaTLS := false
+				if m.config.TLS {
+
+					if m.config.tlsConfig == nil {
+
+						tlsConfig := &tls.Config{
+							PreferServerCipherSuites: true,
+							CurvePreferences: []tls.CurveID{
+								tls.CurveP256,
+								tls.X25519, // Go 1.8 only
+							},
+							MinVersion: tls.VersionTLS12,
+						}
+
+						if m.config.TLSCertPath != "" {
+							cert, err := tls.LoadX509KeyPair(m.config.TLSCertPath, m.config.TLSKeyPath)
+							if err != nil {
+
+								log.Println("TLS is enabled but loading certs/key failed: ", m.config.TLSCertPath, " err: ", err)
+								return
+							}
+
+							tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
+						} else {
+							cert, err := genX509KeyPair(m.config.AutoTLSCommonName)
+							if err != nil {
+								log.Println("TLS is enabled but generating certs/key failed: ", err)
+								return
+							}
+							tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
+						}
+
+						m.config.tlsConfig = tlsConfig
+					}
+
+					if header[0] == 0x16 {
+						// this is TLS so replace the connection
+						c := tls.Server(&bufferedConn{conn: conn, prefix: header[:n]}, m.config.tlsConfig)
+						err := c.Handshake()
+						if err != nil {
+							conn.Close()
+
+							if !strings.Contains(err.Error(), "remote error: tls: bad certificate") {
+								log.Println("Multiplexing failed (tls handshake): ", err)
+							}
+							return
+						}
+
+						conn = c
+						viaTLS = true
+					}
+
+				}
+
+				if viaTLS {
+					header = make([]byte, 3)
+					n, err := conn.Read(header)
+					if err != nil {
+						conn.Close()
+						log.Println("Multiplexing failed: ", err)
+						return
+					}
+
+					if n <= 0 {
+						conn.Close()
+						log.Println("Multiplexing failed: ", err)
+						return
+					}
+
+				}
+
+				l, err := m.determineProtocol(header[:n])
 				if err != nil {
 					conn.Close()
 					log.Println("Multiplexing failed: ", err)
@@ -167,7 +307,7 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 
 				select {
 				//Allow whatever we're multiplexing to apply backpressure if it cant accept things
-				case l.connections <- &bufferedConn{conn: conn, prefix: prefix}:
+				case l.connections <- &bufferedConn{conn: conn, prefix: header[:n]}:
 				case <-time.After(2 * time.Second):
 
 					log.Println(l.protocol, "Failed to accept new connection within 2 seconds, closing connection (may indicate high resource usage)")
@@ -224,26 +364,20 @@ func isHttp(b []byte) bool {
 	return false
 }
 
-func (m *Multiplexer) determineProtocol(c net.Conn) (*multiplexerListener, []byte, error) {
-	b := make([]byte, 3)
-	_, err := c.Read(b)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func (m *Multiplexer) determineProtocol(header []byte) (*multiplexerListener, error) {
 	proto := ""
-	if bytes.HasPrefix(b, []byte{'S', 'S', 'H'}) {
+	if bytes.HasPrefix(header, []byte{'S', 'S', 'H'}) {
 		proto = "ssh"
-	} else if isHttp(b) {
+	} else if isHttp(header) {
 		proto = "http"
 	}
 
 	l, ok := m.protocols[proto]
 	if !ok {
-		return nil, nil, errors.New("Unknown protocol")
+		return nil, errors.New("Unknown protocol")
 	}
 
-	return l, b, nil
+	return l, nil
 }
 
 func (m *Multiplexer) getProtoListener(proto string) net.Listener {

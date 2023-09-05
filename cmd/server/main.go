@@ -23,6 +23,9 @@ func printHelp() {
 	fmt.Println("  Authorisation")
 	fmt.Println("\t--insecure\t\tIgnore authorized_controllee_keys file and allow any RSSH client to connect")
 	fmt.Println("  Network")
+	fmt.Println("\t--tls\t\tEnable TLS on socket (ssh/http over TLS)")
+	fmt.Println("\t--tlscert\t\tTLS certificate path")
+	fmt.Println("\t--tlskey\t\tTLS key path")
 	fmt.Println("\t--webserver\t\tEnable webserver on the listen_address port")
 	fmt.Println("\t--external_address\tIf the external IP and port of the RSSH server is different from the listening address, set that here")
 	fmt.Println("\t--timeout\t\tSet rssh client timeout (when a client is considered disconnected) defaults, in seconds, defaults to 5, if set to 0 timeout is disabled")
@@ -34,6 +37,9 @@ func main() {
 
 	options, err := terminal.ParseLineValidFlags(strings.Join(os.Args, " "), 0, map[string]bool{
 		"insecure":         true,
+		"tls":              true,
+		"tlscert":          true,
+		"tlskey":           true,
 		"external_address": true,
 		"fingerprint":      true,
 		"webserver":        true,
@@ -115,6 +121,10 @@ func main() {
 
 	insecure := options.IsSet("insecure")
 
+	tls := options.IsSet("tls")
+	tlscert, _ := options.GetArgString("tlscert")
+	tlskey, _ := options.GetArgString("tlskey")
+
 	webserver := options.IsSet("webserver")
 	connectBackAddress, err := options.GetArgString("external_address")
 
@@ -152,5 +162,5 @@ func main() {
 
 	}
 
-	server.Run(listenAddress, dataDir, connectBackAddress, insecure, webserver, timeout)
+	server.Run(listenAddress, dataDir, connectBackAddress, tlscert, tlskey, insecure, webserver, tls, timeout)
 }

@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -142,6 +143,12 @@ func Run(addr, fingerprint, proxyAddr string) {
 		ClientVersion: "SSH-" + internal.Version + "-" + runtime.GOOS + "_" + runtime.GOARCH,
 	}
 
+	useTLS := false
+	if strings.HasPrefix(addr, "tls://") {
+		addr = strings.TrimPrefix(addr, "tls://")
+		useTLS = true
+	}
+
 	for { // My take on a golang do {} while loop :P
 		log.Println("Connecting to ", addr)
 		conn, err := Connect(addr, proxyAddr, config.Timeout)
@@ -154,6 +161,14 @@ func Run(addr, fingerprint, proxyAddr string) {
 			log.Printf("Unable to connect TCP: %s\n", err)
 			<-time.After(10 * time.Second)
 			continue
+		}
+
+		if useTLS {
+			clientTlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: true})
+			err = clientTlsConn.Handshake()
+			if err == nil {
+				conn = clientTlsConn
+			}
 		}
 
 		// Make initial timeout quite long so folks who type their ssh public key can actually do it
