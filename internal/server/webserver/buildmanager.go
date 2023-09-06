@@ -229,7 +229,7 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
 	}
 
-	return "http://" + suppliedConnectBackAdress + "/" + name, nil
+	return "http://" + DefaultConnectBack + "/" + name, nil
 }
 
 func Get(key string) (file, error) {
