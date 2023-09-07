@@ -165,7 +165,17 @@ func Run(addr, fingerprint, proxyAddr string) {
 		}
 
 		if useTLS {
-			clientTlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: true})
+
+			sniServerName := addr
+			parts := strings.Split(addr, ":")
+			if len(parts) == 2 {
+				sniServerName = parts[0]
+			}
+
+			clientTlsConn := tls.Client(conn, &tls.Config{
+				InsecureSkipVerify: true,
+				ServerName:         sniServerName,
+			})
 			err = clientTlsConn.Handshake()
 			if err != nil {
 				log.Printf("Unable to connect TLS: %s\n", err)
