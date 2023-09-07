@@ -177,7 +177,8 @@ func Run(addr, fingerprint, proxyAddr string) {
 		}
 
 		if useWebsockets {
-			c, err := websocket.NewConfig("ws://anything.goes.here/ws", "ws://rssh")
+
+			c, err := websocket.NewConfig("ws://"+addr+"/ws", "ws://"+addr)
 			if err != nil {
 				panic(err)
 			}
