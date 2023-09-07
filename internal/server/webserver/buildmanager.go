@@ -42,7 +42,7 @@ var (
 	cachePath string
 )
 
-func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble, disableLibC, tls bool) (string, error) {
+func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble, disableLibC, tls, wss, ws bool) (string, error) {
 	if !webserverOn {
 		return "", errors.New("web server is not enabled")
 	}
@@ -61,6 +61,14 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 
 	if tls {
 		suppliedConnectBackAdress = "tls://" + suppliedConnectBackAdress
+	}
+
+	if wss {
+		suppliedConnectBackAdress = "wss://" + suppliedConnectBackAdress
+	}
+
+	if ws {
+		suppliedConnectBackAdress = "ws://" + suppliedConnectBackAdress
 	}
 
 	if len(fingerprint) == 0 {

@@ -119,7 +119,11 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	url, err := webserver.Build(goos, goarch, goarm, homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"), line.IsSet("tls"))
+	if (line.IsSet("tls") && line.IsSet("wss")) || (line.IsSet("tls") && line.IsSet("ws")) || (line.IsSet("wss") && line.IsSet("ws")) {
+		return errors.New("cant use tls/wss/ws flags together (only supports one per client)")
+	}
+
+	url, err := webserver.Build(goos, goarch, goarm, homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"), line.IsSet("tls"), line.IsSet("wss"), line.IsSet("ws"))
 	if err != nil {
 		return err
 	}
@@ -159,6 +163,8 @@ func (e *link) Help(explain bool) string {
 		"\t--name\tSet the link download url/filename (default random characters)",
 		"\t--proxy\tSet connect proxy address to bake it",
 		"\t--tls\tUse TLS as the underlying transport",
+		"\t--ws\tUse plain http websockets as the underlying transport",
+		"\t--wss\tUse TLS websockets as the underlying transport",
 		"\t--shared-object\tGenerate shared object file",
 		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
 		"\t--garble\tUse garble to obfuscate the binary (requires garble to be installed)",
