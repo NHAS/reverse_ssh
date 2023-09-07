@@ -191,7 +191,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 			remoteIp := getIP(conn.RemoteAddr().String())
 
 			if remoteIp == nil {
-				return nil, fmt.Errorf("not authorized %q, could not parse IP address %s", conn.User(), remoteIp)
+				return nil, fmt.Errorf("not authorized %q, could not parse IP address %s", conn.User(), conn.RemoteAddr())
 			}
 
 			//If insecure mode, then any unknown client will be connected as a controllable client.
@@ -248,13 +248,13 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 
 	// Accept all connections
 	for {
-		tcpConn, err := sshListener.Accept()
+		conn, err := sshListener.Accept()
 		if err != nil {
 			log.Printf("Failed to accept incoming connection (%s)", err)
 			continue
 		}
 
-		go acceptConn(tcpConn, config, timeout, dataDir)
+		go acceptConn(conn, config, timeout, dataDir)
 	}
 }
 

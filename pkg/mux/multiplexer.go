@@ -12,11 +12,14 @@ import (
 	"log"
 	"math/big"
 	"net"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/net/websocket"
 )
 
 type MultiplexerConfig struct {
@@ -211,22 +214,10 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 
 				conn.SetDeadline(time.Now().Add(2 * time.Second))
 
-				header := make([]byte, 3)
-				n, err := conn.Read(header)
-				if err != nil {
-					conn.Close()
-					log.Println("Multiplexing failed: ", err)
-					return
-				}
+				var proto string
+				conn, proto = m.determineProtocol(conn)
 
-				if n <= 0 {
-					conn.Close()
-					log.Println("Multiplexing failed: ", err)
-					return
-				}
-
-				viaTLS := false
-				if m.config.TLS {
+				if m.config.TLS && proto == "tls" {
 
 					if m.config.tlsConfig == nil {
 
@@ -260,58 +251,76 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 						m.config.tlsConfig = tlsConfig
 					}
 
-					if header[0] == 0x16 {
-						// this is TLS so replace the connection
-						c := tls.Server(&bufferedConn{conn: conn, prefix: header[:n]}, m.config.tlsConfig)
-						err := c.Handshake()
-						if err != nil {
-							conn.Close()
-
-							if !strings.Contains(err.Error(), "remote error: tls: bad certificate") {
-								log.Println("Multiplexing failed (tls handshake): ", err)
-							}
-							return
-						}
-
-						conn = c
-						viaTLS = true
-					}
-
-				}
-
-				if viaTLS {
-					header = make([]byte, 3)
-					n, err := conn.Read(header)
+					// this is TLS so replace the connection
+					c := tls.Server(conn, m.config.tlsConfig)
+					err := c.Handshake()
 					if err != nil {
 						conn.Close()
-						log.Println("Multiplexing failed: ", err)
+
+						if !strings.Contains(err.Error(), "remote error: tls: bad certificate") {
+							log.Println("Multiplexing failed (tls handshake): ", err)
+						}
 						return
 					}
 
-					if n <= 0 {
-						conn.Close()
-						log.Println("Multiplexing failed: ", err)
-						return
-					}
+					conn = c
 
-				}
-
-				l, err := m.determineProtocol(header[:n])
-				if err != nil {
-					conn.Close()
-					log.Println("Multiplexing failed: ", err)
-					return
 				}
 
 				conn.SetDeadline(time.Time{})
 
+				functionalConn, proto := m.determineProtocol(conn)
+				if functionalConn == nil {
+					conn.Close()
+					log.Println("determining functional protocol: ", proto)
+					return
+				}
+
+				if proto == "ws" {
+					wsHttp := http.NewServeMux()
+					wsConnChan := make(chan net.Conn, 1)
+					wsHttp.Handle("/ws", websocket.Handler(func(c *websocket.Conn) {
+
+						wsConnChan <- &websocketWrapper{wsConn: c, tcpConn: conn}
+
+						// Need to change this
+						for {
+							time.Sleep(1 * time.Second)
+						}
+					}))
+
+					go http.Serve(&singleConnListener{conn: functionalConn}, wsHttp)
+
+					select {
+					case wsConn := <-wsConnChan:
+						functionalConn, proto = m.determineProtocol(wsConn)
+						if functionalConn == nil {
+							conn.Close()
+							log.Println("failed to determine protocol via ws: ", proto)
+							return
+						}
+
+					case <-time.After(2 * time.Second):
+						conn.Close()
+						log.Println("Multiplexing failed: websockets took too long to negotiate")
+						return
+					}
+				}
+
+				l, ok := m.protocols[proto]
+				if !ok {
+					functionalConn.Close()
+					log.Println("Multiplexing failed: ", proto)
+					return
+				}
+
 				select {
 				//Allow whatever we're multiplexing to apply backpressure if it cant accept things
-				case l.connections <- &bufferedConn{conn: conn, prefix: header[:n]}:
+				case l.connections <- functionalConn:
 				case <-time.After(2 * time.Second):
 
 					log.Println(l.protocol, "Failed to accept new connection within 2 seconds, closing connection (may indicate high resource usage)")
-					conn.Close()
+					functionalConn.Close()
 				}
 
 			}(conn)
@@ -364,20 +373,33 @@ func isHttp(b []byte) bool {
 	return false
 }
 
-func (m *Multiplexer) determineProtocol(header []byte) (*multiplexerListener, error) {
-	proto := ""
+func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, string) {
+
+	header := make([]byte, 7)
+	n, err := conn.Read(header)
+	if err != nil {
+		return nil, "failed: " + err.Error()
+	}
+
+	c := &bufferedConn{prefix: header[:n], conn: conn}
+
+	if bytes.HasPrefix(header, []byte{0x16}) {
+		return c, "tls"
+	}
+
 	if bytes.HasPrefix(header, []byte{'S', 'S', 'H'}) {
-		proto = "ssh"
-	} else if isHttp(header) {
-		proto = "http"
+		return c, "ssh"
 	}
 
-	l, ok := m.protocols[proto]
-	if !ok {
-		return nil, errors.New("Unknown protocol")
+	if isHttp(header) {
+		if bytes.HasPrefix(header, []byte("GET /ws")) {
+			return c, "ws"
+		}
+
+		return c, "http"
 	}
 
-	return l, nil
+	return c, "unknown"
 }
 
 func (m *Multiplexer) getProtoListener(proto string) net.Listener {

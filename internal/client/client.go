@@ -19,6 +19,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/net/websocket"
 )
 
 func WriteHTTPReq(lines []string, conn net.Conn) error {
@@ -143,11 +144,11 @@ func Run(addr, fingerprint, proxyAddr string) {
 		ClientVersion: "SSH-" + internal.Version + "-" + runtime.GOOS + "_" + runtime.GOARCH,
 	}
 
-	useTLS := false
-	if strings.HasPrefix(addr, "tls://") {
-		addr = strings.TrimPrefix(addr, "tls://")
-		useTLS = true
-	}
+	// This sucks, but cant use url parse as it errors if you do something like '1.1.1.1:4343' and this is... somehow... more robust
+	useTLS := strings.HasPrefix(addr, "tls://") || strings.HasPrefix(addr, "wss://")
+	useWebsockets := strings.HasPrefix(addr, "ws://") || strings.HasPrefix(addr, "wss://")
+
+	addr = strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(addr, "tls://"), "wss://"), "ws://")
 
 	for { // My take on a golang do {} while loop :P
 		log.Println("Connecting to ", addr)
@@ -166,8 +167,26 @@ func Run(addr, fingerprint, proxyAddr string) {
 		if useTLS {
 			clientTlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: true})
 			err = clientTlsConn.Handshake()
-			if err == nil {
-				conn = clientTlsConn
+			if err != nil {
+				log.Printf("Unable to connect TLS: %s\n", err)
+				<-time.After(10 * time.Second)
+				continue
+			}
+
+			conn = clientTlsConn
+		}
+
+		if useWebsockets {
+			c, err := websocket.NewConfig("ws://anything.goes.here/ws", "ws://rssh")
+			if err != nil {
+				panic(err)
+			}
+
+			conn, err = websocket.NewClient(c, conn)
+			if err != nil {
+				log.Printf("Unable to connect WS: %s\n", err)
+				<-time.After(10 * time.Second)
+				continue
 			}
 		}
 
