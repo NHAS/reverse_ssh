@@ -190,7 +190,10 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 			c, err := websocket.NewConfig("ws://"+addr+"/ws", "ws://"+addr)
 			if err != nil {
-				panic(err)
+				log.Println("Could not create websockets configuration: ", err)
+				<-time.After(10 * time.Second)
+
+				continue
 			}
 
 			conn, err = websocket.NewClient(c, conn)
