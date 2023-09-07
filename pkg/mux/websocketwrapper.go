@@ -10,18 +10,29 @@ import (
 type websocketWrapper struct {
 	wsConn  *websocket.Conn
 	tcpConn net.Conn
+	done    chan interface{}
 }
 
 func (ww *websocketWrapper) Read(b []byte) (n int, err error) {
-	return ww.wsConn.Read(b)
+	n, err = ww.wsConn.Read(b)
+	if err != nil {
+		ww.done <- true
+	}
+	return n, err
 }
 
 func (ww *websocketWrapper) Write(b []byte) (n int, err error) {
-	return ww.wsConn.Write(b)
+	n, err = ww.wsConn.Write(b)
+	if err != nil {
+		ww.done <- true
+	}
+	return
 }
 
 func (ww *websocketWrapper) Close() error {
-	return ww.wsConn.Close()
+	err := ww.wsConn.Close()
+	ww.done <- true
+	return err
 }
 
 func (ww *websocketWrapper) LocalAddr() net.Addr {

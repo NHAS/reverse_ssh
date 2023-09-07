@@ -281,12 +281,15 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 					wsConnChan := make(chan net.Conn, 1)
 					wsHttp.Handle("/ws", websocket.Handler(func(c *websocket.Conn) {
 
-						wsConnChan <- &websocketWrapper{wsConn: c, tcpConn: conn}
-
-						// Need to change this
-						for {
-							time.Sleep(1 * time.Second)
+						wsW := websocketWrapper{
+							wsConn:  c,
+							tcpConn: conn,
+							done:    make(chan interface{}),
 						}
+
+						wsConnChan <- &wsW
+
+						<-wsW.done
 					}))
 
 					go http.Serve(&singleConnListener{conn: functionalConn}, wsHttp)
@@ -295,7 +298,7 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 					case wsConn := <-wsConnChan:
 						functionalConn, proto = m.determineProtocol(wsConn)
 						if functionalConn == nil {
-							conn.Close()
+							wsConn.Close()
 							log.Println("failed to determine protocol via ws: ", proto)
 							return
 						}
