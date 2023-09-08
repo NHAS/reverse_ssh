@@ -279,18 +279,29 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 				if proto == "ws" {
 					wsHttp := http.NewServeMux()
 					wsConnChan := make(chan net.Conn, 1)
-					wsHttp.Handle("/ws", websocket.Handler(func(c *websocket.Conn) {
 
-						wsW := websocketWrapper{
-							wsConn:  c,
-							tcpConn: conn,
-							done:    make(chan interface{}),
-						}
+					wsServer := websocket.Server{
+						Config: websocket.Config{},
 
-						wsConnChan <- &wsW
+						// Disable origin validation because.... its ssh we dont need it
+						Handshake: nil,
+						Handler: func(c *websocket.Conn) {
+							// Pain and suffering https://github.com/golang/go/issues/7350
+							c.PayloadType = websocket.BinaryFrame
 
-						<-wsW.done
-					}))
+							wsW := websocketWrapper{
+								wsConn:  c,
+								tcpConn: conn,
+								done:    make(chan interface{}),
+							}
+
+							wsConnChan <- &wsW
+
+							<-wsW.done
+						},
+					}
+
+					wsHttp.Handle("/ws", wsServer)
 
 					go http.Serve(&singleConnListener{conn: functionalConn}, wsHttp)
 
