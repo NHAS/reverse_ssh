@@ -196,12 +196,17 @@ func Run(addr, fingerprint, proxyAddr string) {
 				continue
 			}
 
-			conn, err = websocket.NewClient(c, conn)
+			wsConn, err := websocket.NewClient(c, conn)
 			if err != nil {
 				log.Printf("Unable to connect WS: %s\n", err)
 				<-time.After(10 * time.Second)
 				continue
+
 			}
+			// Pain and suffering https://github.com/golang/go/issues/7350
+			wsConn.PayloadType = websocket.BinaryFrame
+			conn = wsConn
+
 		}
 
 		// Make initial timeout quite long so folks who type their ssh public key can actually do it
