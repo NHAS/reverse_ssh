@@ -215,7 +215,11 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 				conn.SetDeadline(time.Now().Add(2 * time.Second))
 
 				var proto string
-				conn, proto = m.determineProtocol(conn)
+				conn, proto, err = m.determineProtocol(conn)
+				if err != nil {
+					log.Println("Multiplexing failed: ", err)
+					return
+				}
 
 				if m.config.TLS && proto == "tls" {
 
@@ -269,10 +273,10 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 
 				conn.SetDeadline(time.Time{})
 
-				functionalConn, proto := m.determineProtocol(conn)
-				if functionalConn == nil {
+				functionalConn, proto, err := m.determineProtocol(conn)
+				if err != nil {
 					conn.Close()
-					log.Println("determining functional protocol: ", proto)
+					log.Println("Error determining functional protocol: ", err)
 					return
 				}
 
@@ -307,10 +311,10 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 
 					select {
 					case wsConn := <-wsConnChan:
-						functionalConn, proto = m.determineProtocol(wsConn)
-						if functionalConn == nil {
+						functionalConn, proto, err = m.determineProtocol(wsConn)
+						if err != nil {
 							wsConn.Close()
-							log.Println("failed to determine protocol via ws: ", proto)
+							log.Println("failed to determine protocol via ws: ", err)
 							return
 						}
 
@@ -387,33 +391,33 @@ func isHttp(b []byte) bool {
 	return false
 }
 
-func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, string) {
+func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, string, error) {
 
 	header := make([]byte, 7)
 	n, err := conn.Read(header)
 	if err != nil {
-		return nil, "failed: " + err.Error()
+		return nil, "", err
 	}
 
 	c := &bufferedConn{prefix: header[:n], conn: conn}
 
 	if bytes.HasPrefix(header, []byte{0x16}) {
-		return c, "tls"
+		return c, "tls", nil
 	}
 
 	if bytes.HasPrefix(header, []byte{'S', 'S', 'H'}) {
-		return c, "ssh"
+		return c, "ssh", nil
 	}
 
 	if isHttp(header) {
 		if bytes.HasPrefix(header, []byte("GET /ws")) {
-			return c, "ws"
+			return c, "ws", nil
 		}
 
-		return c, "http"
+		return c, "http", nil
 	}
 
-	return c, "unknown"
+	return nil, "", errors.New("unknown protocol")
 }
 
 func (m *Multiplexer) getProtoListener(proto string) net.Listener {
