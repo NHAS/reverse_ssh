@@ -45,6 +45,14 @@ func Start(webListener net.Listener, connectBackAddress, projRoot, dataDir strin
 
 }
 
+const notFound = `<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx</center>
+</body>
+</html>`
+
 func buildAndServe(project, connectBackAddress string, validPlatforms, validArchs map[string]bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 
@@ -59,7 +67,13 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 		if err != nil {
 			f, err = Get(filenameWithoutExtension)
 			if err != nil {
-				http.NotFound(w, req)
+
+				w.Header().Set("content-type", "text/html")
+				w.Header().Set("server", "nginx")
+				w.Header().Set("Connection", "keep-alive")
+
+				w.WriteHeader(http.StatusNotFound)
+				w.Write([]byte(notFound))
 				return
 			}
 
@@ -76,7 +90,13 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 					Protocol: "http",
 				}, linkExtension[1:])
 				if err != nil {
-					http.NotFound(w, req)
+
+					w.Header().Set("content-type", "text/html")
+					w.Header().Set("server", "nginx")
+					w.Header().Set("Connection", "keep-alive")
+
+					w.WriteHeader(http.StatusNotFound)
+					w.Write([]byte(notFound))
 					return
 				}
 
