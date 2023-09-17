@@ -19,7 +19,7 @@ syscalls = {"amd64": (319, 322, 1),
             }
 
 if "{{.OS}}" == "windows" or "bsd" in "{{.OS}}" or "{{.Arch}}" not in syscalls:
-    with open("{{.Name}}", 'w') as f:
+    with open("{{.Name}}", 'wb') as f:
         f.write(bb)
     subprocess.call(['{{.Name}}'])
     exit(0)

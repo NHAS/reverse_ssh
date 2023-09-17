@@ -23,7 +23,7 @@ func printHelp() {
 	fmt.Println("  Authorisation")
 	fmt.Println("\t--insecure\t\tIgnore authorized_controllee_keys file and allow any RSSH client to connect")
 	fmt.Println("  Network")
-	fmt.Println("\t--tls\t\tEnable TLS on socket (ssh/http over TLS)")
+	fmt.Println("\t--tls\t\t\tEnable TLS on socket (ssh/http over TLS)")
 	fmt.Println("\t--tlscert\t\tTLS certificate path")
 	fmt.Println("\t--tlskey\t\tTLS key path")
 	fmt.Println("\t--webserver\t\tEnable webserver on the listen_address port")
