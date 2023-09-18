@@ -33,8 +33,8 @@ func Start(webListener net.Listener, connectBackAddress, projRoot, dataDir strin
 	}
 
 	srv := &http.Server{
-		ReadTimeout:  20 * time.Second,
-		WriteTimeout: 20 * time.Second,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
 		Handler:      buildAndServe(projRoot, connectBackAddress, validPlatforms, validArchs),
 	}
 
