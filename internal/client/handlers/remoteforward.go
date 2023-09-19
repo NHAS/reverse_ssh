@@ -54,13 +54,11 @@ func StopRemoteForward(rf internal.RemoteForwardRequest) error {
 func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 
 	var rf internal.RemoteForwardRequest
-
 	err := ssh.Unmarshal(r.Payload, &rf)
 	if err != nil {
 		r.Reply(false, []byte(fmt.Sprintf("Unable to open remote forward: %s", err.Error())))
 		return
 	}
-
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", rf.BindAddr, rf.BindPort))
 	if err != nil {
 		r.Reply(false, []byte(fmt.Sprintf("Unable to open remote forward: %s", err.Error())))
@@ -110,7 +108,7 @@ func handleData(proxyCon net.Conn, sshConn ssh.Conn) error {
 
 	log.Println("Accepted new connection: ", proxyCon.RemoteAddr())
 
-	lHost, strPort, err := net.SplitHostPort(proxyCon.LocalAddr().String())
+	lHost, strPort, err := net.SplitHostPort(proxyCon.RemoteAddr().String())
 	if err != nil {
 		return err
 	}
@@ -120,7 +118,7 @@ func handleData(proxyCon net.Conn, sshConn ssh.Conn) error {
 		return err
 	}
 
-	rHost, strPort, err := net.SplitHostPort(proxyCon.RemoteAddr().String())
+	rHost, strPort, err := net.SplitHostPort(proxyCon.LocalAddr().String())
 	if err != nil {
 		return err
 	}
@@ -131,11 +129,11 @@ func handleData(proxyCon net.Conn, sshConn ssh.Conn) error {
 	}
 
 	drtMsg := internal.ChannelOpenDirectMsg{
-		Raddr: rHost,
-		Rport: uint32(rPort),
-
 		Laddr: lHost,
 		Lport: uint32(lPort),
+
+		Raddr: rHost,
+		Rport: uint32(rPort),
 	}
 
 	b := ssh.Marshal(&drtMsg)
