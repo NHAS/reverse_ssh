@@ -150,7 +150,10 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 	addr = strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(addr, "tls://"), "wss://"), "ws://")
 
-	for { // My take on a golang do {} while loop :P
+	triedHttpproxy := false
+	triedHttpsproxy := false
+	for {
+
 		log.Println("Connecting to ", addr)
 		conn, err := Connect(addr, proxyAddr, config.Timeout)
 		if err != nil {
@@ -160,6 +163,23 @@ func Run(addr, fingerprint, proxyAddr string) {
 			}
 
 			log.Printf("Unable to connect TCP: %s\n", err)
+
+			if os.Getenv("http_proxy") != "" && !triedHttpproxy {
+
+				log.Println("Trying to proxy via http_proxy (", os.Getenv("http_proxy"), ")")
+				proxyAddr = os.Getenv("http_proxy")
+				triedHttpproxy = true
+				continue
+			}
+
+			if os.Getenv("https_proxy") != "" && !triedHttpsproxy {
+
+				log.Println("Trying to proxy via https_proxy (", os.Getenv("https_proxy"), ")")
+				proxyAddr = os.Getenv("https_proxy")
+				triedHttpsproxy = true
+				continue
+			}
+
 			<-time.After(10 * time.Second)
 			continue
 		}
