@@ -24,4 +24,4 @@ if [ ! -z "$SEED_AUTHORIZED_KEYS" ]; then
 fi
 
 cd /app/bin
-exec ./server --datadir /data --webserver --external_address $EXTERNAL_ADDRESS :2222
+exec ./server --datadir /data --webserver --tls --external_address $EXTERNAL_ADDRESS :2222
