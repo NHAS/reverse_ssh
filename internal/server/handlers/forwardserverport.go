@@ -16,7 +16,7 @@ import (
 var (
 	currentRemoteForwardsLck sync.RWMutex
 	currentRemoteForwards    = map[string]string{}
-	remoteForward            = map[string]ssh.Channel{}
+	remoteForwards           = map[string]ssh.Channel{}
 )
 
 type chanConn struct {
@@ -99,7 +99,7 @@ func ServerPortForward(clientId string) func(_ *internal.User, newChannel ssh.Ne
 		}()
 
 		currentRemoteForwardsLck.Lock()
-		remoteForward[clientId] = connection
+		remoteForwards[clientId] = connection
 		currentRemoteForwards[clientId] = fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport)
 		currentRemoteForwardsLck.Unlock()
 
@@ -119,10 +119,10 @@ func StopRemoteForward(clientId string) {
 	currentRemoteForwardsLck.Lock()
 	defer currentRemoteForwardsLck.Unlock()
 
-	if remoteForward[clientId] != nil {
-		remoteForward[clientId].Close()
+	if remoteForwards[clientId] != nil {
+		remoteForwards[clientId].Close()
 	}
 
-	delete(remoteForward, clientId)
+	delete(remoteForwards, clientId)
 	delete(currentRemoteForwards, clientId)
 }

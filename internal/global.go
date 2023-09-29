@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -156,4 +157,14 @@ func (c *TimeoutConn) Write(b []byte) (int, error) {
 		c.Conn.SetDeadline(time.Now().Add(c.Timeout))
 	}
 	return c.Conn.Write(b)
+}
+
+func DiscardChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel) {
+	for newChannel := range chans {
+		t := newChannel.ChannelType()
+
+		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
+		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
+	}
+
 }

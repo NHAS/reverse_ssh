@@ -139,10 +139,11 @@ func ParseDirective(address string) (cidr []*net.IPNet, err error) {
 	return
 }
 
-func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bool, dataDir string, timeout int) {
+func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, openproxy bool, dataDir string, timeout int) {
 	//Taken from the server example, authorized keys are required for controllers
 	authorizedKeysPath := filepath.Join(dataDir, "authorized_keys")
 	authorizedControlleeKeysPath := filepath.Join(dataDir, "authorized_controllee_keys")
+	authorizedProxyKeysPath := filepath.Join(dataDir, "authorized_proxy_keys")
 
 	log.Printf("Loading authorized keys from: %s\n", authorizedKeysPath)
 	authorizedControllers, err := readPubKeys(authorizedKeysPath)
@@ -186,6 +187,11 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 			authorizedControllees, err := readPubKeys(authorizedControlleeKeysPath)
 			if err != nil {
 				log.Println("Reloading authorized_controllee_keys failed: ", err)
+			}
+
+			authorizedProxiers, err := readPubKeys(authorizedProxyKeysPath)
+			if err != nil {
+				log.Println("Reloading authorized_proxy_keys failed: ", err)
 			}
 
 			remoteIp := getIP(conn.RemoteAddr().String())
@@ -236,6 +242,18 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure bo
 						"comment":   opt.Comment,
 						"pubkey-fp": internal.FingerprintSHA1Hex(key),
 						"type":      "client",
+					},
+				}, nil
+			}
+
+			if opt, ok := authorizedProxiers[string(ssh.MarshalAuthorizedKey(key))]; insecure || openproxy || ok {
+
+				return &ssh.Permissions{
+					// Record the public key used for authentication.
+					Extensions: map[string]string{
+						"comment":   opt.Comment,
+						"pubkey-fp": internal.FingerprintSHA1Hex(key),
+						"type":      "proxy",
 					},
 				}, nil
 			}
@@ -310,7 +328,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		}
 
 		// Since we're handling a shell, local and remote forward, so we expect
-		// channel type of "session" or "direct-tcpip", "forwarded-tcpip" respectively.
+		// channel type of "session" or "direct-tcpip"
 		go func() {
 			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
 				"session":      handlers.Session,
@@ -367,6 +385,12 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 			Version:   string(sshConn.ClientVersion()),
 			Timestamp: time.Now(),
 		})
+
+	case "proxy":
+		clientLog.Info("New remote dynamic forward connected: %s", sshConn.ClientVersion())
+
+		go internal.DiscardChannels(sshConn, chans)
+		go handlers.RemoteDynamicForward(sshConn, reqs, clientLog)
 
 	default:
 		sshConn.Close()

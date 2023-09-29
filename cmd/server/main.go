@@ -22,6 +22,7 @@ func printHelp() {
 	fmt.Println("\t--datadir\t\tDirectory to search for keys, config files, and to store compile cache (defaults to working directory)")
 	fmt.Println("  Authorisation")
 	fmt.Println("\t--insecure\t\tIgnore authorized_controllee_keys file and allow any RSSH client to connect")
+	fmt.Println("\t--openproxy\t\tAllow any ssh client to do a dynamic remote forward (-R) and effectively allowing anyone to open a port on localhost on the server")
 	fmt.Println("  Network")
 	fmt.Println("\t--tls\t\t\tEnable TLS on socket (ssh/http over TLS)")
 	fmt.Println("\t--tlscert\t\tTLS certificate path")
@@ -47,6 +48,7 @@ func main() {
 		"h":                true,
 		"help":             true,
 		"timeout":          true,
+		"openproxy":        true,
 	})
 
 	if err != nil {
@@ -120,6 +122,7 @@ func main() {
 	}
 
 	insecure := options.IsSet("insecure")
+	openproxy := options.IsSet("openproxy")
 
 	tls := options.IsSet("tls")
 	tlscert, _ := options.GetArgString("tlscert")
@@ -162,5 +165,5 @@ func main() {
 
 	}
 
-	server.Run(listenAddress, dataDir, connectBackAddress, tlscert, tlskey, insecure, webserver, tls, timeout)
+	server.Run(listenAddress, dataDir, connectBackAddress, tlscert, tlskey, insecure, webserver, tls, openproxy, timeout)
 }
