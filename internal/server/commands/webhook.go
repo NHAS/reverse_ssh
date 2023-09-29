@@ -89,7 +89,7 @@ func (w *webhook) Expect(line terminal.ParsedLine) []string {
 
 func (w *webhook) Help(explain bool) string {
 	if explain {
-		return "webhook allows you to add or remove webhook outputs"
+		return "Add or remove webhooks"
 	}
 
 	return terminal.MakeHelpText(

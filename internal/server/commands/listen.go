@@ -297,7 +297,7 @@ func (W *listen) Expect(line terminal.ParsedLine) []string {
 
 func (w *listen) Help(explain bool) string {
 	if explain {
-		return "listen changes the rssh server ports, start or stop multiple listening ports"
+		return "Change, add or stop rssh server port. Open the server port on a client (proxy)"
 	}
 
 	return terminal.MakeHelpText(
