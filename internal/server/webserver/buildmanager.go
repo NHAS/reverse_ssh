@@ -29,7 +29,9 @@ type file struct {
 	Version         string
 }
 
-const cacheDescriptionFile = "description.json"
+const (
+	cacheDescriptionFile = "description.json"
+)
 
 var (
 	Autocomplete = trie.NewTrie()
@@ -209,7 +211,18 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
+		if strings.Contains(err.Error(), "garble") && strings.Contains(err.Error(), "x86_64-w64-mingw32-ld") && strings.Contains(err.Error(), "undefined reference to") {
+			// Try to recover if the linking fails by clearing the cache
+			if cleanErr := exec.Command("go", "clean", "-cache").Run(); cleanErr != nil {
+				return "", fmt.Errorf("Error (was unable to automatically clean cache): " + err.Error() + "\n" + string(output))
+			}
+			output, err = cmd.CombinedOutput()
+			if err != nil {
+				return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
+			}
+		} else {
+			return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
+		}
 	}
 
 	cache[name] = f
