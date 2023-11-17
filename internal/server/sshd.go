@@ -331,7 +331,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		// channel type of "session" or "direct-tcpip"
 		go func() {
 			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
-				"session":      handlers.Session,
+				"session":      handlers.Session(dataDir),
 				"direct-tcpip": handlers.LocalForward,
 			})
 			clientLog.Info("User disconnected: %s", err.Error())
