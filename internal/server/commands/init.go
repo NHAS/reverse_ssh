@@ -23,7 +23,7 @@ var allCommands = map[string]terminal.Command{
 	"version": &version{},
 }
 
-func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.Command {
+func CreateCommands(user *internal.User, log logger.Logger, datadir string) map[string]terminal.Command {
 
 	var o = map[string]terminal.Command{
 		"ls":      &list{},
@@ -34,7 +34,7 @@ func CreateCommands(user *internal.User, log logger.Logger) map[string]terminal.
 		"link":    &link{},
 		"exec":    &exec{},
 		"who":     &who{},
-		"watch":   &watch{},
+		"watch":   Watch(datadir),
 		"listen":  Listen(log),
 		"webhook": &webhook{},
 		"version": &version{},
