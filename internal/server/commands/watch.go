@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
@@ -38,6 +39,81 @@ func (w *watch) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		}
 
 		return sc.Err()
+	}
+
+	if numberOfLinesStr, err := line.GetArgString("l"); err == nil {
+
+		f, err := os.Open(filepath.Join(w.datadir, "watch.log"))
+		if err != nil {
+			log.Println("unable to open watch.log:", err)
+			return err
+		}
+		defer f.Close()
+
+		info, err := f.Stat()
+		if err != nil {
+			return err
+		}
+
+		numberOfLines, err := strconv.Atoi(numberOfLinesStr)
+		if err != nil {
+			return err
+		}
+
+		readStartIndex := info.Size()
+
+		i := 0
+	outer:
+		for {
+			readStartIndex -= 128
+			if readStartIndex < 0 {
+				readStartIndex = 0
+			}
+
+			buffer := make([]byte, 128)
+			n, err := f.ReadAt(buffer, readStartIndex)
+			if err != nil {
+				if err == io.EOF {
+					break outer
+				}
+				return err
+			}
+
+			for ii := n - 1; ii > 0; ii-- {
+				if buffer[ii] == '\n' {
+					i++
+				}
+
+				// Since we are reading backwards, we have to read towards the previous lines newline
+				if i == numberOfLines+1 {
+					// Ignore the previous lines new line
+					readStartIndex += int64(ii) + 1
+					break outer
+				}
+			}
+
+			if readStartIndex == 0 {
+				// If we've regressed to the file start, and not exited the loop jump out now
+				break
+			}
+		}
+
+		_, err = f.Seek(readStartIndex, 0)
+		if err != nil {
+			return err
+		}
+
+		scanner := bufio.NewScanner(f)
+		// optionally, resize scanner's capacity for lines over 64K, see next example
+		for scanner.Scan() {
+			fmt.Fprintf(tty, "%s\n\r", scanner.Text())
+		}
+
+		if err := scanner.Err(); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	messages := make(chan string)
@@ -95,6 +171,7 @@ func (w *watch) Help(explain bool) string {
 		"watch [OPTIONS]",
 		"Watch shows continuous connection status of clients (prints the joining and leaving of clients)",
 		"Defaultly waits for new connection events",
+		"\t-a\tLists all previous connection events",
 		"\t-l\tList previous n number of connection events, e.g watch -l 10 shows last 10 connections",
 	)
 }
