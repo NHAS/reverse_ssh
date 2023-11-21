@@ -177,26 +177,6 @@ func (w *watch) Help(explain bool) string {
 }
 
 func Watch(datadir string) *watch {
-	observers.ConnectionState.Register(func(m observer.Message) {
-
-		c := m.(observers.ClientState)
-
-		var arrowDirection = "<-"
-		if c.Status == "disconnected" {
-			arrowDirection = "->"
-		}
-
-		f, err := os.OpenFile(filepath.Join(datadir, "watch.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-		if err != nil {
-			log.Println("unable to open watch log for writing:", err)
-		}
-		defer f.Close()
-
-		if _, err := f.WriteString(fmt.Sprintf("%s %s %s (%s %s) %s %s\n", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, c.HostName, c.IP, c.ID, c.Version, c.Status)); err != nil {
-			log.Println(err)
-		}
-
-	})
 
 	return &watch{datadir: datadir}
 }
