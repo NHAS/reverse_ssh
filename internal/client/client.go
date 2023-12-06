@@ -41,9 +41,9 @@ func WriteHTTPReq(lines []string, conn net.Conn) error {
 
 // https://cs.opensource.google/go/x/net/+/refs/tags/v0.19.0:http/httpproxy/proxy.go;l=27
 // Due to this code not having the compatiblity promise of golang 1.x Im moving this in here just in case something changes rather than using the library
-func ParseProxyEnv(proxy string) (*url.URL, error) {
+func GetProxyDetails(proxy string) (string, error) {
 	if proxy == "" {
-		return nil, nil
+		return "", nil
 	}
 
 	proxyURL, err := url.Parse(proxy)
@@ -54,14 +54,26 @@ func ParseProxyEnv(proxy string) (*url.URL, error) {
 		// proxy was bogus. Try prepending "http://" to it and
 		// see if that parses correctly. If not, we fall
 		// through and complain about the original one.
-		if proxyURL, err := url.Parse("http://" + proxy); err == nil {
-			return proxyURL, nil
-		}
+		proxyURL, err = url.Parse("http://" + proxy)
 	}
+
 	if err != nil {
-		return nil, fmt.Errorf("invalid proxy address %q: %v", proxy, err)
+		return "", fmt.Errorf("invalid proxy address %q: %v", proxy, err)
 	}
-	return proxyURL, nil
+
+	if proxyURL.Port() != "" {
+		return proxyURL.Host, nil
+	}
+
+	// If there is no port set we need to add a default for the tcp connection
+	// Yes most of these are not supported LACHLAN, and thats fine. Im lazy
+	switch proxyURL.Scheme {
+	case "socks5":
+		return proxyURL.Host + ":1080", nil
+	case "https":
+		return proxyURL.Host + ":443", nil
+	}
+	return proxyURL.Host + ":80", nil
 }
 
 func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err error) {
@@ -130,16 +142,6 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	return
 }
 
-func getPortPerScheme(scheme string) string {
-	switch scheme {
-	case "socks5":
-		return "1080"
-	case "https":
-		return "443"
-	}
-	return "80"
-}
-
 func Run(addr, fingerprint, proxyAddr string) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
@@ -148,6 +150,12 @@ func Run(addr, fingerprint, proxyAddr string) {
 	}
 
 	l := logger.NewLog("client")
+
+	var err error
+	proxyAddr, err = GetProxyDetails(proxyAddr)
+	if err != nil {
+		log.Fatal("Invalid proxy details", proxyAddr, ":", err)
+	}
 
 	var username string
 	userInfo, sysinfoError := user.Current()
@@ -208,16 +216,10 @@ func Run(addr, fingerprint, proxyAddr string) {
 				triedHttpproxy = true
 				log.Println("Trying to proxy via http_proxy (", os.Getenv("http_proxy"), ")")
 
-				u, err := ParseProxyEnv(os.Getenv("http_proxy"))
+				proxyAddr, err = GetProxyDetails(os.Getenv("http_proxy"))
 				if err != nil {
 					log.Println("Could not parse the http_proxy value: ", os.Getenv("http_proxy"))
 					continue
-				}
-
-				proxyAddr = u.Host
-				if u.Port() == "" {
-					log.Println("No port specified by http_proxy, setting to default as per scheme")
-					u.Host += ":" + getPortPerScheme(u.Scheme)
 				}
 
 				continue
@@ -227,16 +229,12 @@ func Run(addr, fingerprint, proxyAddr string) {
 				triedHttpsproxy = true
 				log.Println("Trying to proxy via https_proxy (", os.Getenv("https_proxy"), ")")
 
-				u, err := ParseProxyEnv(os.Getenv("https_proxy"))
+				proxyAddr, err = GetProxyDetails(os.Getenv("https_proxy"))
 				if err != nil {
 					log.Println("Could not parse the https_proxy value: ", os.Getenv("https_proxy"))
 					continue
 				}
 
-				if u.Port() == "" {
-					log.Println("No port specified by https_proxy, setting to default as per scheme")
-					u.Host += ":" + getPortPerScheme(u.Scheme)
-				}
 				continue
 			}
 
