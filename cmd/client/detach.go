@@ -24,6 +24,7 @@ func Run(destination, fingerprint, proxyaddress string) {
 }
 
 func Fork(destination, fingerprint, proxyaddress string, pretendArgv ...string) error {
+
 	log.Println("Forking")
 
 	err := fork("/proc/self/exe", nil, pretendArgv...)

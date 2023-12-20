@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,7 +29,9 @@ func Fork(destination, fingerprint, proxyaddress string, pretendArgv ...string) 
 
 	if !inService {
 
-		log.Println("Forking")
+		if !strings.HasPrefix(destination, "std://") {
+			log.Println("Forking")
+		}
 
 		modkernel32 := syscall.NewLazyDLL("kernel32.dll")
 		procAttachConsole := modkernel32.NewProc("FreeConsole")

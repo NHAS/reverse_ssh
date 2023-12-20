@@ -194,93 +194,100 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 	addr = strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(addr, "tls://"), "wss://"), "ws://")
 
+	printIo := strings.HasPrefix(addr, "std://")
+
 	triedHttpproxy := false
 	triedHttpsproxy := false
 	for {
 
-		log.Println("Connecting to ", addr)
-		conn, err := Connect(addr, proxyAddr, config.Timeout)
-		if err != nil {
+		var conn net.Conn
+		if !printIo {
+			log.Println("Connecting to ", addr)
+			conn, err = Connect(addr, proxyAddr, config.Timeout)
+			if err != nil {
 
-			if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
-				log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", addr, errMsg)
-			}
+				if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
+					log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", addr, errMsg)
+				}
 
-			log.Printf("Unable to connect TCP: %s\n", err)
+				log.Printf("Unable to connect TCP: %s\n", err)
 
-			if os.Getenv("http_proxy") != "" && !triedHttpproxy {
-				triedHttpproxy = true
-				log.Println("Trying to proxy via http_proxy (", os.Getenv("http_proxy"), ")")
+				if os.Getenv("http_proxy") != "" && !triedHttpproxy {
+					triedHttpproxy = true
+					log.Println("Trying to proxy via http_proxy (", os.Getenv("http_proxy"), ")")
 
-				proxyAddr, err = GetProxyDetails(os.Getenv("http_proxy"))
-				if err != nil {
-					log.Println("Could not parse the http_proxy value: ", os.Getenv("http_proxy"))
+					proxyAddr, err = GetProxyDetails(os.Getenv("http_proxy"))
+					if err != nil {
+						log.Println("Could not parse the http_proxy value: ", os.Getenv("http_proxy"))
+						continue
+					}
+
 					continue
 				}
 
-				continue
-			}
+				if os.Getenv("https_proxy") != "" && !triedHttpsproxy {
+					triedHttpsproxy = true
+					log.Println("Trying to proxy via https_proxy (", os.Getenv("https_proxy"), ")")
 
-			if os.Getenv("https_proxy") != "" && !triedHttpsproxy {
-				triedHttpsproxy = true
-				log.Println("Trying to proxy via https_proxy (", os.Getenv("https_proxy"), ")")
+					proxyAddr, err = GetProxyDetails(os.Getenv("https_proxy"))
+					if err != nil {
+						log.Println("Could not parse the https_proxy value: ", os.Getenv("https_proxy"))
+						continue
+					}
 
-				proxyAddr, err = GetProxyDetails(os.Getenv("https_proxy"))
-				if err != nil {
-					log.Println("Could not parse the https_proxy value: ", os.Getenv("https_proxy"))
 					continue
 				}
 
-				continue
-			}
-
-			<-time.After(10 * time.Second)
-			continue
-		}
-
-		if useTLS {
-
-			sniServerName := addr
-			parts := strings.Split(addr, ":")
-			if len(parts) == 2 {
-				sniServerName = parts[0]
-			}
-
-			clientTlsConn := tls.Client(conn, &tls.Config{
-				InsecureSkipVerify: true,
-				ServerName:         sniServerName,
-			})
-			err = clientTlsConn.Handshake()
-			if err != nil {
-				log.Printf("Unable to connect TLS: %s\n", err)
 				<-time.After(10 * time.Second)
 				continue
 			}
 
-			conn = clientTlsConn
-		}
+			if useTLS {
 
-		if useWebsockets {
+				sniServerName := addr
+				parts := strings.Split(addr, ":")
+				if len(parts) == 2 {
+					sniServerName = parts[0]
+				}
 
-			c, err := websocket.NewConfig("ws://"+addr+"/ws", "ws://"+addr)
-			if err != nil {
-				log.Println("Could not create websockets configuration: ", err)
-				<-time.After(10 * time.Second)
+				clientTlsConn := tls.Client(conn, &tls.Config{
+					InsecureSkipVerify: true,
+					ServerName:         sniServerName,
+				})
+				err = clientTlsConn.Handshake()
+				if err != nil {
+					log.Printf("Unable to connect TLS: %s\n", err)
+					<-time.After(10 * time.Second)
+					continue
+				}
 
-				continue
+				conn = clientTlsConn
 			}
 
-			wsConn, err := websocket.NewClient(c, conn)
-			if err != nil {
-				log.Printf("Unable to connect WS: %s\n", err)
-				<-time.After(10 * time.Second)
-				continue
+			if useWebsockets {
+
+				c, err := websocket.NewConfig("ws://"+addr+"/ws", "ws://"+addr)
+				if err != nil {
+					log.Println("Could not create websockets configuration: ", err)
+					<-time.After(10 * time.Second)
+
+					continue
+				}
+
+				wsConn, err := websocket.NewClient(c, conn)
+				if err != nil {
+					log.Printf("Unable to connect WS: %s\n", err)
+					<-time.After(10 * time.Second)
+					continue
+
+				}
+				// Pain and suffering https://github.com/golang/go/issues/7350
+				wsConn.PayloadType = websocket.BinaryFrame
+				conn = wsConn
 
 			}
-			// Pain and suffering https://github.com/golang/go/issues/7350
-			wsConn.PayloadType = websocket.BinaryFrame
-			conn = wsConn
-
+		} else {
+			conn = &InetdConn{}
 		}
 
 		// Make initial timeout quite long so folks who type their ssh public key can actually do it

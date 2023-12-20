@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -105,6 +107,13 @@ func main() {
 	}
 
 	if fg || child {
+		Run(destination, fingerprint, proxy)
+		return
+	}
+
+	if strings.HasPrefix(destination, "std://") {
+		// We cant fork off of an inetd style connection or stdin/out will be closed
+		log.SetOutput(io.Discard)
 		Run(destination, fingerprint, proxy)
 		return
 	}
