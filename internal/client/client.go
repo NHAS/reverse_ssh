@@ -114,10 +114,6 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 			}
 		}
 
-		if !(bytes.Contains(bytes.ToLower(responseStatus), []byte("connection established")) || bytes.Contains(bytes.ToLower(responseStatus), []byte("ok"))) {
-			log.Println("Proxy did not respond with standard success: ", responseStatus)
-		}
-
 		if !(bytes.Contains(bytes.ToLower(responseStatus), []byte("200"))) {
 			parts := bytes.Split(responseStatus, []byte("\r\n"))
 			if len(parts) > 1 {
