@@ -99,6 +99,10 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
+	if homeserver_address == "" {
+		homeserver_address = webserver.DefaultConnectBack
+	}
+
 	name, err := line.GetArgString("name")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
@@ -119,11 +123,27 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
-	if (line.IsSet("tls") && line.IsSet("wss")) || (line.IsSet("tls") && line.IsSet("ws")) || (line.IsSet("wss") && line.IsSet("ws")) {
-		return errors.New("cant use tls/wss/ws flags together (only supports one per client)")
+	tt := map[string]bool{
+		"tls":   line.IsSet("tls"),
+		"wss":   line.IsSet("wss"),
+		"ws":    line.IsSet("ws"),
+		"stdio": line.IsSet("stdio"),
 	}
 
-	url, err := webserver.Build(goos, goarch, goarm, homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"), line.IsSet("tls"), line.IsSet("wss"), line.IsSet("ws"))
+	numberTrue := 0
+	scheme := ""
+	for i := range tt {
+		if tt[i] {
+			numberTrue++
+			scheme = i + "://"
+		}
+	}
+
+	if numberTrue > 1 {
+		return errors.New("cant use tls/wss/ws/std flags together (only supports one per client)")
+	}
+
+	url, err := webserver.Build(goos, goarch, goarm, scheme+homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"))
 	if err != nil {
 		return err
 	}
@@ -165,6 +185,7 @@ func (e *link) Help(explain bool) string {
 		"\t--tls\tUse TLS as the underlying transport",
 		"\t--ws\tUse plain http websockets as the underlying transport",
 		"\t--wss\tUse TLS websockets as the underlying transport",
+		"\t--stdio\tUse stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
 		"\t--shared-object\tGenerate shared object file",
 		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
 		"\t--garble\tUse garble to obfuscate the binary (requires garble to be installed)",

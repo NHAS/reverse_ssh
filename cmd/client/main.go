@@ -111,7 +111,7 @@ func main() {
 		return
 	}
 
-	if strings.HasPrefix(destination, "std://") {
+	if strings.HasPrefix(destination, "stdio://") {
 		// We cant fork off of an inetd style connection or stdin/out will be closed
 		log.SetOutput(io.Discard)
 		Run(destination, fingerprint, proxy)

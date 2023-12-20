@@ -44,7 +44,7 @@ var (
 	cachePath string
 )
 
-func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble, disableLibC, tls, wss, ws bool) (string, error) {
+func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble, disableLibC bool) (string, error) {
 	if !webserverOn {
 		return "", errors.New("web server is not enabled")
 	}
@@ -55,22 +55,6 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 
 	if len(goos) != 0 && !validPlatforms[goos] {
 		return "", fmt.Errorf("GOOS supplied is not valid: " + goos)
-	}
-
-	if len(suppliedConnectBackAdress) == 0 {
-		suppliedConnectBackAdress = DefaultConnectBack
-	}
-
-	if tls {
-		suppliedConnectBackAdress = "tls://" + suppliedConnectBackAdress
-	}
-
-	if wss {
-		suppliedConnectBackAdress = "wss://" + suppliedConnectBackAdress
-	}
-
-	if ws {
-		suppliedConnectBackAdress = "ws://" + suppliedConnectBackAdress
 	}
 
 	if len(fingerprint) == 0 {

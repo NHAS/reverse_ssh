@@ -194,7 +194,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 	addr = strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(addr, "tls://"), "wss://"), "ws://")
 
-	printIo := strings.HasPrefix(addr, "std://")
+	printIo := strings.HasPrefix(addr, "stdio://")
 
 	triedHttpproxy := false
 	triedHttpsproxy := false
