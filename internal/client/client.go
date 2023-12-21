@@ -188,22 +188,17 @@ func Run(addr, fingerprint, proxyAddr string) {
 		ClientVersion: "SSH-" + internal.Version + "-" + runtime.GOOS + "_" + runtime.GOARCH,
 	}
 
-	// This sucks, but cant use url parse as it errors if you do something like '1.1.1.1:4343' and this is... somehow... more robust
-	useTLS := strings.HasPrefix(addr, "tls://") || strings.HasPrefix(addr, "wss://")
-	useWebsockets := strings.HasPrefix(addr, "ws://") || strings.HasPrefix(addr, "wss://")
-
-	addr = strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(addr, "tls://"), "wss://"), "ws://")
-
-	printIo := strings.HasPrefix(addr, "stdio://")
+	realAddr, scheme := determineConnectionType(addr)
 
 	triedHttpproxy := false
 	triedHttpsproxy := false
 	for {
 
 		var conn net.Conn
-		if !printIo {
+		if scheme != "stdio" {
 			log.Println("Connecting to ", addr)
-			conn, err = Connect(addr, proxyAddr, config.Timeout)
+			// First create raw TCP connection
+			conn, err = Connect(realAddr, proxyAddr, config.Timeout)
 			if err != nil {
 
 				if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
@@ -242,10 +237,11 @@ func Run(addr, fingerprint, proxyAddr string) {
 				continue
 			}
 
-			if useTLS {
+			// Add on transports as we go
+			if scheme == "tls" || scheme == "wss" {
 
-				sniServerName := addr
-				parts := strings.Split(addr, ":")
+				sniServerName := realAddr
+				parts := strings.Split(realAddr, ":")
 				if len(parts) == 2 {
 					sniServerName = parts[0]
 				}
@@ -264,9 +260,9 @@ func Run(addr, fingerprint, proxyAddr string) {
 				conn = clientTlsConn
 			}
 
-			if useWebsockets {
+			if scheme == "wss" || scheme == "ws" {
 
-				c, err := websocket.NewConfig("ws://"+addr+"/ws", "ws://"+addr)
+				c, err := websocket.NewConfig("ws://"+realAddr+"/ws", "ws://"+realAddr)
 				if err != nil {
 					log.Println("Could not create websockets configuration: ", err)
 					<-time.After(10 * time.Second)
@@ -387,5 +383,38 @@ func Run(addr, fingerprint, proxyAddr string) {
 		}
 
 	}
+
+}
+
+func determineConnectionType(addr string) (resultingAddr, transport string) {
+
+	u, err := url.Parse(addr)
+	if err != nil {
+		// If the connection string is in the form of 1.1.1.1:4343
+		return addr, "ssh"
+	}
+
+	if u.Scheme == "" {
+		// If the connection string is just an ip address (no port)
+		log.Println("no port specified: ", u.Path, "using port 22")
+		return u.Path + ":22", "ssh"
+	}
+
+	if u.Port() == "" {
+		// Set default port if none specified
+		switch u.Scheme {
+		case "tls", "wss":
+			return u.Host + ":443", u.Scheme
+		case "ws":
+			return u.Host + ":80", u.Scheme
+		case "stdio":
+			return "stdio://nothing", u.Scheme
+		}
+
+		log.Println("url scheme ", u.Scheme, "not recognised falling back to ssh: ", u.Host+":22", "as no port specified")
+		return u.Host + ":22", "ssh"
+	}
+
+	return u.Host, u.Scheme
 
 }
