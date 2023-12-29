@@ -12,11 +12,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var (
-	winptyDllName   = "winpty.dll"
-	winptyAgentName = "winpty-agent.exe"
-)
-
 type Options struct {
 	// AppName sets the title of the console
 	AppName string

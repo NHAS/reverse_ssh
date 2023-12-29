@@ -5,6 +5,10 @@ package winpty
 
 import (
 	"errors"
+	"log"
+	"os"
+	"path"
+	"runtime"
 	"syscall"
 )
 
@@ -51,7 +55,28 @@ func loadWinPty() error {
 		return nil
 	}
 
-	err := writeBinaries()
+	switch runtime.GOARCH {
+	case "amd64", "arm64", "386":
+	default:
+		return errors.New("unsupported winpty platform " + runtime.GOARCH)
+	}
+
+	var (
+		winptyDllName   = "winpty.dll"
+		winptyAgentName = "winpty-agent.exe"
+	)
+
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		log.Println("unable to get cache directory for writing winpty pe's writing may fail if directory is read only")
+	}
+
+	if err == nil {
+		winptyDllName = path.Join(cacheDir, winptyDllName)
+		winptyAgentName = path.Join(cacheDir, winptyAgentName)
+	}
+
+	err = writeBinaries(winptyDllName, winptyAgentName)
 	if err != nil {
 		return errors.New("writing PEs to disk failed: " + err.Error())
 	}
