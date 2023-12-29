@@ -279,6 +279,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 				}
 				// Pain and suffering https://github.com/golang/go/issues/7350
 				wsConn.PayloadType = websocket.BinaryFrame
+
 				conn = wsConn
 
 			}
@@ -295,6 +296,12 @@ func Run(addr, fingerprint, proxyAddr string) {
 			realConn.Close()
 
 			log.Printf("Unable to start a new client connection: %s\n", err)
+
+			if scheme == "stdio" {
+				// If we are in stdin/stdout mode (https://github.com/NHAS/reverse_ssh/issues/149), and something happens to our socket, just die. As we cant recover the connection (its for the harness to do)
+				return
+			}
+
 			<-time.After(10 * time.Second)
 			continue
 		}
@@ -378,6 +385,11 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)
+
+			if scheme == "stdio" {
+				return
+			}
+
 			<-time.After(10 * time.Second)
 			continue
 		}
