@@ -45,7 +45,7 @@ func runCommandWithPty(command string, args []string, user *internal.User, reque
 
 	fullCommand := command + " " + strings.Join(args, " ")
 	vsn := windows.RtlGetVersion()
-	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 || true {
+	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 {
 
 		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
 		runWithWinPty(fullCommand, connection, requests, log, *user.Pty)
