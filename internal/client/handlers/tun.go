@@ -103,7 +103,7 @@ func Tun(_ *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
 	tcpHandler := tcp.NewForwarder(ns, 30000, 4000, forwardTCP)
 
 	// Forward UDP connections
-	udpHandler := udp.NewForwarder(ns, forwardUDP(ns))
+	udpHandler := udp.NewForwarder(ns, forwardUDP())
 
 	// Register forwarders
 	ns.SetTransportProtocolHandler(tcp.ProtocolNumber, tcpHandler.HandlePacket)
@@ -143,7 +143,7 @@ func Tun(_ *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
 
 }
 
-func forwardUDP(stack *stack.Stack) func(request *udp.ForwarderRequest) {
+func forwardUDP() func(request *udp.ForwarderRequest) {
 	return func(request *udp.ForwarderRequest) {
 		go func() {
 			id := request.ID()
@@ -167,7 +167,7 @@ func forwardUDP(stack *stack.Stack) func(request *udp.ForwarderRequest) {
 				return
 			}
 
-			local := gonet.NewUDPConn(stack, &wq, ep)
+			local := gonet.NewUDPConn(&wq, ep)
 
 			err = Proxy(local, remote)
 			if err != nil {
@@ -249,6 +249,10 @@ func NewSSHEndpoint(dev ssh.Channel) *SSHEndpoint {
 // MTU implements stack.LinkEndpoint.
 func (m *SSHEndpoint) MTU() uint32 {
 	return 1500
+}
+
+func (m *SSHEndpoint) ParseHeader(stack.PacketBufferPtr) bool {
+	return true
 }
 
 // Capabilities implements stack.LinkEndpoint.
