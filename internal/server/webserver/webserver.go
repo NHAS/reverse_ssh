@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/data"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver/shellscripts"
 	"golang.org/x/crypto/ssh"
 )
@@ -63,9 +64,9 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 
 		filenameWithoutExtension := strings.TrimSuffix(filename, linkExtension)
 
-		f, err := Get(filename)
+		f, err := data.GetDownload(filename)
 		if err != nil {
-			f, err = Get(filenameWithoutExtension)
+			f, err = data.GetDownload(filename)
 			if err != nil {
 
 				w.Header().Set("content-type", "text/html")
@@ -108,7 +109,7 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 			}
 		}
 
-		file, err := os.Open(f.Path)
+		file, err := os.Open(f.FilePath)
 		if err != nil {
 			http.Error(w, "Error: "+err.Error(), 501)
 			return

@@ -2,46 +2,27 @@ package webserver
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/data"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
-)
-
-type file struct {
-	CallbackAddress string
-	Path            string
-	Goos            string
-	Goarch          string
-	Goarm           string
-	FileType        string
-	Hits            int
-	Version         string
-}
-
-const (
-	cacheDescriptionFile = "description.json"
 )
 
 var (
 	Autocomplete = trie.NewTrie()
 
+	cachePath string
+
 	validPlatforms = make(map[string]bool)
 	validArchs     = make(map[string]bool)
-
-	c         sync.RWMutex
-	cache     map[string]file = make(map[string]file) // random id to actual file path
-	cachePath string
 )
 
 func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, comment, proxy string, shared, upx, garble, disableLibC bool) (string, error) {
@@ -77,10 +58,7 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 		buildTool = "garble"
 	}
 
-	c.Lock()
-	defer c.Unlock()
-
-	var f file
+	var f data.Download
 
 	f.CallbackAddress = suppliedConnectBackAdress
 
@@ -96,10 +74,6 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 		}
 	}
 
-	if _, ok := cache[name]; ok {
-		return "", errors.New("this link name is already in use")
-	}
-
 	f.Goos = runtime.GOOS
 	if len(goos) > 0 {
 		f.Goos = goos
@@ -112,7 +86,7 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 
 	f.Goarm = goarm
 
-	f.Path = filepath.Join(cachePath, filename)
+	f.FilePath = filepath.Join(cachePath, filename)
 	f.FileType = "executable"
 	f.Version = internal.Version + "_guess"
 
@@ -133,9 +107,9 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 		buildArguments = append(buildArguments, "-tags=cshared")
 		f.FileType = "shared-object"
 		if f.Goos != "windows" {
-			f.Path += ".so"
+			f.FilePath += ".so"
 		} else {
-			f.Path += ".dll"
+			f.FilePath += ".dll"
 		}
 
 	}
@@ -163,7 +137,7 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 	}
 
 	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", suppliedConnectBackAdress, fingerprint, proxy, strings.TrimSpace(f.Version)))
-	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
+	buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)
 
@@ -209,20 +183,23 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 		}
 	}
 
-	cache[name] = f
+	f.UrlPath = name
+
+	err = data.CreateDownload(f)
+	if err != nil {
+		return "", err
+	}
 
 	if upx {
-		output, err := exec.Command("upx", "-qq", "-f", f.Path).CombinedOutput()
+		output, err := exec.Command("upx", "-qq", "-f", f.FilePath).CombinedOutput()
 		if err != nil {
 			return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
 		}
 	}
 
-	os.Chmod(f.Path, 0600)
+	os.Chmod(f.FilePath, 0600)
 
 	Autocomplete.Add(name)
-
-	writeCache()
 
 	authorizedControlleeKeys, err := os.OpenFile(filepath.Join(cachePath, "../authorized_controllee_keys"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
@@ -237,89 +214,7 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 	return "http://" + DefaultConnectBack + "/" + name, nil
 }
 
-func Get(key string) (file, error) {
-	c.RLock()
-	defer c.RUnlock()
-
-	cacheEntry, ok := cache[key]
-	if !ok {
-		return cacheEntry, errors.New("Unable to find cache entry: " + key)
-	}
-
-	cacheEntry.Hits++
-
-	cache[key] = cacheEntry
-
-	return cacheEntry, nil
-}
-
-func List(filter string) (matchingFiles map[string]file, err error) {
-	_, err = filepath.Match(filter, "")
-	if err != nil {
-		return nil, fmt.Errorf("filter is not well formed")
-	}
-
-	matchingFiles = make(map[string]file)
-
-	c.RLock()
-	defer c.RUnlock()
-
-	for id := range cache {
-		if filter == "" {
-			matchingFiles[id] = cache[id]
-			continue
-		}
-
-		if match, _ := filepath.Match(filter, id); match {
-			matchingFiles[id] = cache[id]
-			continue
-		}
-
-		file := cache[id]
-
-		if match, _ := filepath.Match(filter, file.Goos); match {
-			matchingFiles[id] = cache[id]
-			continue
-		}
-
-		if match, _ := filepath.Match(filter, file.Goarch+file.Goarm); match {
-			matchingFiles[id] = cache[id]
-			continue
-		}
-	}
-
-	return
-}
-
-func Delete(key string) error {
-	c.Lock()
-	defer c.Unlock()
-
-	cacheEntry, ok := cache[key]
-	if !ok {
-		return errors.New("Unable to find cache entry: " + key)
-	}
-
-	delete(cache, key)
-
-	writeCache()
-
-	Autocomplete.Remove(key)
-
-	return os.Remove(cacheEntry.Path)
-}
-
-func writeCache() {
-	content, err := json.Marshal(cache)
-	if err != nil {
-		panic(err)
-	}
-	os.WriteFile(filepath.Join(cachePath, cacheDescriptionFile), content, 0700)
-}
-
-func startBuildManager(cPath string) error {
-	c.Lock()
-	defer c.Unlock()
+func startBuildManager(_cachePath string) error {
 
 	clientSource := filepath.Join(projectRoot, "/cmd/client")
 	info, err := os.Stat(clientSource)
@@ -343,44 +238,20 @@ func startBuildManager(cPath string) error {
 		}
 	}
 
-	info, err = os.Stat(cPath)
+	info, err = os.Stat(_cachePath)
 	if os.IsNotExist(err) {
-		err = os.Mkdir(cPath, 0700)
+		err = os.Mkdir(_cachePath, 0700)
 		if err != nil {
 			return err
 		}
-		info, err = os.Stat(cPath)
+		info, err = os.Stat(_cachePath)
 	}
 
 	if !info.IsDir() {
-		return errors.New("Cache path '" + cPath + "' already exists, but is a file instead of directory")
+		return errors.New("Filestore path '" + _cachePath + "' already exists, but is a file instead of directory")
 	}
 
-	err = os.WriteFile(filepath.Join(cPath, "test"), []byte("test"), 0700)
-	if err != nil {
-		return errors.New("Unable to write file into cache directory: " + err.Error())
-	}
-
-	err = os.Remove(filepath.Join(cPath, "test"))
-	if err != nil {
-		return errors.New("Unable to delete file in cache directory: " + err.Error())
-	}
-
-	contents, err := os.ReadFile(filepath.Join(cPath, cacheDescriptionFile))
-	if err == nil {
-		err = json.Unmarshal(contents, &cache)
-		if err == nil {
-			for id := range cache {
-				Autocomplete.Add(id)
-			}
-		} else {
-			log.Println("Unable to load cache: ", err)
-		}
-	} else {
-		log.Println("Unable to load cache: ", err)
-	}
-
-	cachePath = cPath
+	cachePath = _cachePath
 
 	return nil
 }

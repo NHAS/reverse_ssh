@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/NHAS/reverse_ssh/internal/server/data"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
@@ -26,7 +27,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	if toList, ok := line.Flags["l"]; ok {
 		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "GOOS", "GOARCH", "Version", "Type", "Hits")
 
-		files, err := webserver.List(strings.Join(toList.ArgValues(), " "))
+		files, err := data.ListDownloads(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
 			return err
 		}
@@ -57,7 +58,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			return nil
 		}
 
-		files, err := webserver.List(strings.Join(toRemove.ArgValues(), " "))
+		files, err := data.ListDownloads(strings.Join(toRemove.ArgValues(), " "))
 		if err != nil {
 			return err
 		}
@@ -67,7 +68,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		}
 
 		for id := range files {
-			err := webserver.Delete(id)
+			err := data.DeleteDownload(id)
 			if err != nil {
 				fmt.Fprintf(tty, "Unable to remove %s: %s\n", id, err)
 				continue

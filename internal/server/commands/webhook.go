@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/NHAS/reverse_ssh/internal/server/webhooks"
+	"github.com/NHAS/reverse_ssh/internal/server/data"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
 
@@ -19,7 +19,10 @@ func (w *webhook) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	}
 
 	if line.IsSet("l") {
-		webhooks := webhooks.GetAll()
+		webhooks, err := data.GetAllWebhooks()
+		if err != nil {
+			return err
+		}
 
 		if len(webhooks) == 0 {
 			fmt.Fprintln(tty, "No active listeners")
@@ -27,7 +30,7 @@ func (w *webhook) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		}
 
 		for _, listener := range webhooks {
-			fmt.Fprintf(tty, "%s\n", listener)
+			fmt.Fprintf(tty, "%s\n", listener.URL)
 		}
 		return nil
 	}
@@ -36,7 +39,7 @@ func (w *webhook) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	off := line.IsSet("off")
 
 	if on && off {
-		return errors.New("Cannot specify on and off at the same time")
+		return errors.New("cannot specify on and off at the same time")
 	}
 
 	if on {
@@ -47,7 +50,7 @@ func (w *webhook) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		}
 
 		for i, addr := range addrs {
-			resultingUrl, err := webhooks.Add(addr, !line.IsSet("insecure"))
+			resultingUrl, err := data.CreateWebhook(addr, !line.IsSet("insecure"))
 			if err != nil {
 				fmt.Fprintf(tty, "(%d/%d) Failed: %s, reason: %s\n", i+1, len(addrs), resultingUrl, err.Error())
 				continue
@@ -67,7 +70,7 @@ func (w *webhook) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		}
 
 		for i, hook := range existingWebhooks {
-			err := webhooks.Remove(hook)
+			err := data.DeleteWebhook(hook)
 			if err != nil {
 				fmt.Fprintf(tty, "(%d/%d) Failed to remove: %s, reason: %s\n", i+1, len(existingWebhooks), hook, err.Error())
 				continue

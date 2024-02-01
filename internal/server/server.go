@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/data"
 	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
 	"github.com/NHAS/reverse_ssh/internal/server/webhooks"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
@@ -56,7 +57,6 @@ func Run(addr, dataDir, connectBackAddress, TLSCertPath, TLSKeyPath string, inse
 	}
 
 	privateKeyPath := filepath.Join(dataDir, "id_ed25519")
-	configPath := filepath.Join(dataDir, "config.json")
 
 	log.Println("Version: ", internal.Version)
 	var err error
@@ -85,7 +85,12 @@ func Run(addr, dataDir, connectBackAddress, TLSCertPath, TLSKeyPath string, inse
 
 	}
 
-	go webhooks.StartWebhooks(configPath)
+	err = data.LoadDatabase(filepath.Join(dataDir, "data.db"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go webhooks.StartWebhooks()
 
 	StartSSHServer(multiplexer.ServerMultiplexer.SSH(), private, insecure, openproxy, dataDir, timeout)
 }
