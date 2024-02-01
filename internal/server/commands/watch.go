@@ -12,7 +12,6 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
-	"github.com/NHAS/reverse_ssh/pkg/observer"
 )
 
 type watch struct {
@@ -118,9 +117,7 @@ func (w *watch) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	messages := make(chan string)
 
-	observerId := observers.ConnectionState.Register(func(m observer.Message) {
-
-		c := m.(observers.ClientState)
+	observerId := observers.ConnectionState.Register(func(c observers.ClientState) {
 
 		var arrowDirection = "<-"
 		if c.Status == "disconnected" {

@@ -14,7 +14,6 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
-	"github.com/NHAS/reverse_ssh/pkg/observer"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -163,8 +162,7 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 		if auto {
 			var entry autostartEntry
 
-			entry.ObserverID = observers.ConnectionState.Register(func(m observer.Message) {
-				c := m.(observers.ClientState)
+			entry.ObserverID = observers.ConnectionState.Register(func(c observers.ClientState) {
 
 				if !clients.Matches(specifier, c.ID, c.IP) || c.Status == "disconnected" {
 					return

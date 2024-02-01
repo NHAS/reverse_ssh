@@ -17,7 +17,6 @@ import (
 	"net/url"
 
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
-	"github.com/NHAS/reverse_ssh/pkg/observer"
 )
 
 var m sync.RWMutex
@@ -39,16 +38,16 @@ func StartWebhooks(config string) {
 		log.Fatal(err)
 	}
 
-	messages := make(chan observer.Message)
+	messages := make(chan observers.ClientState)
 
-	observers.ConnectionState.Register(func(message observer.Message) {
+	observers.ConnectionState.Register(func(message observers.ClientState) {
 		messages <- message
 	})
 
 	go func() {
 		for msg := range messages {
 
-			go func(msg observer.Message) {
+			go func(msg observers.ClientState) {
 
 				fullBytes, err := msg.Json()
 				if err != nil {

@@ -3,7 +3,6 @@ package observer
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"sync"
 )
 
@@ -17,33 +16,30 @@ func random(length int) (string, error) {
 	return hex.EncodeToString(randomData), nil
 }
 
-type observer struct {
+type observer[T any] struct {
 	sync.RWMutex
-	clients  map[string]Target
-	typeName string
+	clients map[string]func(T)
 }
 
-type Target func(message Message)
-
-func (o *observer) Register(t Target) (id string) {
+func (o *observer[T]) Register(f func(T)) (id string) {
 	o.Lock()
 	defer o.Unlock()
 
 	id, _ = random(10)
 
-	o.clients[id] = t
+	o.clients[id] = f
 
 	return id
 }
 
-func (o *observer) Deregister(id string) {
+func (o *observer[T]) Deregister(id string) {
 	o.Lock()
 	defer o.Unlock()
 
 	delete(o.clients, id)
 }
 
-func (o *observer) Notify(message Message) {
+func (o *observer[T]) Notify(message T) {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -52,15 +48,9 @@ func (o *observer) Notify(message Message) {
 	}
 }
 
-func New(msgType Message) observer {
+func New[T any]() observer[T] {
 
-	return observer{
-		clients:  make(map[string]Target),
-		typeName: fmt.Sprintf("%T", msgType),
+	return observer[T]{
+		clients: make(map[string]func(T)),
 	}
-}
-
-type Message interface {
-	Json() ([]byte, error)
-	Summary() string
 }

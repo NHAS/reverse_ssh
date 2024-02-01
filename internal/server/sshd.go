@@ -17,7 +17,6 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
-	"github.com/NHAS/reverse_ssh/pkg/observer"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -265,10 +264,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 
 	config.AddHostKey(privateKey)
 
-	observers.ConnectionState.Register(func(m observer.Message) {
-
-		c := m.(observers.ClientState)
-
+	observers.ConnectionState.Register(func(c observers.ClientState) {
 		var arrowDirection = "<-"
 		if c.Status == "disconnected" {
 			arrowDirection = "->"

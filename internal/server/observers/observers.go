@@ -25,4 +25,4 @@ func (cs ClientState) Json() ([]byte, error) {
 	return json.Marshal(cs)
 }
 
-var ConnectionState = observer.New(ClientState{})
+var ConnectionState = observer.New[ClientState]()
