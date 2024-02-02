@@ -2,13 +2,14 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,16 +19,50 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/exp/maps"
 )
 
 type Options struct {
 	AllowList []*net.IPNet
 	DenyList  []*net.IPNet
 	Comment   string
+
+	Owners map[string]bool
+}
+
+func (o *Options) String() string {
+
+	result := ""
+	if len(o.AllowList) != 0 || len(o.DenyList) != 0 {
+		result = "from=\""
+		for i, al := range o.AllowList {
+			result += al.String()
+			if i != len(o.AllowList) {
+				result += ","
+			}
+		}
+
+		for i, al := range o.AllowList {
+			result += "!" + al.String()
+			if i != len(o.AllowList) {
+				result += ","
+			}
+		}
+		result += "\" "
+	}
+
+	if len(o.Owners) != 0 {
+		result += "owner="
+
+		data, _ := json.Marshal(maps.Keys(o.Owners))
+		result += string(data)
+	}
+
+	return result
 }
 
 func readPubKeys(path string) (m map[string]Options, err error) {
-	authorizedKeysBytes, err := ioutil.ReadFile(path)
+	authorizedKeysBytes, err := os.ReadFile(path)
 	if err != nil {
 		return m, fmt.Errorf("failed to load file %s, err: %v", path, err)
 	}
@@ -48,36 +83,20 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 
 		var opts Options
 		opts.Comment = comment
+		opts.Owners = map[string]bool{}
 
 		for _, o := range options {
 			parts := strings.Split(o, "=")
-			if len(parts) == 2 && parts[0] == "from" {
-				list := strings.Trim(parts[1], "\"")
-
-				directives := strings.Split(list, ",")
-				for _, directive := range directives {
-					if len(directive) > 0 {
-						switch directive[0] {
-						case '!':
-							directive = directive[1:]
-							newDenys, err := ParseDirective(directive)
-							if err != nil {
-								log.Println("Unable to add !", directive, " to denylist: ", err)
-								continue
-							}
-							opts.DenyList = append(opts.DenyList, newDenys...)
-						default:
-							newAllowOnlys, err := ParseDirective(directive)
-							if err != nil {
-								log.Println("Unable to add ", directive, " to allowlist: ", err)
-								continue
-							}
-
-							opts.AllowList = append(opts.AllowList, newAllowOnlys...)
-
-						}
-					}
+			if len(parts) >= 2 {
+				switch parts[0] {
+				case "from":
+					deny, allow := ParseFromDirective(parts[1])
+					opts.AllowList = append(opts.AllowList, allow...)
+					opts.DenyList = append(opts.DenyList, deny...)
+				case "owner":
+					opts.Owners = ParseOwnerDirective(parts[1])
 				}
+
 			}
 		}
 
@@ -87,7 +106,54 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 	return
 }
 
-func ParseDirective(address string) (cidr []*net.IPNet, err error) {
+func ParseOwnerDirective(owners string) map[string]bool {
+	var k []string
+	err := json.Unmarshal([]byte(owners), &k)
+	if err != nil {
+		log.Println("unable to parse owner directive: ", owners, " err:", err)
+		return nil
+	}
+
+	result := map[string]bool{}
+	for _, user := range k {
+		result[user] = true
+	}
+
+	return result
+}
+
+func ParseFromDirective(addresses string) (deny, allow []*net.IPNet) {
+	list := strings.Trim(addresses, "\"")
+
+	directives := strings.Split(list, ",")
+	for _, directive := range directives {
+		if len(directive) > 0 {
+			switch directive[0] {
+			case '!':
+				directive = directive[1:]
+				newDenys, err := ParseAddress(directive)
+				if err != nil {
+					log.Println("Unable to add !", directive, " to denylist: ", err)
+					continue
+				}
+				deny = append(deny, newDenys...)
+			default:
+				newAllowOnlys, err := ParseAddress(directive)
+				if err != nil {
+					log.Println("Unable to add ", directive, " to allowlist: ", err)
+					continue
+				}
+
+				allow = append(allow, newAllowOnlys...)
+
+			}
+		}
+	}
+
+	return
+}
+
+func ParseAddress(address string) (cidr []*net.IPNet, err error) {
 	if len(address) > 0 && address[0] == '*' {
 		_, all, _ := net.ParseCIDR("0.0.0.0/0")
 		_, allv6, _ := net.ParseCIDR("::/0")
@@ -139,60 +205,79 @@ func ParseDirective(address string) (cidr []*net.IPNet, err error) {
 	return
 }
 
+var ErrKeyNotInList = errors.New("key not found")
+
+func CheckAuth(keysPath string, publicKey ssh.PublicKey, src net.IP, insecure bool) (*ssh.Permissions, error) {
+
+	keys, err := readPubKeys(keysPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read public keys: %s", strconv.QuoteToGraphic(keysPath))
+	}
+
+	var opt Options
+	if !insecure {
+		var ok bool
+		opt, ok = keys[string(ssh.MarshalAuthorizedKey(publicKey))]
+		if !ok {
+			return nil, ErrKeyNotInList
+		}
+
+		for _, deny := range opt.DenyList {
+			if deny.Contains(src) {
+				return nil, fmt.Errorf("not authorized ip on deny list")
+			}
+		}
+
+		safe := len(opt.AllowList) == 0
+		for _, allow := range opt.AllowList {
+			if allow.Contains(src) {
+				safe = true
+				break
+			}
+		}
+
+		if !safe {
+			return nil, fmt.Errorf("not authorized not on allow list")
+		}
+	}
+
+	ownersBytes, err := json.Marshal(opt.Owners)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ssh.Permissions{
+		// Record the public key used for authentication.
+		Extensions: map[string]string{
+			"comment":   opt.Comment,
+			"pubkey-fp": internal.FingerprintSHA1Hex(publicKey),
+			"owners":    string(ownersBytes),
+		},
+	}, nil
+
+}
+
 func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, openproxy bool, dataDir string, timeout int) {
 	//Taken from the server example, authorized keys are required for controllers
-	authorizedKeysPath := filepath.Join(dataDir, "authorized_keys")
+	adminAuthorizedKeysPath := filepath.Join(dataDir, "authorized_keys")
 	authorizedControlleeKeysPath := filepath.Join(dataDir, "authorized_controllee_keys")
 	authorizedProxyKeysPath := filepath.Join(dataDir, "authorized_proxy_keys")
 
-	log.Printf("Loading authorized keys from: %s\n", authorizedKeysPath)
-	authorizedControllers, err := readPubKeys(authorizedKeysPath)
-	if err != nil {
-		log.Fatal(err)
+	downloadsDir := filepath.Join(dataDir, "downloads")
+	if _, err := os.Stat(downloadsDir); err != nil && os.IsNotExist(err) {
+		os.Mkdir(downloadsDir, 0700)
+		log.Println("Created downloads directory (", downloadsDir, ")")
 	}
 
-	if _, err := os.Stat("downloads"); err != nil && os.IsNotExist(err) {
-		os.Mkdir("downloads", 0700)
-		log.Println("Created downloads directory")
+	usersKeysDir := filepath.Join(dataDir, "keys")
+	if _, err := os.Stat(usersKeysDir); err != nil && os.IsNotExist(err) {
+		os.Mkdir(usersKeysDir, 0700)
+		log.Println("Created user keys directory (", usersKeysDir, ")")
 	}
 
-	clients, err := readPubKeys(authorizedControlleeKeysPath)
-	if err != nil {
-		if !insecure {
-			log.Fatal(err)
-		} else {
-			log.Println(err)
-		}
-	}
-
-	for key := range clients {
-		if _, ok := authorizedControllers[key]; ok {
-			log.Fatalf("[ERROR] Key %s is present in both authorized_controllee_keys and authorized_keys. It should only be in one.", strings.TrimSpace(key))
-		}
-	}
-
-	// In the latest version of crypto/ssh (after Go 1.3), the SSH server type has been removed
-	// in favour of an SSH connection type. A ssh.ServerConn is created by passing an existing
-	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in effect, upgrading the net.Conn
-	// into an ssh.ServerConn
 	config := &ssh.ServerConfig{
 		ServerVersion: "SSH-2.0-OpenSSH_8.0",
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-
-			authorizedKeysMap, err := readPubKeys(authorizedKeysPath)
-			if err != nil {
-				log.Println("Reloading authorized_keys failed: ", err)
-			}
-
-			authorizedControllees, err := readPubKeys(authorizedControlleeKeysPath)
-			if err != nil {
-				log.Println("Reloading authorized_controllee_keys failed: ", err)
-			}
-
-			authorizedProxiers, err := readPubKeys(authorizedProxyKeysPath)
-			if err != nil {
-				log.Println("Reloading authorized_proxy_keys failed: ", err)
-			}
 
 			remoteIp := getIP(conn.RemoteAddr().String())
 
@@ -200,62 +285,53 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 				return nil, fmt.Errorf("not authorized %q, could not parse IP address %s", conn.User(), conn.RemoteAddr())
 			}
 
+			// Check administrator keys first, they can impersonate users (not that it really does anything, and is more for backwards compat)
+			perm, err := CheckAuth(adminAuthorizedKeysPath, key, remoteIp, false)
+			if err == nil {
+				perm.Extensions["type"] = "user"
+				perm.Extensions["privilege"] = "5"
+
+				return perm, err
+			}
+
+			if err != nil && err != ErrKeyNotInList {
+				return nil, fmt.Errorf("admin with supplied username (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
+			}
+
+			// Stop path traversal
+			authorisedKeysPath := filepath.Join(usersKeysDir, filepath.Join("/", conn.User()))
+			perm, err = CheckAuth(authorisedKeysPath, key, remoteIp, false)
+			if err == nil {
+				perm.Extensions["type"] = "user"
+				perm.Extensions["privilege"] = "0"
+
+				return perm, err
+			}
+
+			if err != nil && err != ErrKeyNotInList {
+				return nil, fmt.Errorf("user (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
+			}
+
 			//If insecure mode, then any unknown client will be connected as a controllable client.
 			//The server effectively ignores channel requests from controllable clients.
-
-			if opt, ok := authorizedKeysMap[string(ssh.MarshalAuthorizedKey(key))]; ok {
-
-				for _, deny := range opt.DenyList {
-					if deny.Contains(remoteIp) {
-						return nil, fmt.Errorf("not authorized %q (deny list)", conn.User())
-					}
-				}
-
-				safe := len(opt.AllowList) == 0
-				for _, allow := range opt.AllowList {
-					if allow.Contains(remoteIp) {
-						safe = true
-						break
-					}
-				}
-
-				if !safe {
-					return nil, fmt.Errorf("not authorized %q (not on allow list)", conn.User())
-				}
-
-				return &ssh.Permissions{
-					// Record the public key used for authentication.
-					Extensions: map[string]string{
-						"comment":   opt.Comment,
-						"pubkey-fp": internal.FingerprintSHA1Hex(key),
-						"type":      "user",
-					},
-				}, nil
-
+			perms, err := CheckAuth(authorizedControlleeKeysPath, key, remoteIp, insecure)
+			if err == nil {
+				perms.Extensions["type"] = "client"
+				return perms, err
 			}
 
-			if opt, ok := authorizedControllees[string(ssh.MarshalAuthorizedKey(key))]; insecure || ok {
-
-				return &ssh.Permissions{
-					// Record the public key used for authentication.
-					Extensions: map[string]string{
-						"comment":   opt.Comment,
-						"pubkey-fp": internal.FingerprintSHA1Hex(key),
-						"type":      "client",
-					},
-				}, nil
+			if err != nil && err != ErrKeyNotInList {
+				return nil, fmt.Errorf("client was denied login: %s", err)
 			}
 
-			if opt, ok := authorizedProxiers[string(ssh.MarshalAuthorizedKey(key))]; insecure || openproxy || ok {
+			perms, err = CheckAuth(authorizedProxyKeysPath, key, remoteIp, insecure || openproxy)
+			if err == nil {
+				perms.Extensions["type"] = "proxy"
+				return perms, err
+			}
 
-				return &ssh.Permissions{
-					// Record the public key used for authentication.
-					Extensions: map[string]string{
-						"comment":   opt.Comment,
-						"pubkey-fp": internal.FingerprintSHA1Hex(key),
-						"type":      "proxy",
-					},
-				}, nil
+			if err != nil && err != ErrKeyNotInList {
+				return nil, fmt.Errorf("proxy was denied login: %s", err)
 			}
 
 			return nil, fmt.Errorf("not authorized %q, potentially you might want to enabled -insecure mode", conn.User())

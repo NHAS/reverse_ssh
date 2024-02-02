@@ -12,6 +12,7 @@ require (
 	github.com/justincormack/go-memfd v0.0.0-20170219213707-6e4af0518993
 	github.com/pkg/sftp v1.13.6
 	golang.org/x/crypto v0.18.0
+	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090
 	golang.org/x/net v0.20.0
 	golang.org/x/sys v0.16.0
 	gorm.io/gorm v1.25.6

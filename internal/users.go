@@ -11,12 +11,14 @@ import (
 
 var ErrNilServerConnection = errors.New("The server connection was nil for the client")
 
-var lUsers sync.RWMutex
-var users map[string]bool = make(map[string]bool)
+var (
+	lUsers sync.RWMutex
+	users  map[string]bool = make(map[string]bool)
+)
 
 type User struct {
 	sync.RWMutex
-	
+
 	// This is the users connection to the server itself, creates new channels and whatnot. NOT to get io.Copy'd
 	ServerConnection ssh.Conn
 
