@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/connection"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/go-ping/ping"
 	"gvisor.dev/gvisor/pkg/buffer"
@@ -35,7 +35,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func Tun(_ *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
+func Tun(_ *connection.Session, newChannel ssh.NewChannel, l logger.Logger) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -387,8 +387,9 @@ func icmpResponder(s *stack.Stack) error {
 
 			if _, ok := err.(*tcpip.ErrWouldBlock); ok {
 				// Wait for data to become available.
-				select {
-				case <-ch:
+
+				for range ch {
+
 					_, err := rawProto.Read(&buff, tcpip.ReadOptions{})
 
 					if err != nil {
@@ -419,7 +420,6 @@ func icmpResponder(s *stack.Stack) error {
 							ProcessICMP(s, packetbuff)
 						}
 					}()
-
 				}
 			}
 

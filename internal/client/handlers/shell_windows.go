@@ -20,9 +20,9 @@ import (
 )
 
 // The basic windows shell handler, as there arent any good golang libraries to work with windows conpty
-func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
+func shell(ptyReq *internal.PtyReq, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
-	if user.Pty == nil {
+	if ptyReq == nil {
 		basicShell(connection, requests, log)
 		return
 	}
@@ -35,31 +35,31 @@ func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Req
 		}
 	}
 
-	runCommandWithPty(path, nil, user, requests, log, connection)
+	runCommandWithPty(path, nil, ptyReq, requests, log, connection)
 
 	connection.Close()
 
 }
 
-func runCommandWithPty(command string, args []string, user *internal.User, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
+func runCommandWithPty(command string, args []string, pty *internal.PtyReq, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
 
 	fullCommand := command + " " + strings.Join(args, " ")
 	vsn := windows.RtlGetVersion()
 	if vsn.MajorVersion < 10 || vsn.BuildNumber < 17763 || true {
 
 		log.Info("Windows version too old for Conpty (%d, %d), using basic shell", vsn.MajorVersion, vsn.BuildNumber)
-		runWithWinPty(fullCommand, connection, requests, log, *user.Pty)
+		runWithWinPty(fullCommand, connection, requests, log, pty)
 
 	} else {
-		err := runWithConpty(fullCommand, connection, requests, log, *user.Pty)
+		err := runWithConpty(fullCommand, connection, requests, log, pty)
 		if err != nil {
 			log.Error("unable to run with conpty, falling back to winpty: %v", err)
-			runWithWinPty(fullCommand, connection, requests, log, *user.Pty)
+			runWithWinPty(fullCommand, connection, requests, log, pty)
 		}
 	}
 }
 
-func runWithWinPty(command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq) error {
+func runWithWinPty(command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq *internal.PtyReq) error {
 
 	path, err := exec.LookPath(command)
 	if err != nil {
@@ -106,7 +106,7 @@ func runWithWinPty(command string, connection ssh.Channel, reqs <-chan *ssh.Requ
 	return nil
 }
 
-func runWithConpty(command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq internal.PtyReq) error {
+func runWithConpty(command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq *internal.PtyReq) error {
 
 	cpty, err := conpty.New(int16(ptyReq.Columns), int16(ptyReq.Rows))
 	if err != nil {

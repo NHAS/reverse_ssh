@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/connection"
 	"github.com/NHAS/reverse_ssh/internal/client/handlers"
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -97,7 +98,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 
 		err = WriteHTTPReq(req, proxyCon)
 		if err != nil {
-			return conn, fmt.Errorf("Unable to connect proxy %s", proxy)
+			return conn, fmt.Errorf("unable to connect proxy %s", proxy)
 		}
 
 		var responseStatus []byte
@@ -105,7 +106,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 			b := make([]byte, 1)
 			_, err := proxyCon.Read(b)
 			if err != nil {
-				return conn, fmt.Errorf("Reading from proxy failed")
+				return conn, fmt.Errorf("reading from proxy failed")
 			}
 			responseStatus = append(responseStatus, b...)
 
@@ -117,7 +118,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 		if !(bytes.Contains(bytes.ToLower(responseStatus), []byte("200"))) {
 			parts := bytes.Split(responseStatus, []byte("\r\n"))
 			if len(parts) > 1 {
-				return proxyCon, fmt.Errorf("Failed to proxy: '%s'", parts[0])
+				return proxyCon, fmt.Errorf("failed to proxy: '%s'", parts[0])
 			}
 		}
 
@@ -180,7 +181,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 			}
 
 			if internal.FingerprintSHA256Hex(key) != fingerprint {
-				return fmt.Errorf("Server public key invalid, expected: %s, got: %s", fingerprint, internal.FingerprintSHA256Hex(key))
+				return fmt.Errorf("server public key invalid, expected: %s, got: %s", fingerprint, internal.FingerprintSHA256Hex(key))
 			}
 
 			return nil
@@ -289,7 +290,7 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 		// Make initial timeout quite long so folks who type their ssh public key can actually do it
 		// After this the timeout gets updated by the server
-		realConn := &internal.TimeoutConn{conn, 4 * time.Minute}
+		realConn := &internal.TimeoutConn{Conn: conn, Timeout: 4 * time.Minute}
 
 		sshConn, chans, reqs, err := ssh.NewClientConn(realConn, addr, config)
 		if err != nil {
@@ -376,8 +377,8 @@ func Run(addr, fingerprint, proxyAddr string) {
 		//Do not register new client callbacks here, they are actually within the JumpHandler
 		//session is handled here as a legacy hangerover from allowing a client who has directly connected to the servers console to run the connect command
 		//Otherwise anything else should be done via jumphost syntax -J
-		err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]internal.ChannelHandler{
-			"session": handlers.ServerConsoleSession(sshConn),
+		err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]func(session *connection.Session, newChannel ssh.NewChannel, log logger.Logger){
+			"session": handlers.Session,
 			"jump":    handlers.JumpHandler(sshPriv, sshConn),
 		})
 

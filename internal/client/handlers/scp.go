@@ -93,7 +93,7 @@ func readProtocolControl(connection ssh.Channel) (string, uint32, uint64, string
 	case 'C':
 		return "file", uint32(mode), uint64(size), filename, nil
 	default:
-		return "", 0, 0, "", errors.New(fmt.Sprintf("Unknown mode: %s", strings.TrimSpace(control)))
+		return "", 0, 0, "", fmt.Errorf("unknown mode: %s", strings.TrimSpace(control))
 	}
 }
 
@@ -209,7 +209,7 @@ func to(tocreate string, connection ssh.Channel) error {
 
 		return readFile(connection, path, mode, size)
 	default:
-		return errors.New("Unknown file type")
+		return errors.New("unknown file type")
 	}
 
 }
@@ -249,7 +249,6 @@ func from(todownload string, connection ssh.Channel) {
 		return
 	}
 
-	return
 }
 
 func scpTransferDirectory(path string, mode fs.FileInfo, connection ssh.Channel) error {
@@ -271,7 +270,7 @@ func scpTransferDirectory(path string, mode fs.FileInfo, connection ssh.Channel)
 
 	success, _ := readAck(connection)
 	if success != 0 {
-		return errors.New("Creating directory failed")
+		return errors.New("creating directory failed")
 	}
 
 	for _, file := range files {
@@ -321,7 +320,7 @@ func scpTransferFile(path string, fi fs.FileInfo, connection ssh.Channel) error 
 
 	readyToAcceptFile, _ := readAck(connection)
 	if readyToAcceptFile != 0 {
-		return errors.New("Client unable to receive new file")
+		return errors.New("client unable to receive new file")
 	}
 
 	defer func() {
@@ -344,7 +343,7 @@ func scpTransferFile(path string, fi fs.FileInfo, connection ssh.Channel) error 
 
 		nn, err := connection.Write(buf[:n])
 		if nn < n {
-			return errors.New("Not able to do full write, connection is bad")
+			return errors.New("not able to do full write, connection is bad")
 		}
 
 		if err != nil {

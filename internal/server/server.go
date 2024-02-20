@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -23,23 +22,23 @@ func CreateOrLoadServerKeys(privateKeyPath string) (ssh.Signer, error) {
 
 		privateKeyPem, err := internal.GeneratePrivateKey()
 		if err != nil {
-			return nil, fmt.Errorf("Unable to generate private key, and no private key specified: %s", err)
+			return nil, fmt.Errorf("unable to generate private key, and no private key specified: %s", err)
 		}
 
-		err = ioutil.WriteFile(privateKeyPath, privateKeyPem, 0600)
+		err = os.WriteFile(privateKeyPath, privateKeyPem, 0600)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to write private key to disk: %s", err)
+			return nil, fmt.Errorf("unable to write private key to disk: %s", err)
 		}
 	}
 
-	privateBytes, err := ioutil.ReadFile(privateKeyPath)
+	privateBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to load private key (%s): %s", privateKeyPath, err)
+		return nil, fmt.Errorf("failed to load private key (%s): %s", privateKeyPath, err)
 	}
 
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse private key: %s", err)
+		return nil, fmt.Errorf("failed to parse private key: %s", err)
 	}
 
 	return private, nil

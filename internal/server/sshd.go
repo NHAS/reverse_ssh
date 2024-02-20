@@ -383,7 +383,7 @@ func getIP(ip string) net.IP {
 func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir string) {
 
 	//Initially set the timeout high, so people who type in their ssh key password can actually use rssh
-	realConn := &internal.TimeoutConn{c, time.Duration(timeout) * time.Minute}
+	realConn := &internal.TimeoutConn{Conn: c, Timeout: time.Duration(timeout) * time.Minute}
 
 	// Before use, a handshake must be performed on the incoming net.Conn.
 	sshConn, chans, reqs, err := ssh.NewServerConn(realConn, config)
@@ -424,7 +424,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		// Since we're handling a shell, local and remote forward, so we expect
 		// channel type of "session" or "direct-tcpip"
 		go func() {
-			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
+			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger){
 				"session":      handlers.Session(dataDir),
 				"direct-tcpip": handlers.LocalForward,
 			})
@@ -451,7 +451,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		go func() {
 			go ssh.DiscardRequests(reqs)
 
-			err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]internal.ChannelHandler{
+			err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger){
 				"rssh-download":   handlers.Download(dataDir),
 				"forwarded-tcpip": handlers.ServerPortForward(id),
 			})

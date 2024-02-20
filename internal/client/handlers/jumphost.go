@@ -6,20 +6,21 @@ import (
 	"net"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/connection"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
-func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandler {
+func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) func(session *connection.Session, newChannel ssh.NewChannel, log logger.Logger) {
 
-	return func(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
-		connection, requests, err := newChannel.Accept()
+	return func(_ *connection.Session, newChannel ssh.NewChannel, log logger.Logger) {
+		jumpHandle, requests, err := newChannel.Accept()
 		if err != nil {
 			newChannel.Reject(ssh.ResourceShortage, err.Error())
 			return
 		}
 		go ssh.DiscardRequests(requests)
-		defer connection.Close()
+		defer jumpHandle.Close()
 
 		config := &ssh.ServerConfig{
 			PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
@@ -33,9 +34,9 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandle
 		config.AddHostKey(sshPriv)
 
 		p1, p2 := net.Pipe()
-		go io.Copy(connection, p2)
+		go io.Copy(jumpHandle, p2)
 		go func() {
-			io.Copy(p2, connection)
+			io.Copy(p2, jumpHandle)
 
 			p2.Close()
 			p1.Close()
@@ -51,17 +52,13 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandle
 		clientLog := logger.NewLog(serverConn.RemoteAddr().String())
 		clientLog.Info("New SSH connection, version %s", conn.ClientVersion())
 
-		user, err := internal.CreateUser(serverConn)
-		if err != nil {
-			log.Error("Unable to add user %s\n", err)
-			return
-		}
+		session := connection.NewSession(conn)
 
 		go func(in <-chan *ssh.Request) {
 			for r := range in {
 				switch r.Type {
 				case "tcpip-forward":
-					go StartRemoteForward(user, r, conn)
+					go StartRemoteForward(session, r, conn)
 				case "cancel-tcpip-forward":
 					var rf internal.RemoteForwardRequest
 
@@ -87,7 +84,7 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandle
 			}
 		}(reqs)
 
-		err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]internal.ChannelHandler{
+		err = internal.RegisterChannelCallbacks(session, chans, clientLog, map[string]func(session *connection.Session, newChannel ssh.NewChannel, log logger.Logger){
 			"session":         Session,
 			"direct-tcpip":    LocalForward,
 			"tun@openssh.com": Tun,
@@ -97,11 +94,11 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) internal.ChannelHandle
 			log.Error("Channel call back error: %s", err)
 		}
 
-		user.Lock()
-		for rf := range user.SupportedRemoteForwards {
+		session.Lock()
+		for rf := range session.SupportedRemoteForwards {
 			go StopRemoteForward(rf)
 		}
-		user.Unlock()
+		session.Unlock()
 
 	}
 }

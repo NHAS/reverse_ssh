@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/connection"
 	"github.com/NHAS/reverse_ssh/internal/client/handlers/subsystems"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -21,26 +22,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func ServerConsoleSession(ServerConn ssh.Conn) internal.ChannelHandler {
-
-	user, err := internal.CreateUser(ServerConn)
-
-	return func(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
-		if err != nil {
-			log.Error("Unable to add user %s\n", err)
-			newChannel.Reject(ssh.ConnectionFailed, err.Error())
-			return
-		}
-
-		Session(user, newChannel, log)
-	}
-
-}
-
 // Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
 // However these calls are done through requests, rather than opening a new channel
 // This callback just sorts out what the client wants to be doing
-func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+func Session(session *connection.Session, newChannel ssh.NewChannel, log logger.Logger) {
 
 	defer log.Info("Session disconnected")
 
@@ -93,15 +78,15 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			}
 
 			if u, ok := isUrl(command); ok {
-				command, err = download(user.ServerConnection, u)
+				command, err = download(session.ServerConnection, u)
 				if err != nil {
 					fmt.Fprintf(connection, "%s", err.Error())
 					return
 				}
 			}
 
-			if user.Pty != nil {
-				runCommandWithPty(command, line.Chunks[1:], user, requests, log, connection)
+			if session.Pty != nil {
+				runCommandWithPty(command, line.Chunks[1:], session.Pty, requests, log, connection)
 				return
 			}
 			runCommand(command, line.Chunks[1:], connection)
@@ -116,21 +101,21 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 			if err != nil || shellPath.Cmd == "" {
 
 				//This blocks so will keep the channel from defer closing
-				shell(user, connection, requests, log)
+				shell(session.Pty, connection, requests, log)
 				return
 			}
 			parts := strings.Split(shellPath.Cmd, " ")
 			if len(parts) > 0 {
 				command := parts[0]
 				if u, ok := isUrl(parts[0]); ok {
-					command, err = download(user.ServerConnection, u)
+					command, err = download(session.ServerConnection, u)
 					if err != nil {
 						fmt.Fprintf(connection, "%s", err.Error())
 						return
 					}
 				}
 
-				runCommandWithPty(command, parts[1:], user, requests, log, connection)
+				runCommandWithPty(command, parts[1:], session.Pty, requests, log, connection)
 			}
 			return
 			//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
@@ -143,7 +128,7 @@ func Session(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) 
 				req.Reply(false, nil)
 				return
 			}
-			user.Pty = &pty
+			session.Pty = &pty
 
 			req.Reply(true, nil)
 		default:

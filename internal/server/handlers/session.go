@@ -17,7 +17,7 @@ import (
 // Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
 // However these calls are done through requests, rather than opening a new channel
 // This callback just sorts out what the client wants to be doing
-func Session(datadir string) internal.ChannelHandler {
+func Session(datadir string) ChannelHandler {
 	return func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 		defer log.Info("Session disconnected: %s", user.ServerConnection.ClientVersion())
@@ -73,7 +73,7 @@ func Session(datadir string) internal.ChannelHandler {
 
 				term.SetSize(int(user.Pty.Columns), int(user.Pty.Rows))
 
-				term.AddValueAutoComplete(autocomplete.RemoteId, clients.Autocomplete)
+				term.AddValueAutoComplete(autocomplete.RemoteId, clients.Autocomplete(user.ServerConnection.User()))
 				term.AddValueAutoComplete(autocomplete.WebServerFileIds, webserver.Autocomplete)
 
 				term.AddCommands(commands.CreateCommands(user, log, datadir))

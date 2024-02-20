@@ -124,9 +124,9 @@ func init() {
 
 }
 
-func runCommandWithPty(command string, args []string, user *internal.User, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
+func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
 
-	if user.Pty == nil {
+	if ptyReq == nil {
 		log.Error("Requested to run a command with a pty, but did not start a pty")
 		return
 	}
@@ -152,10 +152,10 @@ func runCommandWithPty(command string, args []string, user *internal.User, reque
 	var err error
 	var shellIO io.ReadWriteCloser
 
-	shell.Env = append(shell.Env, "TERM="+user.Pty.Term)
+	shell.Env = append(shell.Env, "TERM="+ptyReq.Term)
 
 	log.Info("Creating pty...")
-	shellIO, err = pty.StartWithSize(shell, &pty.Winsize{Cols: uint16(user.Pty.Columns), Rows: uint16(user.Pty.Rows)})
+	shellIO, err = pty.StartWithSize(shell, &pty.Winsize{Cols: uint16(ptyReq.Columns), Rows: uint16(ptyReq.Rows)})
 	if err != nil {
 		log.Info("Could not start pty (%s)", err)
 		close()
@@ -200,15 +200,15 @@ func runCommandWithPty(command string, args []string, user *internal.User, reque
 }
 
 // This basically handles exactly like a SSH server would
-func shell(user *internal.User, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
+func shell(ptyReq *internal.PtyReq, connection ssh.Channel, requests <-chan *ssh.Request, log logger.Logger) {
 
 	path := ""
 	if len(shells) != 0 {
 		path = shells[0]
 	}
 
-	if user.Pty != nil {
-		runCommandWithPty(path, nil, user, requests, log, connection)
+	if ptyReq != nil {
+		runCommandWithPty(path, nil, ptyReq, requests, log, connection)
 		return
 	}
 

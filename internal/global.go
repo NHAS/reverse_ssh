@@ -11,8 +11,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
-	"net"
-	"time"
 
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
@@ -109,16 +107,13 @@ func ParseDims(b []byte) (uint32, uint32) {
 }
 
 // ======================
-
-type ChannelHandler func(user *User, newChannel ssh.NewChannel, log logger.Logger)
-
-func RegisterChannelCallbacks(user *User, chans <-chan ssh.NewChannel, log logger.Logger, handlers map[string]ChannelHandler) error {
+func RegisterChannelCallbacks[T any](session *T, chans <-chan ssh.NewChannel, log logger.Logger, handlers map[string]func(session *T, newChannel ssh.NewChannel, log logger.Logger)) error {
 	// Service the incoming Channel channel in go routine
 	for newChannel := range chans {
 		t := newChannel.ChannelType()
 		log.Info("Handling channel: %s", t)
 		if callBack, ok := handlers[t]; ok {
-			go callBack(user, newChannel, log)
+			go callBack(session, newChannel, log)
 			continue
 		}
 
@@ -137,26 +132,6 @@ func RandomString(length int) (string, error) {
 	}
 
 	return hex.EncodeToString(randomData), nil
-}
-
-type TimeoutConn struct {
-	net.Conn
-	Timeout time.Duration
-}
-
-func (c *TimeoutConn) Read(b []byte) (int, error) {
-
-	if c.Timeout != 0 {
-		c.Conn.SetDeadline(time.Now().Add(c.Timeout))
-	}
-	return c.Conn.Read(b)
-}
-
-func (c *TimeoutConn) Write(b []byte) (int, error) {
-	if c.Timeout != 0 {
-		c.Conn.SetDeadline(time.Now().Add(c.Timeout))
-	}
-	return c.Conn.Write(b)
 }
 
 func DiscardChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel) {

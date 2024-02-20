@@ -11,7 +11,7 @@ import (
 )
 
 func Download(dataDir string) func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
-	return func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
 		downloadPath := path.Join("/", string(newChannel.ExtraData()))
 		//Has to be done in two steps, doing Join("./downloads/", path) leads to path traversal (thanks go)
 		downloadPath = path.Join(dataDir, "downloads", downloadPath)

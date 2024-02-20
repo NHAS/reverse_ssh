@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/connection"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
-func LocalForward(_ *internal.User, newChannel ssh.NewChannel, l logger.Logger) {
+func LocalForward(_ *connection.Session, newChannel ssh.NewChannel, l logger.Logger) {
 	a := newChannel.ExtraData()
 
 	var drtMsg internal.ChannelOpenDirectMsg

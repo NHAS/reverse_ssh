@@ -26,23 +26,25 @@ type User struct {
 
 	ShellRequests <-chan *ssh.Request
 
-	// Remote forwards sent by user, used to just close user specific remote forwards
-	SupportedRemoteForwards map[RemoteForwardRequest]bool //(set)
-
 	// So we can capture details about who is currently using the rssh server
 	ConnectionDetails string
+
+	username  string
+	privilege string
 }
 
-func CreateUser(ServerConnection ssh.Conn) (us *User, err error) {
+func CreateUser(ServerConnection *ssh.ServerConn) (us *User, err error) {
 	if ServerConnection == nil {
 		err = ErrNilServerConnection
 		return
 	}
 
 	us = &User{
-		ServerConnection:        ServerConnection,
-		SupportedRemoteForwards: make(map[RemoteForwardRequest]bool),
-		ConnectionDetails:       fmt.Sprintf("%s@%s", ServerConnection.User(), ServerConnection.RemoteAddr().String()),
+		ServerConnection: ServerConnection,
+
+		ConnectionDetails: fmt.Sprintf("%s@%s", ServerConnection.User(), ServerConnection.RemoteAddr().String()),
+		username:          ServerConnection.User(),
+		privilege:         ServerConnection.Permissions.Extensions["privilege"],
 	}
 
 	lUsers.Lock()

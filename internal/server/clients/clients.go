@@ -1,9 +1,12 @@
 package clients
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -13,15 +16,43 @@ import (
 )
 
 var (
-	lock                 sync.RWMutex
-	clients              = map[string]*ssh.ServerConn{}
+	lock       sync.RWMutex
+	allClients = map[string]*ssh.ServerConn{}
+
+	clientIdToOwner = map[string]string{}
+	// Owner username, like jim/admin/none
+	ownerToClientIds = map[string][]string{}
+
 	uniqueIdToAllAliases = map[string][]string{}
 	aliases              = map[string]map[string]bool{}
 
-	Autocomplete = trie.NewTrie()
-
 	usernameRegex = regexp.MustCompile(`[^\w-]`)
+
+	autocompletes = map[string]*trie.Trie{}
 )
+
+func Autocomplete(username string) *trie.Trie {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	if t, ok := autocompletes[username]; ok {
+		return t
+	}
+
+	ret := trie.NewTrie()
+
+	for _, idString := range ownerToClientIds[username] {
+
+		ret.Add(idString)
+		for _, v := range uniqueIdToAllAliases[idString] {
+			ret.Add(v)
+		}
+	}
+
+	autocompletes[username] = ret
+
+	return ret
+}
 
 func NormaliseHostname(hostname string) string {
 	hostname = strings.ToLower(hostname)
@@ -48,11 +79,23 @@ func Add(conn *ssh.ServerConn) (string, string, error) {
 	if conn.Permissions.Extensions["comment"] != "" {
 		addAlias(idString, conn.Permissions.Extensions["comment"])
 	}
-	clients[idString] = conn
+	allClients[idString] = conn
 
-	Autocomplete.Add(idString)
-	for _, v := range uniqueIdToAllAliases[idString] {
-		Autocomplete.Add(v)
+	// If we cant unmarshal the owner, dont error, just mark it as none, an admin can then come along and assign it. So people dont lose a connection
+	owners := []string{"none"}
+	err = json.Unmarshal([]byte(conn.Permissions.Extensions["owner"]), &owners)
+	if err != nil {
+		log.Println("error assigning owner to ", idString, "err: ", err)
+	}
+
+	for _, owner := range owners {
+		ownerToClientIds[owner] = append(ownerToClientIds[owner], idString)
+		clientIdToOwner[idString] = owner
+
+		autocompletes[owner].Add(idString)
+		for _, v := range uniqueIdToAllAliases[idString] {
+			autocompletes[owner].Add(v)
+		}
 	}
 
 	return idString, username, nil
@@ -81,7 +124,7 @@ func Search(filter string) (out map[string]*ssh.ServerConn, err error) {
 	lock.RLock()
 	defer lock.RUnlock()
 
-	for id, conn := range clients {
+	for id, conn := range allClients {
 		if filter == "" {
 			out[id] = conn
 			continue
@@ -125,14 +168,14 @@ func Get(identifier string) (ssh.Conn, error) {
 	lock.RLock()
 	defer lock.RUnlock()
 
-	if m, ok := clients[identifier]; ok {
+	if m, ok := allClients[identifier]; ok {
 		return m, nil
 	}
 
 	if m, ok := aliases[identifier]; ok {
 		if len(m) == 1 {
 			for k := range m {
-				return clients[k], nil
+				return allClients[k], nil
 			}
 		}
 
@@ -140,7 +183,7 @@ func Get(identifier string) (ssh.Conn, error) {
 		matchingHosts := ""
 		for k := range m {
 			matches++
-			client := clients[k]
+			client := allClients[k]
 			matchingHosts += fmt.Sprintf("%s (%s %s)\n", k, client.User(), client.RemoteAddr().String())
 		}
 
@@ -158,19 +201,33 @@ func Remove(uniqueId string) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	if _, ok := clients[uniqueId]; !ok {
+	if _, ok := allClients[uniqueId]; !ok {
 		//If this is already removed then we dont need to remove it again.
 		return
 	}
 
-	Autocomplete.Remove(uniqueId)
-	delete(clients, uniqueId)
+	delete(allClients, uniqueId)
+
+	owner, ok := clientIdToOwner[uniqueId]
+	autocomplete := autocompletes[owner]
+
+	autocomplete.Remove(uniqueId)
+
+	if ok {
+		ids := ownerToClientIds[owner]
+
+		ownerToClientIds[owner] = slices.DeleteFunc(ids, func(s string) bool {
+			return s == uniqueId
+		})
+	}
+
+	delete(clientIdToOwner, uniqueId)
 
 	if currentAliases, ok := uniqueIdToAllAliases[uniqueId]; ok {
 
 		for _, alias := range currentAliases {
 			if len(aliases[alias]) <= 1 {
-				Autocomplete.Remove(alias)
+				autocomplete.Remove(alias)
 				delete(aliases, alias)
 			}
 

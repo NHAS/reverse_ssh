@@ -9,12 +9,13 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/client/connection"
 	"golang.org/x/crypto/ssh"
 )
 
 type remoteforward struct {
 	Listener net.Listener
-	User     *internal.User
+	User     *connection.Session
 }
 
 var (
@@ -40,7 +41,7 @@ func StopRemoteForward(rf internal.RemoteForwardRequest) error {
 	defer currentRemoteForwardsLck.Unlock()
 
 	if _, ok := currentRemoteForwards[rf]; !ok {
-		return fmt.Errorf("Unable to find remote forward request")
+		return fmt.Errorf("unable to find remote forward request")
 	}
 
 	currentRemoteForwards[rf].Listener.Close()
@@ -51,7 +52,7 @@ func StopRemoteForward(rf internal.RemoteForwardRequest) error {
 	return nil
 }
 
-func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
+func StartRemoteForward(session *connection.Session, r *ssh.Request, sshConn ssh.Conn) {
 
 	var rf internal.RemoteForwardRequest
 	err := ssh.Unmarshal(r.Payload, &rf)
@@ -68,10 +69,10 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 
 	defer StopRemoteForward(rf)
 
-	if user != nil {
-		user.Lock()
-		user.SupportedRemoteForwards[rf] = true
-		user.Unlock()
+	if session != nil {
+		session.Lock()
+		session.SupportedRemoteForwards[rf] = true
+		session.Unlock()
 	}
 
 	//https://datatracker.ietf.org/doc/html/rfc4254
@@ -89,7 +90,7 @@ func StartRemoteForward(user *internal.User, r *ssh.Request, sshConn ssh.Conn) {
 
 	currentRemoteForwards[rf] = remoteforward{
 		Listener: l,
-		User:     user,
+		User:     session,
 	}
 	currentRemoteForwardsLck.Unlock()
 
