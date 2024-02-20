@@ -167,7 +167,7 @@ func forwardUDP(stack *stack.Stack) func(request *udp.ForwarderRequest) {
 				return
 			}
 
-			local := gonet.NewUDPConn(stack, &wq, ep)
+			local := gonet.NewUDPConn(&wq, ep)
 
 			err = Proxy(local, remote)
 			if err != nil {
@@ -244,6 +244,10 @@ func NewSSHEndpoint(dev ssh.Channel) *SSHEndpoint {
 	return &SSHEndpoint{
 		tunnel: dev,
 	}
+}
+
+func (m *SSHEndpoint) ParseHeader(stack.PacketBufferPtr) bool {
+	return true
 }
 
 // MTU implements stack.LinkEndpoint.
