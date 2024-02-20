@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	"fmt"
 	"log"
 	"math/big"
 	"net"
@@ -217,7 +218,7 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 				var proto string
 				conn, proto, err = m.determineProtocol(conn)
 				if err != nil {
-					log.Println("Multiplexing failed: ", err)
+					log.Println("Multiplexing failed (initial determination): ", err)
 					return
 				}
 
@@ -328,7 +329,7 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 				l, ok := m.protocols[proto]
 				if !ok {
 					functionalConn.Close()
-					log.Println("Multiplexing failed: ", proto)
+					log.Println("Multiplexing failed (final determination): ", proto)
 					return
 				}
 
@@ -396,7 +397,7 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, string, error)
 	header := make([]byte, 7)
 	n, err := conn.Read(header)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to read header: %s", err)
 	}
 
 	c := &bufferedConn{prefix: header[:n], conn: conn}
@@ -417,7 +418,7 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, string, error)
 		return c, "http", nil
 	}
 
-	return nil, "", errors.New("unknown protocol")
+	return nil, "", errors.New("unknown protocol: " + string(header[:n]))
 }
 
 func (m *Multiplexer) getProtoListener(proto string) net.Listener {
