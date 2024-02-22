@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/user"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -398,9 +399,15 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 }
 
+var matchSchemeDefinition = regexp.MustCompile(".*\\:\\/\\/")
+
 func determineConnectionType(addr string) (resultingAddr, transport string) {
 
-	u, err := url.Parse(addr)
+	if !matchSchemeDefinition.MatchString(addr) {
+		return addr, "ssh"
+	}
+
+	u, err := url.ParseRequestURI(addr)
 	if err != nil {
 		// If the connection string is in the form of 1.1.1.1:4343
 		return addr, "ssh"
