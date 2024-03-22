@@ -191,6 +191,7 @@ func (e *link) Help(explain bool) string {
 		"\t--garble\tUse garble to obfuscate the binary (requires garble to be installed)",
 		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
 		"\t--no-lib-c\tCompile client without glibc",
+		"\t--sni\tWhen TLS is in use, set a custom SNI for the client to connect with",
 	)
 }
 
