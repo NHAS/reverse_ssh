@@ -139,7 +139,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	return
 }
 
-func Run(addr, fingerprint, proxyAddr string) {
+func Run(addr, fingerprint, proxyAddr, sni string) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
 	if sysinfoError != nil {
@@ -241,10 +241,13 @@ func Run(addr, fingerprint, proxyAddr string) {
 			// Add on transports as we go
 			if scheme == "tls" || scheme == "wss" {
 
-				sniServerName := realAddr
-				parts := strings.Split(realAddr, ":")
-				if len(parts) == 2 {
-					sniServerName = parts[0]
+				sniServerName := sni
+				if len(sni) == 0 {
+					sniServerName = realAddr
+					parts := strings.Split(realAddr, ":")
+					if len(parts) == 2 {
+						sniServerName = parts[0]
+					}
 				}
 
 				clientTlsConn := tls.Client(conn, &tls.Config{
