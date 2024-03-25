@@ -294,7 +294,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 				return perm, err
 			}
 
-			if err != nil && err != ErrKeyNotInList {
+			if err != ErrKeyNotInList {
 				return nil, fmt.Errorf("admin with supplied username (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
 			}
 
@@ -308,7 +308,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 				return perm, err
 			}
 
-			if err != nil && err != ErrKeyNotInList {
+			if err != ErrKeyNotInList {
 				return nil, fmt.Errorf("user (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
 			}
 
@@ -320,7 +320,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 				return perms, err
 			}
 
-			if err != nil && err != ErrKeyNotInList {
+			if err != ErrKeyNotInList {
 				return nil, fmt.Errorf("client was denied login: %s", err)
 			}
 
@@ -330,7 +330,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 				return perms, err
 			}
 
-			if err != nil && err != ErrKeyNotInList {
+			if err != ErrKeyNotInList {
 				return nil, fmt.Errorf("proxy was denied login: %s", err)
 			}
 

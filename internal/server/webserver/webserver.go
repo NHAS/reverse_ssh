@@ -36,7 +36,7 @@ func Start(webListener net.Listener, connectBackAddress, projRoot, dataDir strin
 	srv := &http.Server{
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
-		Handler:      buildAndServe(projRoot, connectBackAddress, validPlatforms, validArchs),
+		Handler:      buildAndServe(),
 	}
 
 	log.Println("Started Web Server")
@@ -54,7 +54,7 @@ const notFound = `<html>
 </body>
 </html>`
 
-func buildAndServe(project, connectBackAddress string, validPlatforms, validArchs map[string]bool) http.HandlerFunc {
+func buildAndServe() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 
 		log.Printf("[%s] INFO Web Server got hit:  %s\n", req.RemoteAddr, req.URL.Path)
@@ -111,7 +111,7 @@ func buildAndServe(project, connectBackAddress string, validPlatforms, validArch
 
 		file, err := os.Open(f.FilePath)
 		if err != nil {
-			http.Error(w, "Error: "+err.Error(), 501)
+			http.Error(w, "Error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		defer file.Close()

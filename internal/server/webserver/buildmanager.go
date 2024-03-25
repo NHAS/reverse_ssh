@@ -245,6 +245,9 @@ func startBuildManager(_cachePath string) error {
 			return err
 		}
 		info, err = os.Stat(_cachePath)
+		if err != nil {
+			return err
+		}
 	}
 
 	if !info.IsDir() {
