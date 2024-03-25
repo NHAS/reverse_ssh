@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/user"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -139,7 +140,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	return
 }
 
-func Run(addr, fingerprint, proxyAddr string) {
+func Run(addr, fingerprint, proxyAddr, sni string) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
 	if sysinfoError != nil {
@@ -241,10 +242,13 @@ func Run(addr, fingerprint, proxyAddr string) {
 			// Add on transports as we go
 			if scheme == "tls" || scheme == "wss" {
 
-				sniServerName := realAddr
-				parts := strings.Split(realAddr, ":")
-				if len(parts) == 2 {
-					sniServerName = parts[0]
+				sniServerName := sni
+				if len(sni) == 0 {
+					sniServerName = realAddr
+					parts := strings.Split(realAddr, ":")
+					if len(parts) == 2 {
+						sniServerName = parts[0]
+					}
 				}
 
 				clientTlsConn := tls.Client(conn, &tls.Config{
@@ -399,9 +403,15 @@ func Run(addr, fingerprint, proxyAddr string) {
 
 }
 
+var matchSchemeDefinition = regexp.MustCompile(".*\\:\\/\\/")
+
 func determineConnectionType(addr string) (resultingAddr, transport string) {
 
-	u, err := url.Parse(addr)
+	if !matchSchemeDefinition.MatchString(addr) {
+		return addr, "ssh"
+	}
+
+	u, err := url.ParseRequestURI(addr)
 	if err != nil {
 		// If the connection string is in the form of 1.1.1.1:4343
 		return addr, "ssh"

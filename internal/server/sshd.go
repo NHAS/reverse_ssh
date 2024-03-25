@@ -334,7 +334,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 				return nil, fmt.Errorf("proxy was denied login: %s", err)
 			}
 
-			return nil, fmt.Errorf("not authorized %q, potentially you might want to enabled -insecure mode", conn.User())
+			return nil, fmt.Errorf("not authorized %q, potentially you might want to enable --insecure mode", conn.User())
 		},
 	}
 

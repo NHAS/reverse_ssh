@@ -18,7 +18,7 @@ import (
 
 var elog debug.Log
 
-func Fork(destination, fingerprint, proxyaddress string, pretendArgv ...string) error {
+func Fork(destination, fingerprint, proxyaddress, sni string, pretendArgv ...string) error {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {
@@ -45,16 +45,16 @@ func Fork(destination, fingerprint, proxyaddress string, pretendArgv ...string) 
 		}, pretendArgv...)
 	}
 
-	runService("rssh", destination, fingerprint, proxyaddress)
+	runService("rssh", destination, fingerprint, proxyaddress, sni)
 
 	return nil
 }
 
 type rsshService struct {
-	Dest, Fingerprint, Proxy string
+	Dest, Fingerprint, Proxy, SNI string
 }
 
-func runService(name, destination, fingerprint, proxyaddress string) {
+func runService(name, destination, fingerprint, proxyaddress, sni string) {
 	var err error
 
 	elog, err := eventlog.Open(name)
@@ -69,6 +69,7 @@ func runService(name, destination, fingerprint, proxyaddress string) {
 		destination,
 		fingerprint,
 		proxyaddress,
+		sni,
 	})
 	if err != nil {
 		elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
@@ -81,7 +82,7 @@ func (m *rsshService) Execute(args []string, r <-chan svc.ChangeRequest, changes
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
 
-	go client.Run(m.Dest, m.Fingerprint, m.Proxy)
+	go client.Run(m.Dest, m.Fingerprint, m.Proxy, m.SNI)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
 Outer:
@@ -106,20 +107,20 @@ Outer:
 	return
 }
 
-func Run(destination, fingerprint, proxyaddress string) {
+func Run(destination, fingerprint, proxyaddress, sni string) {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {
 		log.Printf("failed to determine if we are running in service: %v", err)
-		client.Run(destination, fingerprint, proxyaddress)
+		client.Run(destination, fingerprint, proxyaddress, sni)
 	}
 
 	if !inService {
 
-		client.Run(destination, fingerprint, proxyaddress)
+		client.Run(destination, fingerprint, proxyaddress, sni)
 		return
 	}
 
-	runService("rssh", destination, fingerprint, proxyaddress)
+	runService("rssh", destination, fingerprint, proxyaddress, sni)
 
 }

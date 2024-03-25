@@ -124,6 +124,11 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return err
 	}
 
+	sni, err := line.GetArgString("sni")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
 	tt := map[string]bool{
 		"tls":   line.IsSet("tls"),
 		"wss":   line.IsSet("wss"),
@@ -144,7 +149,7 @@ func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return errors.New("cant use tls/wss/ws/std flags together (only supports one per client)")
 	}
 
-	url, err := webserver.Build(goos, goarch, goarm, scheme+homeserver_address, fingerprint, name, comment, proxy, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"))
+	url, err := webserver.Build(goos, goarch, goarm, scheme+homeserver_address, fingerprint, name, comment, proxy, sni, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"))
 	if err != nil {
 		return err
 	}
@@ -192,6 +197,7 @@ func (e *link) Help(explain bool) string {
 		"\t--garble\tUse garble to obfuscate the binary (requires garble to be installed)",
 		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
 		"\t--no-lib-c\tCompile client without glibc",
+		"\t--sni\tWhen TLS is in use, set a custom SNI for the client to connect with",
 	)
 }
 

