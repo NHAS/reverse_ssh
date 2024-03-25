@@ -255,10 +255,6 @@ func (m *SSHEndpoint) MTU() uint32 {
 	return 1500
 }
 
-func (m *SSHEndpoint) ParseHeader(stack.PacketBufferPtr) bool {
-	return true
-}
-
 // Capabilities implements stack.LinkEndpoint.
 func (m *SSHEndpoint) Capabilities() stack.LinkEndpointCapabilities {
 	return stack.CapabilityNone

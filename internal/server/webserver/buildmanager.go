@@ -137,7 +137,7 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 	}
 
 	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", suppliedConnectBackAdress, fingerprint, proxy, sni, strings.TrimSpace(f.Version)))
-	buildArguments = append(buildArguments, "-o", f.Path, filepath.Join(projectRoot, "/cmd/client"))
+	buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)
 
