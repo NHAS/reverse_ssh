@@ -19,7 +19,6 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/exp/maps"
 )
 
 type Options struct {
@@ -27,7 +26,7 @@ type Options struct {
 	DenyList  []*net.IPNet
 	Comment   string
 
-	Owners map[string]bool
+	Owners []string
 }
 
 func (o *Options) String() string {
@@ -52,10 +51,7 @@ func (o *Options) String() string {
 	}
 
 	if len(o.Owners) != 0 {
-		result += "owner="
-
-		data, _ := json.Marshal(maps.Keys(o.Owners))
-		result += string(data)
+		result += "owner=" + strings.Join(o.Owners, ",")
 	}
 
 	return result
@@ -83,7 +79,6 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 
 		var opts Options
 		opts.Comment = comment
-		opts.Owners = map[string]bool{}
 
 		for _, o := range options {
 			parts := strings.Split(o, "=")
@@ -106,20 +101,8 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 	return
 }
 
-func ParseOwnerDirective(owners string) map[string]bool {
-	var k []string
-	err := json.Unmarshal([]byte(owners), &k)
-	if err != nil {
-		log.Println("unable to parse owner directive: ", owners, " err:", err)
-		return nil
-	}
-
-	result := map[string]bool{}
-	for _, user := range k {
-		result[user] = true
-	}
-
-	return result
+func ParseOwnerDirective(owners string) []string {
+	return strings.Split(owners, ",")
 }
 
 func ParseFromDirective(addresses string) (deny, allow []*net.IPNet) {
