@@ -80,6 +80,7 @@ func (u *User) SetOwnership(uniqueID, newOwners string) error {
 	_associateToOwners(uniqueID, newOwners, sc)
 
 	sc.Permissions.Extensions["owners"] = newOwners
+
 	return nil
 }
 
@@ -158,7 +159,7 @@ func (u *User) Matches(filter, clientId, remoteAddr string) bool {
 	return _matches(filter, clientId, remoteAddr)
 }
 
-func (u *User) GetClient(identifier string) (ssh.Conn, error) {
+func (u *User) GetClient(identifier string) (*ssh.ServerConn, error) {
 	lck.RLock()
 	defer lck.RUnlock()
 

@@ -35,6 +35,8 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 		owners := a.sc.Permissions.Extensions["owners"]
 		if owners == "" {
 			owners = "public"
+		} else {
+			owners = strings.Join(strings.Split(a.sc.Permissions.Extensions["owners"], ","), "\n")
 		}
 
 		if err := t.AddValues(fmt.Sprintf("%s\n%s\n%s\n%s\n", a.id, keyId, users.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String()), owners, string(a.sc.ClientVersion())); err != nil {

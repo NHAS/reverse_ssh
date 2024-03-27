@@ -66,6 +66,30 @@ func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLi
 		return fmt.Errorf("No clients matched '%s'", pattern)
 	}
 
+	if !line.IsSet("y") {
+		fmt.Fprintf(tty, "Modifing ownership of %d clients? [N/y] ", len(connections))
+
+		if term, ok := tty.(*terminal.Terminal); ok {
+			term.EnableRaw()
+		}
+
+		b := make([]byte, 1)
+		_, err := tty.Read(b)
+		if err != nil {
+			if term, ok := tty.(*terminal.Terminal); ok {
+				term.DisableRaw()
+			}
+			return err
+		}
+		if term, ok := tty.(*terminal.Terminal); ok {
+			term.DisableRaw()
+		}
+
+		if !(b[0] == 'y' || b[0] == 'Y') {
+			return fmt.Errorf("\nUser did not enter y/Y, aborting")
+		}
+	}
+
 	changes := 0
 	for id := range connections {
 		err := user.SetOwnership(id, newOwners)
@@ -82,7 +106,7 @@ func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLi
 func (s *access) Expect(line terminal.ParsedLine) []string {
 	if line.Section != nil {
 		switch line.Section.Value() {
-		case "c", "client":
+		case "p", "pattern":
 			return []string{autocomplete.RemoteId}
 		}
 	}
@@ -102,5 +126,6 @@ func (s *access) Help(explain bool) string {
 		"-o|--owners\tSet the ownership of the client, comma seperated user list",
 		"-c|--current\tSet the ownership to only the current user",
 		"-a|--all\tSet the ownership to anyone on the server",
+		"-y\tAuto confirm prompt",
 	)
 }

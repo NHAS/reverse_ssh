@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -223,9 +223,7 @@ func Build(config BuildConfig) (string, error) {
 	}
 	defer authorizedControlleeKeys.Close()
 
-	log.Println("lconfig.Owners", config.Owners)
-
-	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s %s\n", "owner="+config.Owners, publicKeyBytes[:len(publicKeyBytes)-1], config.Comment)); err != nil {
+	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s %s\n", "owner="+strconv.Quote(config.Owners), publicKeyBytes[:len(publicKeyBytes)-1], config.Comment)); err != nil {
 		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
 	}
 

@@ -28,34 +28,6 @@ type Options struct {
 	Owners []string
 }
 
-func (o *Options) String() string {
-
-	result := ""
-	if len(o.AllowList) != 0 || len(o.DenyList) != 0 {
-		result = "from=\""
-		for i, al := range o.AllowList {
-			result += al.String()
-			if i != len(o.AllowList) {
-				result += ","
-			}
-		}
-
-		for i, al := range o.AllowList {
-			result += "!" + al.String()
-			if i != len(o.AllowList) {
-				result += ","
-			}
-		}
-		result += "\" "
-	}
-
-	if len(o.Owners) != 0 {
-		result += "owner=" + strings.Join(o.Owners, ",")
-	}
-
-	return result
-}
-
 func readPubKeys(path string) (m map[string]Options, err error) {
 	authorizedKeysBytes, err := os.ReadFile(path)
 	if err != nil {
@@ -101,7 +73,13 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 }
 
 func ParseOwnerDirective(owners string) []string {
-	return strings.Split(owners, ",")
+
+	unquoted, err := strconv.Unquote(owners)
+	if err != nil {
+		return nil
+	}
+
+	return strings.Split(unquoted, ",")
 }
 
 func ParseFromDirective(addresses string) (deny, allow []*net.IPNet) {

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"path"
 	"regexp"
 	"sort"
@@ -180,8 +179,6 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	if spaceMatcher.MatchString(buildConfig.Owners) {
 		return errors.New("owners flag cannot contain any whitespace")
 	}
-
-	log.Println("owners:", buildConfig.Owners)
 
 	url, err := webserver.Build(buildConfig)
 	if err != nil {
