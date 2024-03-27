@@ -1,9 +1,7 @@
 package clients
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -82,15 +80,17 @@ func Add(conn *ssh.ServerConn) (string, string, error) {
 	allClients[idString] = conn
 
 	// If we cant unmarshal the owner, dont error, just mark it as none, an admin can then come along and assign it. So people dont lose a connection
-	owners := []string{"none"}
-	err = json.Unmarshal([]byte(conn.Permissions.Extensions["owner"]), &owners)
-	if err != nil {
-		log.Println("error assigning owner to ", idString, "err: ", err)
-	}
+	owners := strings.Split(conn.Permissions.Extensions["owners"], ",")
 
 	for _, owner := range owners {
+
 		ownerToClientIds[owner] = append(ownerToClientIds[owner], idString)
 		clientIdToOwner[idString] = owner
+
+		_, ok := autocompletes[owner]
+		if !ok {
+			autocompletes[owner] = trie.NewTrie()
+		}
 
 		autocompletes[owner].Add(idString)
 		for _, v := range uniqueIdToAllAliases[idString] {

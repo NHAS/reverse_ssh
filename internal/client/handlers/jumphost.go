@@ -11,9 +11,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) func(session *connection.Session, newChannel ssh.NewChannel, log logger.Logger) {
+func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) func(newChannel ssh.NewChannel, log logger.Logger) {
 
-	return func(_ *connection.Session, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(newChannel ssh.NewChannel, log logger.Logger) {
 		jumpHandle, requests, err := newChannel.Accept()
 		if err != nil {
 			newChannel.Reject(ssh.ResourceShortage, err.Error())
@@ -84,8 +84,8 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) func(session *connecti
 			}
 		}(reqs)
 
-		err = internal.RegisterChannelCallbacks(session, chans, clientLog, map[string]func(session *connection.Session, newChannel ssh.NewChannel, log logger.Logger){
-			"session":         Session,
+		err = connection.RegisterChannelCallbacks(chans, clientLog, map[string]func(newChannel ssh.NewChannel, log logger.Logger){
+			"session":         Session(session),
 			"direct-tcpip":    LocalForward,
 			"tun@openssh.com": Tun,
 		})

@@ -55,8 +55,8 @@ var vt100EscapeCodes = EscapeCodes{
 // Terminal contains the state for running a VT100 terminal that is capable of
 // reading lines of input.
 type Terminal struct {
-	user   *users.User
-	cancel chan bool
+	session *users.Connection
+	cancel  chan bool
 
 	// AutoCompleteCallback, if non-null, is called for each keypress with
 	// the full input line and the current position of the cursor (in
@@ -162,9 +162,9 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 	}
 }
 
-func NewAdvancedTerminal(c io.ReadWriter, user *users.User, prompt string) *Terminal {
+func NewAdvancedTerminal(c io.ReadWriter, session *users.Connection, prompt string) *Terminal {
 	t := &Terminal{
-		user:                  user,
+		session:               session,
 		cancel:                make(chan bool),
 		Escape:                &vt100EscapeCodes,
 		c:                     c,
@@ -193,7 +193,7 @@ func (t *Terminal) handleWindowSize() {
 			case <-t.cancel:
 
 				return
-			case req := <-t.user.ShellRequests:
+			case req := <-t.session.ShellRequests:
 				if req == nil { // Channel has closed, so therefore end this default handler
 					return
 				}
@@ -204,8 +204,8 @@ func (t *Terminal) handleWindowSize() {
 					w, h := internal.ParseDims(req.Payload)
 					t.SetSize(int(w), int(h))
 
-					t.user.Pty.Columns = w
-					t.user.Pty.Rows = h
+					t.session.Pty.Columns = w
+					t.session.Pty.Rows = h
 
 				default:
 					log.Println("Handled unknown request type in default handler: ", req.Type)

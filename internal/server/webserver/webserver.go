@@ -66,8 +66,9 @@ func buildAndServe() http.HandlerFunc {
 
 		f, err := data.GetDownload(filename)
 		if err != nil {
-			f, err = data.GetDownload(filename)
+			f, err = data.GetDownload(filenameWithoutExtension)
 			if err != nil {
+				log.Println("could not get: ", filenameWithoutExtension, " err: ", err)
 
 				w.Header().Set("content-type", "text/html")
 				w.Header().Set("server", "nginx")
@@ -79,6 +80,7 @@ func buildAndServe() http.HandlerFunc {
 			}
 
 			if linkExtension != "" {
+				log.Println("ext: ", linkExtension)
 
 				host, port := getHostnameAndPort(DefaultConnectBack)
 

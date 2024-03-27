@@ -25,89 +25,61 @@ import (
 // Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
 // However these calls are done through requests, rather than opening a new channel
 // This callback just sorts out what the client wants to be doing
-func Session(session *connection.Session, newChannel ssh.NewChannel, log logger.Logger) {
+func Session(session *connection.Session) func(newChannel ssh.NewChannel, log logger.Logger) {
 
-	defer log.Info("Session disconnected")
+	return func(newChannel ssh.NewChannel, log logger.Logger) {
 
-	// At this point, we have the opportunity to reject the client's
-	// request for another logical connection
-	connection, requests, err := newChannel.Accept()
-	if err != nil {
-		log.Warning("Could not accept channel (%s)", err)
-		return
-	}
-	defer connection.Close()
+		defer log.Info("Session disconnected")
 
-	for req := range requests {
-		log.Info("Session got request: %q", req.Type)
-		switch req.Type {
-
-		case "subsystem":
-
-			err := subsystems.RunSubsystems(connection, req)
-			if err != nil {
-				log.Error("subsystem encountered an error: %s", err.Error())
-				fmt.Fprintf(connection, "subsystem error: '%s'", err.Error())
-			}
-
+		// At this point, we have the opportunity to reject the client's
+		// request for another logical connection
+		connection, requests, err := newChannel.Accept()
+		if err != nil {
+			log.Warning("Could not accept channel (%s)", err)
 			return
+		}
+		defer connection.Close()
 
-		case "exec":
-			var cmd internal.ShellStruct
-			err = ssh.Unmarshal(req.Payload, &cmd)
-			if err != nil {
-				log.Warning("Human client sent an undecodable exec payload: %s\n", err)
-				req.Reply(false, nil)
-				return
-			}
+		for req := range requests {
+			log.Info("Session got request: %q", req.Type)
+			switch req.Type {
 
-			req.Reply(true, nil)
+			case "subsystem":
 
-			line := terminal.ParseLine(cmd.Cmd, 0)
-
-			if line.Empty() {
-				log.Warning("Human client sent an empty exec payload: %s\n", err)
-				return
-			}
-
-			command := line.Command.Value()
-
-			if command == "scp" {
-				scp(line.Chunks[1:], connection, log)
-				return
-			}
-
-			if u, ok := isUrl(command); ok {
-				command, err = download(session.ServerConnection, u)
+				err := subsystems.RunSubsystems(connection, req)
 				if err != nil {
-					fmt.Fprintf(connection, "%s", err.Error())
+					log.Error("subsystem encountered an error: %s", err.Error())
+					fmt.Fprintf(connection, "subsystem error: '%s'", err.Error())
+				}
+
+				return
+
+			case "exec":
+				var cmd internal.ShellStruct
+				err = ssh.Unmarshal(req.Payload, &cmd)
+				if err != nil {
+					log.Warning("Human client sent an undecodable exec payload: %s\n", err)
+					req.Reply(false, nil)
 					return
 				}
-			}
 
-			if session.Pty != nil {
-				runCommandWithPty(command, line.Chunks[1:], session.Pty, requests, log, connection)
-				return
-			}
-			runCommand(command, line.Chunks[1:], connection)
+				req.Reply(true, nil)
 
-			return
-		case "shell":
-			//We accept the shell request
-			req.Reply(true, nil)
+				line := terminal.ParseLine(cmd.Cmd, 0)
 
-			var shellPath internal.ShellStruct
-			err := ssh.Unmarshal(req.Payload, &shellPath)
-			if err != nil || shellPath.Cmd == "" {
+				if line.Empty() {
+					log.Warning("Human client sent an empty exec payload: %s\n", err)
+					return
+				}
 
-				//This blocks so will keep the channel from defer closing
-				shell(session.Pty, connection, requests, log)
-				return
-			}
-			parts := strings.Split(shellPath.Cmd, " ")
-			if len(parts) > 0 {
-				command := parts[0]
-				if u, ok := isUrl(parts[0]); ok {
+				command := line.Command.Value()
+
+				if command == "scp" {
+					scp(line.Chunks[1:], connection, log)
+					return
+				}
+
+				if u, ok := isUrl(command); ok {
 					command, err = download(session.ServerConnection, u)
 					if err != nil {
 						fmt.Fprintf(connection, "%s", err.Error())
@@ -115,30 +87,61 @@ func Session(session *connection.Session, newChannel ssh.NewChannel, log logger.
 					}
 				}
 
-				runCommandWithPty(command, parts[1:], session.Pty, requests, log, connection)
-			}
-			return
-			//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
-		case "pty-req":
+				if session.Pty != nil {
+					runCommandWithPty(command, line.Chunks[1:], session.Pty, requests, log, connection)
+					return
+				}
+				runCommand(command, line.Chunks[1:], connection)
 
-			//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
-			pty, err := internal.ParsePtyReq(req.Payload)
-			if err != nil {
-				log.Warning("Got undecodable pty request: %s", err)
-				req.Reply(false, nil)
 				return
-			}
-			session.Pty = &pty
+			case "shell":
+				//We accept the shell request
+				req.Reply(true, nil)
 
-			req.Reply(true, nil)
-		default:
-			log.Warning("Got an unknown request %s", req.Type)
-			if req.WantReply {
-				req.Reply(false, nil)
+				var shellPath internal.ShellStruct
+				err := ssh.Unmarshal(req.Payload, &shellPath)
+				if err != nil || shellPath.Cmd == "" {
+
+					//This blocks so will keep the channel from defer closing
+					shell(session.Pty, connection, requests, log)
+					return
+				}
+				parts := strings.Split(shellPath.Cmd, " ")
+				if len(parts) > 0 {
+					command := parts[0]
+					if u, ok := isUrl(parts[0]); ok {
+						command, err = download(session.ServerConnection, u)
+						if err != nil {
+							fmt.Fprintf(connection, "%s", err.Error())
+							return
+						}
+					}
+
+					runCommandWithPty(command, parts[1:], session.Pty, requests, log, connection)
+				}
+				return
+				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
+			case "pty-req":
+
+				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
+				pty, err := internal.ParsePtyReq(req.Payload)
+				if err != nil {
+					log.Warning("Got undecodable pty request: %s", err)
+					req.Reply(false, nil)
+					return
+				}
+				session.Pty = &pty
+
+				req.Reply(true, nil)
+			default:
+				log.Warning("Got an unknown request %s", req.Type)
+				if req.WantReply {
+					req.Reply(false, nil)
+				}
 			}
 		}
-	}
 
+	}
 }
 
 func runCommand(command string, args []string, connection ssh.Channel) {

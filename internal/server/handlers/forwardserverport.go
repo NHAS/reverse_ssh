@@ -70,8 +70,8 @@ func channelToConn(channel ssh.Channel, drtMsg internal.ChannelOpenDirectMsg) ne
 	return &chanConn{channel, drtMsg}
 }
 
-func ServerPortForward(clientId string) func(_ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
-	return func(_ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+func ServerPortForward(clientId string) func(_ string, _ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(_ string, _ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 		a := newChannel.ExtraData()
 
 		var drtMsg internal.ChannelOpenDirectMsg

@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NHAS/reverse_ssh/internal/client/connection"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/go-ping/ping"
 	"gvisor.dev/gvisor/pkg/buffer"
@@ -35,7 +34,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func Tun(_ *connection.Session, newChannel ssh.NewChannel, l logger.Logger) {
+func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 
 	defer func() {
 		if r := recover(); r != nil {

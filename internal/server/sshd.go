@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -195,7 +194,7 @@ func CheckAuth(keysPath string, publicKey ssh.PublicKey, src net.IP, insecure bo
 
 	keys, err := readPubKeys(keysPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read public keys: %s", strconv.QuoteToGraphic(keysPath))
+		return nil, ErrKeyNotInList
 	}
 
 	var opt Options
@@ -225,20 +224,32 @@ func CheckAuth(keysPath string, publicKey ssh.PublicKey, src net.IP, insecure bo
 		}
 	}
 
-	ownersBytes, err := json.Marshal(opt.Owners)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ssh.Permissions{
 		// Record the public key used for authentication.
 		Extensions: map[string]string{
 			"comment":   opt.Comment,
 			"pubkey-fp": internal.FingerprintSHA1Hex(publicKey),
-			"owners":    string(ownersBytes),
+			"owners":    strings.Join(opt.Owners, ","),
 		},
 	}, nil
 
+}
+
+func registerChannelCallbacks(connectionDetails string, user *users.User, chans <-chan ssh.NewChannel, log logger.Logger, handlers map[string]func(connectionDetails string, user *users.User, newChannel ssh.NewChannel, log logger.Logger)) error {
+	// Service the incoming Channel channel in go routine
+	for newChannel := range chans {
+		t := newChannel.ChannelType()
+		log.Info("Handling channel: %s", t)
+		if callBack, ok := handlers[t]; ok {
+			go callBack(connectionDetails, user, newChannel, log)
+			continue
+		}
+
+		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
+		log.Warning("Sent an invalid channel type %q", t)
+	}
+
+	return fmt.Errorf("connection terminated")
 }
 
 func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, openproxy bool, dataDir string, timeout int) {
@@ -398,7 +409,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 
 	switch sshConn.Permissions.Extensions["type"] {
 	case "user":
-		user, err := users.CreateUser(sshConn)
+		user, connectionDetails, err := users.CreateOrGetUser(sshConn)
 		if err != nil {
 			sshConn.Close()
 			log.Println(err)
@@ -408,13 +419,14 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		// Since we're handling a shell, local and remote forward, so we expect
 		// channel type of "session" or "direct-tcpip"
 		go func() {
-			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]func(user *users.User, newChannel ssh.NewChannel, log logger.Logger){
+
+			err = registerChannelCallbacks(connectionDetails, user, chans, clientLog, map[string]func(connectionDetails string, user *users.User, newChannel ssh.NewChannel, log logger.Logger){
 				"session":      handlers.Session(dataDir),
 				"direct-tcpip": handlers.LocalForward,
 			})
 			clientLog.Info("User disconnected: %s", err.Error())
 
-			users.DeleteUser(user)
+			users.DisconnectUser(sshConn)
 		}()
 
 		clientLog.Info("New User SSH connection, version %s", sshConn.ClientVersion())
@@ -435,7 +447,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		go func() {
 			go ssh.DiscardRequests(reqs)
 
-			err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]func(user *users.User, newChannel ssh.NewChannel, log logger.Logger){
+			err = registerChannelCallbacks("", nil, chans, clientLog, map[string]func(_ string, user *users.User, newChannel ssh.NewChannel, log logger.Logger){
 				"rssh-download":   handlers.Download(dataDir),
 				"forwarded-tcpip": handlers.ServerPortForward(id),
 			})

@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -107,22 +106,6 @@ func ParseDims(b []byte) (uint32, uint32) {
 }
 
 // ======================
-func RegisterChannelCallbacks[T any](session *T, chans <-chan ssh.NewChannel, log logger.Logger, handlers map[string]func(session *T, newChannel ssh.NewChannel, log logger.Logger)) error {
-	// Service the incoming Channel channel in go routine
-	for newChannel := range chans {
-		t := newChannel.ChannelType()
-		log.Info("Handling channel: %s", t)
-		if callBack, ok := handlers[t]; ok {
-			go callBack(session, newChannel, log)
-			continue
-		}
-
-		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
-		log.Warning("Sent an invalid channel type %q", t)
-	}
-
-	return fmt.Errorf("connection terminated")
-}
 
 func RandomString(length int) (string, error) {
 	randomData := make([]byte, length)

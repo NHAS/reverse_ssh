@@ -34,6 +34,11 @@ func GetDownload(urlPath string) (Download, error) {
 	if err := db.Where("url_path = ?", urlPath).First(&download).Error; err != nil {
 		return download, err
 	}
+
+	if err := db.Model(&Download{}).Where("url_path = ?", urlPath).Update("hits", download.Hits+1).Error; err != nil {
+		return download, err
+	}
+
 	return download, nil
 }
 

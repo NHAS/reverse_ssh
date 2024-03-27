@@ -15,12 +15,19 @@ import (
 )
 
 type connect struct {
-	log  logger.Logger
-	user *users.User
+	log     logger.Logger
+	user    *users.User
+	session string
 }
 
 func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
-	if c.user.Pty == nil {
+
+	sess, err := c.user.Session(c.session)
+	if err != nil {
+		return err
+	}
+
+	if sess.Pty == nil {
 		return fmt.Errorf("Connect requires a pty")
 	}
 
@@ -64,7 +71,7 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	//Attempt to connect to remote host and send inital pty request and screen size
 	// If we cant, report and error to the clients terminal
-	newSession, err := createSession(target, *c.user.Pty, shell)
+	newSession, err := createSession(target, *sess.Pty, shell)
 	if err != nil {
 
 		c.log.Error("Creating session failed: %s", err)
@@ -74,7 +81,7 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	c.log.Info("Connected to %s", target.RemoteAddr().String())
 
 	term.EnableRaw()
-	err = attachSession(newSession, term, c.user.ShellRequests)
+	err = attachSession(newSession, term, sess.ShellRequests)
 	if err != nil {
 
 		c.log.Error("Client tried to attach session and failed: %s", err)
@@ -104,11 +111,13 @@ func (c *connect) Help(explain bool) string {
 }
 
 func Connect(
+	session string,
 	user *users.User,
 	log logger.Logger) *connect {
 	return &connect{
-		user: user,
-		log:  log,
+		session: session,
+		user:    user,
+		log:     log,
 	}
 }
 

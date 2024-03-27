@@ -6,4 +6,4 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type ChannelHandler func(user *users.User, newChannel ssh.NewChannel, log logger.Logger)
+type ChannelHandler func(connectionDetails string, user *users.User, newChannel ssh.NewChannel, log logger.Logger)

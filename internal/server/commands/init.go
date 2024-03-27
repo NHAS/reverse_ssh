@@ -23,13 +23,13 @@ var allCommands = map[string]terminal.Command{
 	"version": &version{},
 }
 
-func CreateCommands(user *users.User, log logger.Logger, datadir string) map[string]terminal.Command {
+func CreateCommands(session string, user *users.User, log logger.Logger, datadir string) map[string]terminal.Command {
 
 	var o = map[string]terminal.Command{
 		"ls":      &list{},
 		"help":    &help{},
 		"kill":    Kill(log),
-		"connect": Connect(user, log),
+		"connect": Connect(session, user, log),
 		"exit":    &exit{},
 		"link":    &link{},
 		"exec":    &exec{},

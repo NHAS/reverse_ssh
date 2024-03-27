@@ -1,9 +1,11 @@
 package connection
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -27,4 +29,21 @@ func NewSession(connection ssh.Conn) *Session {
 		ServerConnection:        connection,
 		SupportedRemoteForwards: make(map[internal.RemoteForwardRequest]bool),
 	}
+}
+
+func RegisterChannelCallbacks(chans <-chan ssh.NewChannel, log logger.Logger, handlers map[string]func(newChannel ssh.NewChannel, log logger.Logger)) error {
+	// Service the incoming Channel channel in go routine
+	for newChannel := range chans {
+		t := newChannel.ChannelType()
+		log.Info("Handling channel: %s", t)
+		if callBack, ok := handlers[t]; ok {
+			go callBack(newChannel, log)
+			continue
+		}
+
+		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
+		log.Warning("Sent an invalid channel type %q", t)
+	}
+
+	return fmt.Errorf("connection terminated")
 }

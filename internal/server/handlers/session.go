@@ -19,9 +19,15 @@ import (
 // However these calls are done through requests, rather than opening a new channel
 // This callback just sorts out what the client wants to be doing
 func Session(datadir string) ChannelHandler {
-	return func(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(connectionDetails string, user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 
-		defer log.Info("Session disconnected: %s", user.ServerConnection.ClientVersion())
+		sess, err := user.Session(connectionDetails)
+		if err != nil {
+			log.Warning("Could not get user session for %s: err: %s", connectionDetails, err)
+			return
+		}
+
+		defer log.Info("Session disconnected: %s", sess.ConnectionDetails)
 
 		// At this point, we have the opportunity to reject the client's
 		// request for another logical connection
@@ -32,7 +38,7 @@ func Session(datadir string) ChannelHandler {
 		}
 		defer connection.Close()
 
-		user.ShellRequests = requests
+		sess.ShellRequests = requests
 
 		for req := range requests {
 			log.Info("Session got request: %q", req.Type)
@@ -50,7 +56,7 @@ func Session(datadir string) ChannelHandler {
 
 				line := terminal.ParseLine(command.Cmd, 0)
 				if line.Command != nil {
-					c := commands.CreateCommands(user, log, datadir)
+					c := commands.CreateCommands(sess.ConnectionDetails, user, log, datadir)
 
 					if m, ok := c[line.Command.Value()]; ok {
 
@@ -70,14 +76,14 @@ func Session(datadir string) ChannelHandler {
 				// (i.e. no command in the Payload)
 				req.Reply(len(req.Payload) == 0, nil)
 
-				term := terminal.NewAdvancedTerminal(connection, user, "catcher$ ")
+				term := terminal.NewAdvancedTerminal(connection, sess, "catcher$ ")
 
-				term.SetSize(int(user.Pty.Columns), int(user.Pty.Rows))
+				term.SetSize(int(sess.Pty.Columns), int(sess.Pty.Rows))
 
-				term.AddValueAutoComplete(autocomplete.RemoteId, clients.Autocomplete(user.ServerConnection.User()))
+				term.AddValueAutoComplete(autocomplete.RemoteId, clients.Autocomplete(user.Username()))
 				term.AddValueAutoComplete(autocomplete.WebServerFileIds, webserver.Autocomplete)
 
-				term.AddCommands(commands.CreateCommands(user, log, datadir))
+				term.AddCommands(commands.CreateCommands(sess.ConnectionDetails, user, log, datadir))
 
 				err := term.Run()
 				if err != nil && err != io.EOF {
@@ -95,7 +101,7 @@ func Session(datadir string) ChannelHandler {
 					req.Reply(false, nil)
 					return
 				}
-				user.Pty = &pty
+				sess.Pty = &pty
 
 				req.Reply(true, nil)
 			default:

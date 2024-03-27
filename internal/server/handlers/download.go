@@ -10,8 +10,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func Download(dataDir string) func(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
-	return func(_ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+func Download(dataDir string) func(_ string, _ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(_ string, _ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 		downloadPath := path.Join("/", string(newChannel.ExtraData()))
 		//Has to be done in two steps, doing Join("./downloads/", path) leads to path traversal (thanks go)
 		downloadPath = path.Join(dataDir, "downloads", downloadPath)
