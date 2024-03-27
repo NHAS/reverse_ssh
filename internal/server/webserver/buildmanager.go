@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -221,6 +222,8 @@ func Build(config BuildConfig) (string, error) {
 		return "", errors.New("cant open authorized controllee keys file: " + err.Error())
 	}
 	defer authorizedControlleeKeys.Close()
+
+	log.Println("lconfig.Owners", config.Owners)
 
 	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s %s\n", "owner="+config.Owners, publicKeyBytes[:len(publicKeyBytes)-1], config.Comment)); err != nil {
 		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())

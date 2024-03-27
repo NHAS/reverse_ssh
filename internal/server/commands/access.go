@@ -14,19 +14,35 @@ type access struct {
 }
 
 func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
-	if len(line.Arguments) != 1 {
-		return fmt.Errorf(s.Help(false))
+
+	if line.IsSet("h") || line.IsSet("help") {
+		return errors.New(s.Help(false))
 	}
 
 	var err error
 
-	newOwners, err := line.GetArgString("o")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
+	pattern, err := line.GetArgString("p")
+	if err != nil {
+		if err != terminal.ErrFlagNotSet {
+			return err
+		}
+		pattern, err = line.GetArgString("pattern")
+		if err != nil && err != terminal.ErrFlagNotSet {
+			return err
+		}
+
 	}
-	newOwners, err = line.GetArgString("owners")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
+
+	newOwners, err := line.GetArgString("o")
+	if err != nil {
+		if err != terminal.ErrFlagNotSet {
+			return err
+		}
+		newOwners, err = line.GetArgString("owners")
+		if err != nil && err != terminal.ErrFlagNotSet {
+			return err
+		}
+
 	}
 
 	if line.IsSet("c") || line.IsSet("current") {
@@ -41,13 +57,13 @@ func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLi
 		return errors.New("new owners cannot contain spaces")
 	}
 
-	connections, err := user.SearchClients(line.Arguments[0].Value())
+	connections, err := user.SearchClients(pattern)
 	if err != nil {
 		return err
 	}
 
 	if len(connections) == 0 {
-		return fmt.Errorf("No clients matched '%s'", line.Arguments[0].Value())
+		return fmt.Errorf("No clients matched '%s'", pattern)
 	}
 
 	changes := 0
@@ -64,8 +80,11 @@ func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLi
 }
 
 func (s *access) Expect(line terminal.ParsedLine) []string {
-	if len(line.Arguments) <= 1 {
-		return []string{autocomplete.RemoteId}
+	if line.Section != nil {
+		switch line.Section.Value() {
+		case "c", "client":
+			return []string{autocomplete.RemoteId}
+		}
 	}
 	return nil
 }
@@ -76,9 +95,10 @@ func (s *access) Help(explain bool) string {
 	}
 
 	return terminal.MakeHelpText(
-		"access [OPTIONS] <FILTER>",
+		"access [OPTIONS] -p <FILTER>",
 		"Change ownership of client connection, only lasts until restart of rssh server, to make permanent edit authorized_controllee_keys 'owner' option",
 		"Filter uses glob matching against all attributes of a target (id, public key hash, hostname, ip)",
+		"-p|--pattern\tClients to act on",
 		"-o|--owners\tSet the ownership of the client, comma seperated user list",
 		"-c|--current\tSet the ownership to only the current user",
 		"-a|--all\tSet the ownership to anyone on the server",

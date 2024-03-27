@@ -60,13 +60,13 @@ func (u *User) SetOwnership(uniqueID, newOwners string) error {
 	sc, ok := u.clients[uniqueID]
 	if !ok {
 		if sc, ok = ownedByAll[uniqueID]; !ok {
-			return errors.New("not found")
+			if u.Privilege() == AdminPermissions {
+				if sc, ok = allClients[uniqueID]; !ok {
+					return errors.New("not found")
+				}
+			}
 		}
 	}
-
-	defer func() {
-		sc.Permissions.Extensions["owners"] = newOwners
-	}()
 
 	if newOwners == "" {
 		// The client is being shared with everyone, so add it to the public list
@@ -79,6 +79,7 @@ func (u *User) SetOwnership(uniqueID, newOwners string) error {
 	_disassociateFromOwners(uniqueID, sc.Permissions.Extensions["owners"])
 	_associateToOwners(uniqueID, newOwners, sc)
 
+	sc.Permissions.Extensions["owners"] = newOwners
 	return nil
 }
 

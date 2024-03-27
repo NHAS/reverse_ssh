@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"path"
 	"regexp"
 	"sort"
@@ -164,13 +165,23 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	buildConfig.Owners, err = line.GetArgString("owners")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
+	if err != nil {
+		if err != terminal.ErrFlagNotSet {
+
+			return err
+		}
+
+		buildConfig.Owners, err = line.GetArgString("o")
+		if err != nil && err != terminal.ErrFlagNotSet {
+			return err
+		}
 	}
 
 	if spaceMatcher.MatchString(buildConfig.Owners) {
 		return errors.New("owners flag cannot contain any whitespace")
 	}
+
+	log.Println("owners:", buildConfig.Owners)
 
 	url, err := webserver.Build(buildConfig)
 	if err != nil {
@@ -221,7 +232,7 @@ func (e *link) Help(explain bool) string {
 		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
 		"\t--no-lib-c\tCompile client without glibc",
 		"\t--sni\tWhen TLS is in use, set a custom SNI for the client to connect with",
-		"\t--owners\tSet owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson ",
+		"\t--owners|-o\tSet owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson ",
 	)
 }
 
