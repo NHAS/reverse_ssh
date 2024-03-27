@@ -25,24 +25,39 @@ var (
 	validArchs     = make(map[string]bool)
 )
 
-func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, comment, proxy, sni string, shared, upx, garble, disableLibC bool) (string, error) {
+type BuildConfig struct {
+	Name, Comment, Owners string
+
+	GOOS, GOARCH, GOARM string
+
+	ConnectBackAdress, Fingerprint string
+
+	Proxy, SNI string
+
+	SharedLibrary bool
+	UPX           bool
+	Garble        bool
+	DisableLibC   bool
+}
+
+func Build(config BuildConfig) (string, error) {
 	if !webserverOn {
 		return "", errors.New("web server is not enabled")
 	}
 
-	if len(goarch) != 0 && !validArchs[goarch] {
-		return "", fmt.Errorf("GOARCH supplied is not valid: " + goarch)
+	if len(config.GOARCH) != 0 && !validArchs[config.GOARCH] {
+		return "", fmt.Errorf("GOARCH supplied is not valid: " + config.GOARCH)
 	}
 
-	if len(goos) != 0 && !validPlatforms[goos] {
-		return "", fmt.Errorf("GOOS supplied is not valid: " + goos)
+	if len(config.GOOS) != 0 && !validPlatforms[config.GOOS] {
+		return "", fmt.Errorf("GOOS supplied is not valid: " + config.GOOS)
 	}
 
-	if len(fingerprint) == 0 {
-		fingerprint = defaultFingerPrint
+	if len(config.Fingerprint) == 0 {
+		config.Fingerprint = defaultFingerPrint
 	}
 
-	if upx {
+	if config.UPX {
 		_, err := exec.LookPath("upx")
 		if err != nil {
 			return "", errors.New("upx could not be found in PATH")
@@ -50,7 +65,7 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 	}
 
 	buildTool := "go"
-	if garble {
+	if config.Garble {
 		_, err := exec.LookPath("garble")
 		if err != nil {
 			return "", errors.New("garble could not be found in PATH")
@@ -60,31 +75,31 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 
 	var f data.Download
 
-	f.CallbackAddress = suppliedConnectBackAdress
+	f.CallbackAddress = config.ConnectBackAdress
 
 	filename, err := internal.RandomString(16)
 	if err != nil {
 		return "", err
 	}
 
-	if len(name) == 0 {
-		name, err = internal.RandomString(16)
+	if len(config.Name) == 0 {
+		config.Name, err = internal.RandomString(16)
 		if err != nil {
 			return "", err
 		}
 	}
 
 	f.Goos = runtime.GOOS
-	if len(goos) > 0 {
-		f.Goos = goos
+	if len(config.GOOS) > 0 {
+		f.Goos = config.GOOS
 	}
 
 	f.Goarch = runtime.GOARCH
-	if len(goarch) > 0 {
-		f.Goarch = goarch
+	if len(config.GOARCH) > 0 {
+		f.Goarch = config.GOARCH
 	}
 
-	f.Goarm = goarm
+	f.Goarm = config.GOARM
 
 	f.FilePath = filepath.Join(cachePath, filename)
 	f.FileType = "executable"
@@ -96,13 +111,13 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 	}
 
 	var buildArguments []string
-	if garble {
+	if config.Garble {
 		buildArguments = append(buildArguments, "-tiny", "-literals")
 	}
 
 	buildArguments = append(buildArguments, "build", "-trimpath")
 
-	if shared {
+	if config.SharedLibrary {
 		buildArguments = append(buildArguments, "-buildmode=c-shared")
 		buildArguments = append(buildArguments, "-tags=cshared")
 		f.FileType = "shared-object"
@@ -136,12 +151,12 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 		return "", err
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", suppliedConnectBackAdress, fingerprint, proxy, sni, strings.TrimSpace(f.Version)))
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", config.ConnectBackAdress, config.Fingerprint, config.Proxy, config.SNI, strings.TrimSpace(f.Version)))
 	buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)
 
-	if disableLibC {
+	if config.DisableLibC {
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	}
 
@@ -154,7 +169,7 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 
 	//Building a shared object for windows needs some extra beans
 	cgoOn := "0"
-	if shared {
+	if config.SharedLibrary {
 
 		var crossCompiler string
 		if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && f.Goos == "windows" && f.Goarch == "amd64" {
@@ -183,14 +198,14 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 		}
 	}
 
-	f.UrlPath = name
+	f.UrlPath = config.Name
 
 	err = data.CreateDownload(f)
 	if err != nil {
 		return "", err
 	}
 
-	if upx {
+	if config.UPX {
 		output, err := exec.Command("upx", "-qq", "-f", f.FilePath).CombinedOutput()
 		if err != nil {
 			return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
@@ -199,19 +214,19 @@ func Build(goos, goarch, goarm, suppliedConnectBackAdress, fingerprint, name, co
 
 	os.Chmod(f.FilePath, 0600)
 
-	Autocomplete.Add(name)
+	Autocomplete.Add(config.Name)
 
 	authorizedControlleeKeys, err := os.OpenFile(filepath.Join(cachePath, "../authorized_controllee_keys"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return "", errors.New("cant open authorized controllee keys file: " + err.Error())
 	}
-
 	defer authorizedControlleeKeys.Close()
-	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s\n", publicKeyBytes[:len(publicKeyBytes)-1], comment)); err != nil {
+
+	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s %s\n", "owner="+config.Owners, publicKeyBytes[:len(publicKeyBytes)-1], config.Comment)); err != nil {
 		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
 	}
 
-	return "http://" + DefaultConnectBack + "/" + name, nil
+	return "http://" + DefaultConnectBack + "/" + config.Name, nil
 }
 
 func startBuildManager(_cachePath string) error {

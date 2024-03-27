@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -18,6 +19,8 @@ import (
 
 type link struct {
 }
+
+var spaceMatcher = regexp.MustCompile(`[\s]*`)
 
 func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
@@ -81,53 +84,36 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 
 	}
 
-	goos, err := line.GetArgString("goos")
+	buildConfig := webserver.BuildConfig{
+		SharedLibrary: line.IsSet("shared-object"),
+		UPX:           line.IsSet("upx"),
+		Garble:        line.IsSet("garble"),
+		DisableLibC:   line.IsSet("no-lib-c"),
+	}
+
+	var err error
+	buildConfig.GOOS, err = line.GetArgString("goos")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
 
-	goarch, err := line.GetArgString("goarch")
+	buildConfig.GOARCH, err = line.GetArgString("goarch")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
 
-	goarm, err := line.GetArgString("goarm")
+	buildConfig.GOARM, err = line.GetArgString("goarm")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
 
-	homeserver_address, err := line.GetArgString("s")
+	buildConfig.ConnectBackAdress, err = line.GetArgString("s")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
 
-	if homeserver_address == "" {
-		homeserver_address = webserver.DefaultConnectBack
-	}
-
-	name, err := line.GetArgString("name")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
-	}
-
-	comment, err := line.GetArgString("C")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
-	}
-
-	fingerprint, err := line.GetArgString("fingerprint")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
-	}
-
-	proxy, err := line.GetArgString("proxy")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
-	}
-
-	sni, err := line.GetArgString("sni")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
+	if buildConfig.ConnectBackAdress == "" {
+		buildConfig.ConnectBackAdress = webserver.DefaultConnectBack
 	}
 
 	tt := map[string]bool{
@@ -150,7 +136,43 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		return errors.New("cant use tls/wss/ws/std flags together (only supports one per client)")
 	}
 
-	url, err := webserver.Build(goos, goarch, goarm, scheme+homeserver_address, fingerprint, name, comment, proxy, sni, line.IsSet("shared-object"), line.IsSet("upx"), line.IsSet("garble"), line.IsSet("no-lib-c"))
+	buildConfig.ConnectBackAdress = scheme + buildConfig.ConnectBackAdress
+
+	buildConfig.Name, err = line.GetArgString("name")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.Comment, err = line.GetArgString("C")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.Fingerprint, err = line.GetArgString("fingerprint")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.Proxy, err = line.GetArgString("proxy")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.SNI, err = line.GetArgString("sni")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.Owners, err = line.GetArgString("owners")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	if spaceMatcher.MatchString(buildConfig.Owners) {
+		return errors.New("owners flag cannot contain any whitespace")
+	}
+
+	url, err := webserver.Build(buildConfig)
 	if err != nil {
 		return err
 	}
@@ -199,6 +221,7 @@ func (e *link) Help(explain bool) string {
 		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
 		"\t--no-lib-c\tCompile client without glibc",
 		"\t--sni\tWhen TLS is in use, set a custom SNI for the client to connect with",
+		"\t--owners\tSet owners of client, those usernames and administrators will be able to see the client. E.g --owners jsmith,ldavidson",
 	)
 }
 
