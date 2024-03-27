@@ -9,6 +9,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/data"
+	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -38,8 +39,10 @@ type User struct {
 	sync.RWMutex
 
 	userConnections map[string]*Connection
-	username string
+	username        string
 
+	clients      map[string]*ssh.ServerConn
+	autocomplete *trie.Trie
 }
 
 func (u *User) Session(connectionDetails string) (*Connection, error) {

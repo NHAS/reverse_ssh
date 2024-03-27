@@ -435,7 +435,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 
 	case "client":
 
-		id, username, err := clients.Add(sshConn)
+		id, username, err := users.Add(sshConn)
 		if err != nil {
 			clientLog.Error("Unable to add new client %s", err)
 
@@ -452,7 +452,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 			})
 
 			clientLog.Info("SSH client disconnected")
-			clients.Remove(id)
+			users.Remove(id)
 
 			observers.ConnectionState.Notify(observers.ClientState{
 				Status:    "disconnected",

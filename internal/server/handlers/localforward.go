@@ -35,7 +35,7 @@ func LocalForward(_ string, _ *users.User, newChannel ssh.NewChannel, log logger
 		drtMsg.Raddr = strconv.FormatInt(value, 10)
 	}
 
-	foundClients, err := clients.Search(drtMsg.Raddr)
+	foundClients, err := users.Search(drtMsg.Raddr)
 	if err != nil {
 		newChannel.Reject(ssh.Prohibited, err.Error())
 		return
