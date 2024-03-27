@@ -79,7 +79,7 @@ func Session(datadir string) ChannelHandler {
 
 				term.SetSize(int(sess.Pty.Columns), int(sess.Pty.Rows))
 
-				term.AddValueAutoComplete(autocomplete.RemoteId, user.Autocomplete())
+				term.AddValueAutoComplete(autocomplete.RemoteId, user.Autocomplete(), users.PublicClientsAutoComplete)
 				term.AddValueAutoComplete(autocomplete.WebServerFileIds, webserver.Autocomplete)
 
 				term.AddCommands(commands.CreateCommands(sess.ConnectionDetails, user, log, datadir))

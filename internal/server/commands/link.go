@@ -20,7 +20,7 @@ import (
 type link struct {
 }
 
-var spaceMatcher = regexp.MustCompile(`[\s]*`)
+var spaceMatcher = regexp.MustCompile(`[\s]+`)
 
 func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
@@ -221,7 +221,7 @@ func (e *link) Help(explain bool) string {
 		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
 		"\t--no-lib-c\tCompile client without glibc",
 		"\t--sni\tWhen TLS is in use, set a custom SNI for the client to connect with",
-		"\t--owners\tSet owners of client, those usernames and administrators will be able to see the client. E.g --owners jsmith,ldavidson",
+		"\t--owners\tSet owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson ",
 	)
 }
 

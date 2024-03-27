@@ -13,7 +13,7 @@ type privilege struct {
 
 func (p *privilege) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	fmt.Fprintf(tty, "%d\n", user.Privilege())
+	fmt.Fprintf(tty, "%s\n", user.PrivilegeString())
 
 	return nil
 }

@@ -122,7 +122,7 @@ type Terminal struct {
 	functions             map[string]Command
 	functionsAutoComplete *trie.Trie
 
-	autoCompleteValues map[string]*trie.Trie
+	autoCompleteValues map[string][]*trie.Trie
 
 	raw bool
 }
@@ -178,7 +178,7 @@ func NewAdvancedTerminal(c io.ReadWriter, user *users.User, session *users.Conne
 		AutoCompleteCallback:  defaultAutoComplete,
 		functionsAutoComplete: trie.NewTrie(),
 		functions:             make(map[string]Command),
-		autoCompleteValues:    make(map[string]*trie.Trie),
+		autoCompleteValues:    make(map[string][]*trie.Trie),
 	}
 
 	t.AddValueAutoComplete(autocomplete.Functions, t.functionsAutoComplete)
@@ -225,7 +225,7 @@ func (t *Terminal) GetWidth() int {
 	return int(t.termWidth)
 }
 
-func (t *Terminal) AddValueAutoComplete(placement string, trie *trie.Trie) error {
+func (t *Terminal) AddValueAutoComplete(placement string, trie ...*trie.Trie) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -299,7 +299,11 @@ func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLin
 										searchString = parsedLine.Focus.Value()
 									}
 
-									matches = trie.PrefixMatch(searchString)
+									matches = []string{}
+									for _, t := range trie {
+										matches = append(matches, t.PrefixMatch(searchString)...)
+									}
+
 								}
 							}
 						}

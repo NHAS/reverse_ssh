@@ -53,6 +53,35 @@ type User struct {
 	privilege *int
 }
 
+func (u *User) SetOwnership(uniqueID, newOwners string) error {
+	lck.Lock()
+	defer lck.Unlock()
+
+	sc, ok := u.clients[uniqueID]
+	if !ok {
+		if sc, ok = ownedByAll[uniqueID]; !ok {
+			return errors.New("not found")
+		}
+	}
+
+	defer func() {
+		sc.Permissions.Extensions["owners"] = newOwners
+	}()
+
+	if newOwners == "" {
+		// The client is being shared with everyone, so add it to the public list
+		// Already on the public list, so this is a no-op
+		if _, ok := ownedByAll[uniqueID]; ok {
+			return nil
+		}
+	}
+
+	_disassociateFromOwners(uniqueID, sc.Permissions.Extensions["owners"])
+	_associateToOwners(uniqueID, newOwners, sc)
+
+	return nil
+}
+
 func (u *User) SearchClients(filter string) (out map[string]*ssh.ServerConn, err error) {
 
 	filter = filter + "*"
@@ -83,6 +112,21 @@ func (u *User) SearchClients(filter string) (out map[string]*ssh.ServerConn, err
 			continue
 		}
 
+	}
+
+	if u.Privilege() != AdminPermissions {
+		for id, conn := range ownedByAll {
+			if filter == "" {
+				out[id] = conn
+				continue
+			}
+
+			if _matches(filter, id, conn.RemoteAddr().String()) {
+				out[id] = conn
+				continue
+			}
+
+		}
 	}
 
 	return
@@ -117,13 +161,12 @@ func (u *User) GetClient(identifier string) (ssh.Conn, error) {
 	lck.RLock()
 	defer lck.RUnlock()
 
-	if m, ok := allClients[identifier]; ok {
+	if m, ok := u.clients[identifier]; ok {
 		return m, nil
 	}
 
-	searchClients := u.clients
-	if u.Privilege() == AdminPermissions {
-		searchClients = allClients
+	if m, ok := ownedByAll[identifier]; ok {
+		return m, nil
 	}
 
 	matchingUniqueIDs, ok := aliases[identifier]
@@ -131,26 +174,21 @@ func (u *User) GetClient(identifier string) (ssh.Conn, error) {
 		return nil, fmt.Errorf("%s not found", identifier)
 	}
 
-	if u.Privilege() != AdminPermissions {
-
-		// If the user is not an admin, check to make sure that the id's are part of the users ownership, if they arent, delete them
-		toRemove := []string{}
-		for id := range matchingUniqueIDs {
-			_, ok := u.clients[id]
-			if !ok {
-				toRemove = append(toRemove, id)
-			}
-		}
-
-		for _, id := range toRemove {
-			delete(matchingUniqueIDs, id)
-		}
-	}
-
 	if len(matchingUniqueIDs) == 1 {
-		// Easiest way to get a single item from a map
 		for k := range matchingUniqueIDs {
-			return searchClients[k], nil
+			if m, ok := u.clients[k]; ok {
+				return m, nil
+			}
+
+			if m, ok := ownedByAll[k]; ok {
+				return m, nil
+			}
+
+			if u.Privilege() == AdminPermissions {
+				if m, ok := allClients[k]; ok {
+					return m, nil
+				}
+			}
 		}
 	}
 
@@ -158,7 +196,17 @@ func (u *User) GetClient(identifier string) (ssh.Conn, error) {
 	matchingHosts := ""
 	for k := range matchingUniqueIDs {
 		matches++
-		client := searchClients[k]
+
+		client, ok := u.clients[k]
+		if !ok {
+			client, ok = ownedByAll[k]
+			if !ok {
+				if u.Privilege() == AdminPermissions {
+					client = allClients[k]
+				}
+			}
+		}
+
 		matchingHosts += fmt.Sprintf("%s (%s %s)\n", k, client.User(), client.RemoteAddr().String())
 	}
 
@@ -198,6 +246,22 @@ func (u *User) Privilege() int {
 	}
 
 	return *u.privilege
+}
+
+func (u *User) PrivilegeString() string {
+
+	if u.privilege == nil {
+		return "0 (default)"
+	}
+
+	switch *u.privilege {
+	case AdminPermissions:
+		return fmt.Sprintf("%d admin", AdminPermissions)
+	case UserPermissions:
+		return fmt.Sprintf("%d user", UserPermissions)
+	default:
+		return "0 (default)"
+	}
 }
 
 func GetUser(username string) (*User, error) {

@@ -12,6 +12,8 @@ import (
 var (
 	allClients = map[string]*ssh.ServerConn{}
 
+	ownedByAll = map[string]*ssh.ServerConn{}
+
 	uniqueIdToAllAliases = map[string][]string{}
 
 	// alias to uniqueID
@@ -20,6 +22,8 @@ var (
 	usernameRegex = regexp.MustCompile(`[^\w-]`)
 
 	globalAutoComplete = trie.NewTrie()
+
+	PublicClientsAutoComplete = trie.NewTrie()
 )
 
 func NormaliseHostname(hostname string) string {
@@ -49,25 +53,42 @@ func AssociateClient(conn *ssh.ServerConn) (string, string, error) {
 	}
 	allClients[idString] = conn
 
-	owners := strings.Split(conn.Permissions.Extensions["owners"], ",")
-
 	globalAutoComplete.AddMultiple(idString, username, conn.RemoteAddr().String(), conn.Permissions.Extensions["pubkey-fp"])
 	if conn.Permissions.Extensions["comment"] != "" {
 		globalAutoComplete.Add(conn.Permissions.Extensions["comment"])
 	}
 
-	for _, owner := range owners {
-		// Cant error if we're not adding a connection
-		u, _, _ := _createOrGetUser(owner, nil)
-		u.clients[idString] = conn
-
-		u.autocomplete.AddMultiple(idString, username, conn.RemoteAddr().String(), conn.Permissions.Extensions["pubkey-fp"])
-		if conn.Permissions.Extensions["comment"] != "" {
-			u.autocomplete.Add(conn.Permissions.Extensions["comment"])
-		}
-	}
+	_associateToOwners(idString, conn.Permissions.Extensions["owners"], conn)
 
 	return idString, username, nil
+
+}
+
+func _associateToOwners(idString, owners string, conn *ssh.ServerConn) {
+	username := NormaliseHostname(conn.User())
+	ownersParts := strings.Split(owners, ",")
+
+	if len(ownersParts) == 1 && ownersParts[0] == "" {
+		// Owners is empty, so add it to the public list
+		ownedByAll[idString] = conn
+
+		PublicClientsAutoComplete.AddMultiple(idString, username, conn.RemoteAddr().String(), conn.Permissions.Extensions["pubkey-fp"])
+		if conn.Permissions.Extensions["comment"] != "" {
+			PublicClientsAutoComplete.Add(conn.Permissions.Extensions["comment"])
+		}
+
+	} else {
+		for _, owner := range ownersParts {
+			// Cant error if we're not adding a connection
+			u, _, _ := _createOrGetUser(owner, nil)
+			u.clients[idString] = conn
+
+			u.autocomplete.AddMultiple(idString, username, conn.RemoteAddr().String(), conn.Permissions.Extensions["pubkey-fp"])
+			if conn.Permissions.Extensions["comment"] != "" {
+				u.autocomplete.Add(conn.Permissions.Extensions["comment"])
+			}
+		}
+	}
 
 }
 
@@ -103,26 +124,41 @@ func DisassociateClient(uniqueId string, conn *ssh.ServerConn) {
 		}
 	}
 
-	owners := strings.Split(conn.Permissions.Extensions["owners"], ",")
-	for _, owner := range owners {
-
-		u, err := _getUser(owner)
-		if err != nil {
-			continue
-		}
-
-		delete(u.clients, uniqueId)
-
-		u.autocomplete.Remove(uniqueId)
-		u.autocomplete.RemoveMultiple(currentAliases...)
-
-		// If the owner has no clients after we do the delete, then remove the construct from memory
-		if len(u.clients) == 0 {
-			delete(users, owner)
-		}
-	}
+	_disassociateFromOwners(uniqueId, conn.Permissions.Extensions["owners"])
 
 	delete(allClients, uniqueId)
 	delete(uniqueIdToAllAliases, uniqueId)
 
+}
+
+func _disassociateFromOwners(uniqueId, owners string) {
+	ownersParts := strings.Split(owners, ",")
+
+	currentAliases := uniqueIdToAllAliases[uniqueId]
+
+	if len(ownersParts) == 1 && ownersParts[0] == "" {
+		delete(ownedByAll, uniqueId)
+
+		PublicClientsAutoComplete.Remove(uniqueId)
+		PublicClientsAutoComplete.RemoveMultiple(currentAliases...)
+
+	} else {
+		for _, owner := range ownersParts {
+
+			u, err := _getUser(owner)
+			if err != nil {
+				continue
+			}
+
+			delete(u.clients, uniqueId)
+
+			u.autocomplete.Remove(uniqueId)
+			u.autocomplete.RemoveMultiple(currentAliases...)
+
+			// If the owner has no clients after we do the delete, then remove the construct from memory
+			if len(u.clients) == 0 {
+				delete(users, owner)
+			}
+		}
+	}
 }

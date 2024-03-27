@@ -51,12 +51,13 @@ func (k *kill) Expect(line terminal.ParsedLine) []string {
 
 func (k *kill) Help(explain bool) string {
 	if explain {
-		return "End a remote controllable host instance."
+		return "Stop the execute of the rssh client."
 	}
 
 	return terminal.MakeHelpText(
 		"kill <remote_id>",
 		"kill <glob pattern>",
+		"Stop the execute of the rssh client.",
 	)
 }
 
