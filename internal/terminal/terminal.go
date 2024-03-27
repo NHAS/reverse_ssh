@@ -56,6 +56,7 @@ var vt100EscapeCodes = EscapeCodes{
 // reading lines of input.
 type Terminal struct {
 	session *users.Connection
+	user    *users.User
 	cancel  chan bool
 
 	// AutoCompleteCallback, if non-null, is called for each keypress with
@@ -162,9 +163,10 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 	}
 }
 
-func NewAdvancedTerminal(c io.ReadWriter, session *users.Connection, prompt string) *Terminal {
+func NewAdvancedTerminal(c io.ReadWriter, user *users.User, session *users.Connection, prompt string) *Terminal {
 	t := &Terminal{
 		session:               session,
+		user:                  user,
 		cancel:                make(chan bool),
 		Escape:                &vt100EscapeCodes,
 		c:                     c,
@@ -519,7 +521,7 @@ func (t *Terminal) Run() error {
 				continue
 			}
 
-			err = f.Run(t, parsedLine)
+			err = f.Run(t.user, t, parsedLine)
 			if err != nil {
 				if err == io.EOF {
 					return err

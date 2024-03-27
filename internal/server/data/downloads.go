@@ -84,7 +84,7 @@ func DeleteDownload(key string) error {
 
 	// Fetch the Download record from the database based on the key
 	var download Download
-	if err := db.Clauses(clause.Returning{}).Where("url_path = ?", key).Delete(&download).Error; err != nil {
+	if err := db.Unscoped().Clauses(clause.Returning{}).Where("url_path = ?", key).Delete(&download).Error; err != nil {
 		return err
 	}
 

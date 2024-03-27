@@ -21,6 +21,7 @@ var allCommands = map[string]terminal.Command{
 	"listen":  &listen{},
 	"webhook": &webhook{},
 	"version": &version{},
+	"priv":    &privilege{},
 }
 
 func CreateCommands(session string, user *users.User, log logger.Logger, datadir string) map[string]terminal.Command {
@@ -38,6 +39,7 @@ func CreateCommands(session string, user *users.User, log logger.Logger, datadir
 		"listen":  Listen(log),
 		"webhook": &webhook{},
 		"version": &version{},
+		"priv":    &privilege{},
 	}
 
 	return o

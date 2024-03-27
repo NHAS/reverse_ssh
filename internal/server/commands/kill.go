@@ -14,13 +14,13 @@ type kill struct {
 	log logger.Logger
 }
 
-func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if len(line.Arguments) != 1 {
 		return fmt.Errorf(k.Help(false))
 	}
 
-	connections, err := users.Search(line.Arguments[0].Value())
+	connections, err := user.SearchClients(line.Arguments[0].Value())
 	if err != nil {
 		return err
 	}

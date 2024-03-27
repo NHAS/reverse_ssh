@@ -4,19 +4,25 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/data"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
+)
+
+const (
+	UserPermissions  = 0
+	AdminPermissions = 5
 )
 
 var ErrNilServerConnection = errors.New("the server connection was nil for the client")
 
 var (
-	lUsers sync.RWMutex
+	lck sync.RWMutex
 	// Username to actual user object
 	users = map[string]*User{}
 
@@ -43,6 +49,132 @@ type User struct {
 
 	clients      map[string]*ssh.ServerConn
 	autocomplete *trie.Trie
+
+	privilege *int
+}
+
+func (u *User) SearchClients(filter string) (out map[string]*ssh.ServerConn, err error) {
+
+	filter = filter + "*"
+	_, err = filepath.Match(filter, "")
+	if err != nil {
+		return nil, fmt.Errorf("filter is not well formed")
+	}
+
+	out = make(map[string]*ssh.ServerConn)
+
+	lck.RLock()
+	defer lck.RUnlock()
+
+	searchClients := u.clients
+
+	if u.Privilege() == AdminPermissions {
+		searchClients = allClients
+	}
+
+	for id, conn := range searchClients {
+		if filter == "" {
+			out[id] = conn
+			continue
+		}
+
+		if _matches(filter, id, conn.RemoteAddr().String()) {
+			out[id] = conn
+			continue
+		}
+
+	}
+
+	return
+}
+
+func _matches(filter, clientId, remoteAddr string) bool {
+	match, _ := filepath.Match(filter, clientId)
+	if match {
+		return true
+	}
+
+	for _, alias := range uniqueIdToAllAliases[clientId] {
+		match, _ = filepath.Match(filter, alias)
+		if match {
+			return true
+		}
+	}
+
+	match, _ = filepath.Match(filter, remoteAddr)
+	return match
+}
+
+// Matches tests if any of the client IDs match
+func (u *User) Matches(filter, clientId, remoteAddr string) bool {
+	lck.RLock()
+	defer lck.RUnlock()
+
+	return _matches(filter, clientId, remoteAddr)
+}
+
+func (u *User) GetClient(identifier string) (ssh.Conn, error) {
+	lck.RLock()
+	defer lck.RUnlock()
+
+	if m, ok := allClients[identifier]; ok {
+		return m, nil
+	}
+
+	searchClients := u.clients
+	if u.Privilege() == AdminPermissions {
+		searchClients = allClients
+	}
+
+	matchingUniqueIDs, ok := aliases[identifier]
+	if !ok {
+		return nil, fmt.Errorf("%s not found", identifier)
+	}
+
+	if u.Privilege() != AdminPermissions {
+
+		// If the user is not an admin, check to make sure that the id's are part of the users ownership, if they arent, delete them
+		toRemove := []string{}
+		for id := range matchingUniqueIDs {
+			_, ok := u.clients[id]
+			if !ok {
+				toRemove = append(toRemove, id)
+			}
+		}
+
+		for _, id := range toRemove {
+			delete(matchingUniqueIDs, id)
+		}
+	}
+
+	if len(matchingUniqueIDs) == 1 {
+		// Easiest way to get a single item from a map
+		for k := range matchingUniqueIDs {
+			return searchClients[k], nil
+		}
+	}
+
+	matches := 0
+	matchingHosts := ""
+	for k := range matchingUniqueIDs {
+		matches++
+		client := searchClients[k]
+		matchingHosts += fmt.Sprintf("%s (%s %s)\n", k, client.User(), client.RemoteAddr().String())
+	}
+
+	if len(matchingHosts) > 0 {
+		matchingHosts = matchingHosts[:len(matchingHosts)-1]
+	}
+	return nil, fmt.Errorf("%d connections match alias '%s'\n%s", matches, identifier, matchingHosts)
+
+}
+
+func (u *User) Autocomplete() *trie.Trie {
+	if u.privilege != nil && *u.privilege == AdminPermissions {
+		return globalAutoComplete
+	}
+
+	return u.autocomplete
 }
 
 func (u *User) Session(connectionDetails string) (*Connection, error) {
@@ -58,49 +190,80 @@ func (u *User) Username() string {
 }
 
 func (u *User) Privilege() int {
-	priv, err := data.GetPrivilege(u.username)
-	if err != nil {
+
+	if u.privilege == nil {
 		log.Println("was unable to get privs of", u.username, "defaulting to 0 (no priv)")
+
 		return 0
 	}
 
-	return priv
+	return *u.privilege
 }
 
-func CreateOrGetUser(ServerConnection *ssh.ServerConn) (us *User, connectionDetails string, err error) {
-	if ServerConnection == nil {
-		err = ErrNilServerConnection
-		return
+func GetUser(username string) (*User, error) {
+
+	lck.RLock()
+	defer lck.RUnlock()
+
+	return _getUser(username)
+}
+
+// Non-threadsafe variant, used internally when outer function is locked
+func _getUser(username string) (*User, error) {
+	u, ok := users[username]
+	if !ok {
+		return nil, errors.New("not found")
 	}
 
-	lUsers.Lock()
-	defer lUsers.Unlock()
+	return u, nil
+}
 
-	u, ok := users[ServerConnection.User()]
+func CreateOrGetUser(username string, serverConnection *ssh.ServerConn) (us *User, connectionDetails string, err error) {
+	lck.Lock()
+	defer lck.Unlock()
+
+	return _createOrGetUser(username, serverConnection)
+}
+
+func _createOrGetUser(username string, serverConnection *ssh.ServerConn) (us *User, connectionDetails string, err error) {
+	u, ok := users[username]
 	if !ok {
 		newUser := &User{
-			username:        ServerConnection.User(),
+			username:        username,
 			userConnections: map[string]*Connection{},
+			autocomplete:    trie.NewTrie(),
+			clients:         make(map[string]*ssh.ServerConn),
 		}
 
-		users[ServerConnection.User()] = newUser
+		users[username] = newUser
 		u = newUser
 	}
 
-	newConnection := &Connection{
-		serverConnection:  ServerConnection,
-		ShellRequests:     make(<-chan *ssh.Request),
-		ConnectionDetails: makeConnectionDetailsString(ServerConnection),
+	if serverConnection != nil {
+		newConnection := &Connection{
+			serverConnection:  serverConnection,
+			ShellRequests:     make(<-chan *ssh.Request),
+			ConnectionDetails: makeConnectionDetailsString(serverConnection),
+		}
+
+		priv, err := strconv.Atoi(serverConnection.Permissions.Extensions["privilege"])
+		if err != nil {
+			log.Println("could not parse privileges: ", err)
+		} else {
+			u.privilege = &priv
+		}
+
+		if _, ok := u.userConnections[newConnection.ConnectionDetails]; ok {
+			return nil, "", fmt.Errorf("connection already exists for %s", newConnection.ConnectionDetails)
+		}
+
+		u.userConnections[newConnection.ConnectionDetails] = newConnection
+		activeConnections[newConnection.ConnectionDetails] = true
+
+		return u, newConnection.ConnectionDetails, nil
 	}
 
-	if _, ok := u.userConnections[newConnection.ConnectionDetails]; ok {
-		return nil, "", fmt.Errorf("connection already exists for %s", newConnection.ConnectionDetails)
-	}
-
-	u.userConnections[newConnection.ConnectionDetails] = newConnection
-	activeConnections[newConnection.ConnectionDetails] = true
-
-	return u, newConnection.ConnectionDetails, nil
+	return u, "", nil
 }
 
 func makeConnectionDetailsString(ServerConnection *ssh.ServerConn) string {
@@ -108,8 +271,8 @@ func makeConnectionDetailsString(ServerConnection *ssh.ServerConn) string {
 }
 
 func ListUsers() (userList []string) {
-	lUsers.RLock()
-	defer lUsers.RUnlock()
+	lck.RLock()
+	defer lck.RUnlock()
 
 	for user := range users {
 		userList = append(userList, user)
@@ -121,8 +284,8 @@ func ListUsers() (userList []string) {
 
 func DisconnectUser(ServerConnection *ssh.ServerConn) {
 	if ServerConnection != nil {
-		lUsers.Lock()
-		defer lUsers.Unlock()
+		lck.Lock()
+		defer lck.Unlock()
 		defer ServerConnection.Close()
 
 		details := makeConnectionDetailsString(ServerConnection)
@@ -135,7 +298,7 @@ func DisconnectUser(ServerConnection *ssh.ServerConn) {
 		delete(user.userConnections, details)
 		delete(activeConnections, details)
 
-		if len(user.userConnections) == 0 {
+		if len(user.clients) == 0 {
 			delete(users, user.username)
 		}
 	}

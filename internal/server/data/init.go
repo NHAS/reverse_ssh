@@ -17,7 +17,7 @@ func LoadDatabase(path string) (err error) {
 	}
 
 	// AutoMigrate will create the table if it does not exist, or update it if it has changed
-	err = db.AutoMigrate(&Webhook{}, &Download{}, &Privilege{})
+	err = db.AutoMigrate(&Webhook{}, &Download{})
 	if err != nil {
 		return err
 	}

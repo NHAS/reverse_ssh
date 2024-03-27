@@ -14,7 +14,7 @@ import (
 type exec struct {
 }
 
-func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (e *exec) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 	if line.IsSet("h") {
 		fmt.Fprintf(tty, "%s", e.Help(false))
 		return nil
@@ -33,7 +33,7 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	command = strings.TrimSpace(command)
 
-	matchingClients, err := users.Search(filter)
+	matchingClients, err := user.SearchClients(filter)
 	if err != nil {
 		return err
 	}

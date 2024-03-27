@@ -4,14 +4,28 @@ import (
 	"sync"
 )
 
-/**
+/*
+*
 This trie structure is only threadsafe if the root node is queried (due to golang not having and easy re-entrant lock for me to just use)
-**/
+*
+*/
 type Trie struct {
 	root     bool
 	c        byte
 	children map[byte]*Trie
 	mut      sync.RWMutex
+}
+
+func (t *Trie) AddMultiple(s ...string) {
+	for _, item := range s {
+		t.Add(item)
+	}
+}
+
+func (t *Trie) RemoveMultiple(s ...string) {
+	for _, item := range s {
+		t.Remove(item)
+	}
 }
 
 func (t *Trie) Add(s string) {

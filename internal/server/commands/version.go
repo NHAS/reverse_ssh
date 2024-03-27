@@ -5,13 +5,14 @@ import (
 	"io"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
 
 type version struct {
 }
 
-func (v *version) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (v *version) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 	fmt.Fprintln(tty, internal.Version)
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/table"
@@ -13,7 +14,7 @@ import (
 type help struct {
 }
 
-func (h *help) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (h *help) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 	if len(line.Arguments) < 1 {
 
 		t, err := table.NewTable("Commands", "Function", "Purpose")

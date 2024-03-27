@@ -8,9 +8,9 @@ import (
 	"strconv"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -62,7 +62,7 @@ func (l *listen) server(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 	return nil
 }
 
-func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, offAddrs []string) error {
+func (l *listen) client(user *users.User, tty io.ReadWriter, line terminal.ParsedLine, onAddrs, offAddrs []string) error {
 
 	auto := line.IsSet("auto")
 	if line.IsSet("l") && auto {
@@ -80,7 +80,7 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 		}
 	}
 
-	foundClients, err := users.Search(specifier)
+	foundClients, err := user.SearchClients(specifier)
 	if err != nil {
 		return err
 	}
@@ -164,11 +164,11 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 
 			entry.ObserverID = observers.ConnectionState.Register(func(c observers.ClientState) {
 
-				if !users.Matches(specifier, c.ID, c.IP) || c.Status == "disconnected" {
+				if !user.Matches(specifier, c.ID, c.IP) || c.Status == "disconnected" {
 					return
 				}
 
-				client, err := users.Get(c.ID)
+				client, err := user.GetClient(c.ID)
 				if err != nil {
 					return
 				}
@@ -244,7 +244,7 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 	return nil
 }
 
-func (w *listen) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (w *listen) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 	if line.IsSet("h") || len(line.Flags) < 1 {
 		fmt.Fprintf(tty, "%s", w.Help(false))
 		return nil
@@ -275,7 +275,7 @@ func (w *listen) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 	if line.IsSet("server") || line.IsSet("s") {
 		return w.server(tty, line, onAddrs, offAddrs)
 	} else if line.IsSet("client") || line.IsSet("c") || line.IsSet("auto") {
-		return w.client(tty, line, onAddrs, offAddrs)
+		return w.client(user, tty, line, onAddrs, offAddrs)
 	}
 
 	return errors.New("neither server or client were specified, please choose one")

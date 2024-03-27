@@ -408,7 +408,9 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 
 	switch sshConn.Permissions.Extensions["type"] {
 	case "user":
-		user, connectionDetails, err := users.CreateOrGetUser(sshConn)
+
+		// sshUser.User is used here as CreateOrGetUser can be passed a nil sshConn
+		user, connectionDetails, err := users.CreateOrGetUser(sshConn.User(), sshConn)
 		if err != nil {
 			sshConn.Close()
 			log.Println(err)
@@ -435,7 +437,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 
 	case "client":
 
-		id, username, err := users.Add(sshConn)
+		id, username, err := users.AssociateClient(sshConn)
 		if err != nil {
 			clientLog.Error("Unable to add new client %s", err)
 
@@ -452,7 +454,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 			})
 
 			clientLog.Info("SSH client disconnected")
-			users.Remove(id)
+			users.DisassociateClient(id, sshConn)
 
 			observers.ConnectionState.Notify(observers.ClientState{
 				Status:    "disconnected",

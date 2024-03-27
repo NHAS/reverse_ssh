@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func LocalForward(_ string, _ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+func LocalForward(_ string, user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 	proxyTarget := newChannel.ExtraData()
 
 	var drtMsg internal.ChannelOpenDirectMsg
@@ -35,7 +35,7 @@ func LocalForward(_ string, _ *users.User, newChannel ssh.NewChannel, log logger
 		drtMsg.Raddr = strconv.FormatInt(value, 10)
 	}
 
-	foundClients, err := users.Search(drtMsg.Raddr)
+	foundClients, err := user.SearchClients(drtMsg.Raddr)
 	if err != nil {
 		newChannel.Reject(ssh.Prohibited, err.Error())
 		return

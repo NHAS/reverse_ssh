@@ -19,7 +19,7 @@ type connect struct {
 	session string
 }
 
-func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (c *connect) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	sess, err := c.user.Session(c.session)
 	if err != nil {
@@ -43,7 +43,7 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	client := line.Arguments[len(line.Arguments)-1].Value()
 
-	foundClients, err := users.Search(client)
+	foundClients, err := user.SearchClients(client)
 	if err != nil {
 		return err
 	}

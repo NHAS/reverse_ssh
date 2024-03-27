@@ -60,7 +60,7 @@ func Session(datadir string) ChannelHandler {
 					if m, ok := c[line.Command.Value()]; ok {
 
 						req.Reply(true, nil)
-						err := m.Run(connection, line)
+						err := m.Run(user, connection, line)
 						if err != nil {
 							fmt.Fprintf(connection, "%s", err.Error())
 							return
@@ -75,11 +75,11 @@ func Session(datadir string) ChannelHandler {
 				// (i.e. no command in the Payload)
 				req.Reply(len(req.Payload) == 0, nil)
 
-				term := terminal.NewAdvancedTerminal(connection, sess, "catcher$ ")
+				term := terminal.NewAdvancedTerminal(connection, user, sess, "catcher$ ")
 
 				term.SetSize(int(sess.Pty.Columns), int(sess.Pty.Rows))
 
-				term.AddValueAutoComplete(autocomplete.RemoteId, users.Autocomplete(user.Username()))
+				term.AddValueAutoComplete(autocomplete.RemoteId, user.Autocomplete())
 				term.AddValueAutoComplete(autocomplete.WebServerFileIds, webserver.Autocomplete)
 
 				term.AddCommands(commands.CreateCommands(sess.ConnectionDetails, user, log, datadir))

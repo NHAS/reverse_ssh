@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
+	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
 
 type who struct {
 }
 
-func (w *who) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (w *who) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	allUsers := users.ListUsers()
 

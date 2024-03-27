@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
 
@@ -18,7 +19,7 @@ type watch struct {
 	datadir string
 }
 
-func (w *watch) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if line.IsSet("h") || line.IsSet("help") {
 		return errors.New(w.Help(false))

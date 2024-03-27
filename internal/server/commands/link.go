@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal/server/data"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
@@ -18,7 +19,7 @@ import (
 type link struct {
 }
 
-func (l *link) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if line.IsSet("h") || line.IsSet("help") {
 		return errors.New(l.Help(false))

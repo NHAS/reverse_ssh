@@ -6,13 +6,14 @@ import (
 	"io"
 
 	"github.com/NHAS/reverse_ssh/internal/server/data"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
 
 type webhook struct {
 }
 
-func (w *webhook) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (w *webhook) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 	if line.IsSet("h") || len(line.Flags) < 1 {
 		fmt.Fprintf(tty, "%s", w.Help(false))
 		return nil

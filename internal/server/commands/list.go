@@ -41,7 +41,7 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 	t.Fprint(tty)
 }
 
-func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *list) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	filter := ""
 	if len(line.ArgumentsAsStrings()) > 0 {
@@ -60,7 +60,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	var toReturn []displayItem
 
-	matchingClients, err := users.Search(filter)
+	matchingClients, err := user.SearchClients(filter)
 	if err != nil {
 		return err
 	}
