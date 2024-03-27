@@ -9,13 +9,14 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
+	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
 type connect struct {
 	log  logger.Logger
-	user *internal.User
+	user *users.User
 }
 
 func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
@@ -103,7 +104,7 @@ func (c *connect) Help(explain bool) string {
 }
 
 func Connect(
-	user *internal.User,
+	user *users.User,
 	log logger.Logger) *connect {
 	return &connect{
 		user: user,

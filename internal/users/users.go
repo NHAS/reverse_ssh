@@ -1,4 +1,4 @@
-package internal
+package users
 
 import (
 	"errors"
@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/NHAS/reverse_ssh/internal"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -22,7 +23,7 @@ type User struct {
 	// This is the users connection to the server itself, creates new channels and whatnot. NOT to get io.Copy'd
 	ServerConnection ssh.Conn
 
-	Pty *PtyReq
+	Pty *internal.PtyReq
 
 	ShellRequests <-chan *ssh.Request
 

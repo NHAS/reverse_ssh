@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/internal/users"
 )
 
 type who struct {
@@ -13,9 +13,9 @@ type who struct {
 
 func (w *who) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	users := internal.ListUsers()
+	allUsers := users.ListUsers()
 
-	for _, user := range users {
+	for _, user := range allUsers {
 		fmt.Fprintf(tty, "%s\n", user)
 	}
 

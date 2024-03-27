@@ -5,13 +5,13 @@ import (
 	"os"
 	"path"
 
-	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
-func Download(dataDir string) func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
-	return func(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+func Download(dataDir string) func(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(_ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 		downloadPath := path.Join("/", string(newChannel.ExtraData()))
 		//Has to be done in two steps, doing Join("./downloads/", path) leads to path traversal (thanks go)
 		downloadPath = path.Join(dataDir, "downloads", downloadPath)

@@ -17,6 +17,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
+	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -268,7 +269,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 				return nil, fmt.Errorf("not authorized %q, could not parse IP address %s", conn.User(), conn.RemoteAddr())
 			}
 
-			// Check administrator keys first, they can impersonate users (not that it really does anything, and is more for backwards compat)
+			// Check administrator keys first, they can impersonate users
 			perm, err := CheckAuth(adminAuthorizedKeysPath, key, remoteIp, false)
 			if err == nil {
 				perm.Extensions["type"] = "user"
@@ -282,7 +283,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 			}
 
 			// Stop path traversal
-			authorisedKeysPath := filepath.Join(usersKeysDir, filepath.Join("/", conn.User()))
+			authorisedKeysPath := filepath.Join(usersKeysDir, filepath.Join("/", filepath.Clean(conn.User())))
 			perm, err = CheckAuth(authorisedKeysPath, key, remoteIp, false)
 			if err == nil {
 				perm.Extensions["type"] = "user"
@@ -397,7 +398,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 
 	switch sshConn.Permissions.Extensions["type"] {
 	case "user":
-		user, err := internal.CreateUser(sshConn)
+		user, err := users.CreateUser(sshConn)
 		if err != nil {
 			sshConn.Close()
 			log.Println(err)
@@ -407,13 +408,13 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		// Since we're handling a shell, local and remote forward, so we expect
 		// channel type of "session" or "direct-tcpip"
 		go func() {
-			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger){
+			err = internal.RegisterChannelCallbacks(user, chans, clientLog, map[string]func(user *users.User, newChannel ssh.NewChannel, log logger.Logger){
 				"session":      handlers.Session(dataDir),
 				"direct-tcpip": handlers.LocalForward,
 			})
 			clientLog.Info("User disconnected: %s", err.Error())
 
-			internal.DeleteUser(user)
+			users.DeleteUser(user)
 		}()
 
 		clientLog.Info("New User SSH connection, version %s", sshConn.ClientVersion())
@@ -434,7 +435,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		go func() {
 			go ssh.DiscardRequests(reqs)
 
-			err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger){
+			err = internal.RegisterChannelCallbacks(nil, chans, clientLog, map[string]func(user *users.User, newChannel ssh.NewChannel, log logger.Logger){
 				"rssh-download":   handlers.Download(dataDir),
 				"forwarded-tcpip": handlers.ServerPortForward(id),
 			})

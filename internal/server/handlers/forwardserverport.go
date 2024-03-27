@@ -9,6 +9,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
+	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -69,8 +70,8 @@ func channelToConn(channel ssh.Channel, drtMsg internal.ChannelOpenDirectMsg) ne
 	return &chanConn{channel, drtMsg}
 }
 
-func ServerPortForward(clientId string) func(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
-	return func(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+func ServerPortForward(clientId string) func(_ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(_ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 		a := newChannel.ExtraData()
 
 		var drtMsg internal.ChannelOpenDirectMsg

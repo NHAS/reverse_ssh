@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
@@ -23,7 +23,7 @@ var allCommands = map[string]terminal.Command{
 	"version": &version{},
 }
 
-func CreateCommands(user *internal.User, log logger.Logger, datadir string) map[string]terminal.Command {
+func CreateCommands(user *users.User, log logger.Logger, datadir string) map[string]terminal.Command {
 
 	var o = map[string]terminal.Command{
 		"ls":      &list{},

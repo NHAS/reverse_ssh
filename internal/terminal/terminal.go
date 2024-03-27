@@ -19,6 +19,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
+	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
 
@@ -54,7 +55,7 @@ var vt100EscapeCodes = EscapeCodes{
 // Terminal contains the state for running a VT100 terminal that is capable of
 // reading lines of input.
 type Terminal struct {
-	user   *internal.User
+	user   *users.User
 	cancel chan bool
 
 	// AutoCompleteCallback, if non-null, is called for each keypress with
@@ -161,7 +162,7 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 	}
 }
 
-func NewAdvancedTerminal(c io.ReadWriter, user *internal.User, prompt string) *Terminal {
+func NewAdvancedTerminal(c io.ReadWriter, user *users.User, prompt string) *Terminal {
 	t := &Terminal{
 		user:                  user,
 		cancel:                make(chan bool),

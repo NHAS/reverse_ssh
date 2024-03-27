@@ -9,11 +9,12 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/clients"
+	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
 
-func LocalForward(_ *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+func LocalForward(_ *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 	proxyTarget := newChannel.ExtraData()
 
 	var drtMsg internal.ChannelOpenDirectMsg

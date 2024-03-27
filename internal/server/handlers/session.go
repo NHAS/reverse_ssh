@@ -10,6 +10,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
+	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -18,7 +19,7 @@ import (
 // However these calls are done through requests, rather than opening a new channel
 // This callback just sorts out what the client wants to be doing
 func Session(datadir string) ChannelHandler {
-	return func(user *internal.User, newChannel ssh.NewChannel, log logger.Logger) {
+	return func(user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 
 		defer log.Info("Session disconnected: %s", user.ServerConnection.ClientVersion())
 
