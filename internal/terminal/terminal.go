@@ -18,8 +18,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/NHAS/reverse_ssh/internal"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
-	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
 

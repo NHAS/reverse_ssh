@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/NHAS/reverse_ssh/internal/terminal"
-	"github.com/NHAS/reverse_ssh/internal/users"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 )
 
 type who struct {

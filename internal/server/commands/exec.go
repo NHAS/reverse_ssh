@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/NHAS/reverse_ssh/internal/server/clients"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"golang.org/x/crypto/ssh"
@@ -33,7 +33,7 @@ func (e *exec) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	command = strings.TrimSpace(command)
 
-	matchingClients, err := clients.Search(filter)
+	matchingClients, err := users.Search(filter)
 	if err != nil {
 		return err
 	}

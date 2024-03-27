@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/clients"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/server/multiplexer"
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
@@ -80,7 +80,7 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 		}
 	}
 
-	foundClients, err := clients.Search(specifier)
+	foundClients, err := users.Search(specifier)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 				continue
 			}
 
-			fmt.Fprintf(tty, "%s (%s %s): \n", id, clients.NormaliseHostname(cc.User()), cc.RemoteAddr().String())
+			fmt.Fprintf(tty, "%s (%s %s): \n", id, users.NormaliseHostname(cc.User()), cc.RemoteAddr().String())
 			for _, rf := range f.RemoteForwards {
 				fmt.Fprintf(tty, "\t%s\n", rf)
 			}
@@ -164,11 +164,11 @@ func (l *listen) client(tty io.ReadWriter, line terminal.ParsedLine, onAddrs, of
 
 			entry.ObserverID = observers.ConnectionState.Register(func(c observers.ClientState) {
 
-				if !clients.Matches(specifier, c.ID, c.IP) || c.Status == "disconnected" {
+				if !users.Matches(specifier, c.ID, c.IP) || c.Status == "disconnected" {
 					return
 				}
 
-				client, err := clients.Get(c.ID)
+				client, err := users.Get(c.ID)
 				if err != nil {
 					return
 				}

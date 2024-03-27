@@ -1,4 +1,4 @@
-package clients
+package users
 
 import (
 	"fmt"

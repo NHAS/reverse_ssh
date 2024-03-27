@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/commands"
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
@@ -80,7 +79,7 @@ func Session(datadir string) ChannelHandler {
 
 				term.SetSize(int(sess.Pty.Columns), int(sess.Pty.Rows))
 
-				term.AddValueAutoComplete(autocomplete.RemoteId, clients.Autocomplete(user.Username()))
+				term.AddValueAutoComplete(autocomplete.RemoteId, users.Autocomplete(user.Username()))
 				term.AddValueAutoComplete(autocomplete.WebServerFileIds, webserver.Autocomplete)
 
 				term.AddCommands(commands.CreateCommands(sess.ConnectionDetails, user, log, datadir))

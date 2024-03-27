@@ -13,10 +13,9 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/clients"
 	"github.com/NHAS/reverse_ssh/internal/server/handlers"
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
-	"github.com/NHAS/reverse_ssh/internal/users"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )

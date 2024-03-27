@@ -38,8 +38,8 @@ type User struct {
 	sync.RWMutex
 
 	userConnections map[string]*Connection
-
 	username string
+
 }
 
 func (u *User) Session(connectionDetails string) (*Connection, error) {

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/NHAS/reverse_ssh/internal/server/clients"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/table"
@@ -32,7 +32,7 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 			keyId = a.sc.Permissions.Extensions["comment"]
 		}
 
-		if err := t.AddValues(fmt.Sprintf("%s\n%s\n%s\n%s\n", a.id, keyId, clients.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String()), string(a.sc.ClientVersion())); err != nil {
+		if err := t.AddValues(fmt.Sprintf("%s\n%s\n%s\n%s\n", a.id, keyId, users.NormaliseHostname(a.sc.User()), a.sc.RemoteAddr().String()), string(a.sc.ClientVersion())); err != nil {
 			log.Println("Error drawing pretty ls table (THIS IS A BUG): ", err)
 			return
 		}
@@ -60,7 +60,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	var toReturn []displayItem
 
-	matchingClients, err := clients.Search(filter)
+	matchingClients, err := users.Search(filter)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (l *list) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 			keyId = tr.sc.Permissions.Extensions["comment"]
 		}
 
-		fmt.Fprintf(tty, "%s %s %s %s, version: %s", tr.id, keyId, clients.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion())
+		fmt.Fprintf(tty, "%s %s %s %s, version: %s", tr.id, keyId, users.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), tr.sc.ClientVersion())
 
 		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/NHAS/reverse_ssh/internal/users"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )

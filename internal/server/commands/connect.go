@@ -6,10 +6,9 @@ import (
 	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
-	"github.com/NHAS/reverse_ssh/internal/server/clients"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
-	"github.com/NHAS/reverse_ssh/internal/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -44,7 +43,7 @@ func (c *connect) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	client := line.Arguments[len(line.Arguments)-1].Value()
 
-	foundClients, err := clients.Search(client)
+	foundClients, err := users.Search(client)
 	if err != nil {
 		return err
 	}

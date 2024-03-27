@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/NHAS/reverse_ssh/internal/server/clients"
+	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
@@ -20,7 +20,7 @@ func (k *kill) Run(tty io.ReadWriter, line terminal.ParsedLine) error {
 		return fmt.Errorf(k.Help(false))
 	}
 
-	connections, err := clients.Search(line.Arguments[0].Value())
+	connections, err := users.Search(line.Arguments[0].Value())
 	if err != nil {
 		return err
 	}
