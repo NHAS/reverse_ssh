@@ -15,6 +15,22 @@ type help struct {
 }
 
 func (h *help) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+
+	if line.IsSet("l") {
+		funcs := []string{}
+		for funcName := range allCommands {
+			funcs = append(funcs, funcName)
+		}
+
+		sort.Strings(funcs)
+
+		for _, funcName := range funcs {
+			fmt.Fprintln(tty, funcName)
+		}
+
+		return nil
+	}
+
 	if len(line.Arguments) < 1 {
 
 		t, err := table.NewTable("Commands", "Function", "Purpose")
@@ -70,5 +86,6 @@ func (h *help) Help(explain bool) string {
 	return terminal.MakeHelpText(
 		"help",
 		"help <functions>",
+		"-l\tList all function names only",
 	)
 }
