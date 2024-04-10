@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 )
@@ -120,14 +119,6 @@ func main() {
 		return
 	}
 
-	logFile, err := os.Create("rssh-log." + time.Now().Format(time.RFC1123))
-	if err != nil {
-		log.Fatal("couldnt log")
-		return
-	}
-
-	redirectStdio(logFile)
-
 	if strings.HasPrefix(destination, "stdio://") {
 		// We cant fork off of an inetd style connection or stdin/out will be closed
 		log.SetOutput(io.Discard)
@@ -140,16 +131,4 @@ func main() {
 		Run(destination, fingerprint, proxy, customSNI)
 	}
 
-}
-
-func redirectStdio(f *os.File) {
-	err := syscall.Dup2(int(f.Fd()), int(os.Stderr.Fd()))
-	if err != nil {
-		log.Fatalf("Failed to redirect stderr to file: %v", err)
-	}
-
-	err = syscall.Dup2(int(f.Fd()), int(os.Stdout.Fd()))
-	if err != nil {
-		log.Fatalf("Failed to redirect stdout to file: %v", err)
-	}
 }
