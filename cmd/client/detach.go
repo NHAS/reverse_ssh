@@ -13,11 +13,11 @@ import (
 
 func Run(destination, fingerprint, proxyaddress, sni string) {
 	//Try to elavate to root (in case we are a root:root setuid/gid binary)
-	syscall.Setuid(0)
-	syscall.Setgid(0)
+	//syscall.Setuid(0)
+	//.Setgid(0)
 
 	//Create our own process group, and ignore any  hang up signals
-	syscall.Setsid()
+	//syscall.Setsid()
 	signal.Ignore(syscall.SIGHUP, syscall.SIGPIPE)
 
 	client.Run(destination, fingerprint, proxyaddress, sni)
