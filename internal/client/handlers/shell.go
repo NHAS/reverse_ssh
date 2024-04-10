@@ -136,8 +136,10 @@ func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, r
 	shell.Env = os.Environ()
 
 	close := func() {
+		log.Info("on close, before connection close")
 		connection.Close()
 		if shell.Process != nil {
+			log.Info("on close, in process kill")
 
 			err := shell.Process.Kill()
 			if err != nil {
@@ -161,6 +163,8 @@ func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, r
 		close()
 		return
 	}
+
+	log.Info("trace! after pty start with size")
 
 	// pipe session to bash and visa-versa
 	var once sync.Once
@@ -196,6 +200,8 @@ func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, r
 	}()
 
 	defer once.Do(close)
+	log.Info("trace! before shell wait")
+
 	shell.Wait()
 }
 
