@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path"
 	"runtime"
-	"runtime/debug"
 	"strings"
 
 	"github.com/NHAS/reverse_ssh/internal"
@@ -96,13 +95,6 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 
 				return
 			case "shell":
-
-				defer func() {
-					if r := recover(); r != nil {
-						fmt.Fprintf(connection, "stacktrace: \n"+string(debug.Stack()))
-						fmt.Println(connection, "Error:", r)
-					}
-				}()
 
 				//We accept the shell request
 				req.Reply(true, nil)
