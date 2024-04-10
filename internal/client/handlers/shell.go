@@ -5,11 +5,13 @@ package handlers
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -156,7 +158,15 @@ func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, r
 
 	shell.Env = append(shell.Env, "TERM="+ptyReq.Term)
 
-	log.Info("Creating pty...")
+	log.Info("Creating pty... %p", ptyReq)
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(connection, "stack trace: %s", debug.Stack())
+			fmt.Fprintf(connection, "error: %s", r)
+		}
+	}()
+
 	shellIO, err = pty.StartWithSize(shell, &pty.Winsize{Cols: uint16(ptyReq.Columns), Rows: uint16(ptyReq.Rows)})
 	if err != nil {
 		log.Info("Could not start pty (%s)", err)
