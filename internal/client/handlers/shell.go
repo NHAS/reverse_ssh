@@ -5,13 +5,11 @@ package handlers
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -138,10 +136,8 @@ func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, r
 	shell.Env = os.Environ()
 
 	close := func() {
-		log.Info("on close, before connection close")
 		connection.Close()
 		if shell.Process != nil {
-			log.Info("on close, in process kill")
 
 			err := shell.Process.Kill()
 			if err != nil {
@@ -158,23 +154,12 @@ func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, r
 
 	shell.Env = append(shell.Env, "TERM="+ptyReq.Term)
 
-	log.Info("Creating pty... %p", ptyReq)
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Fprintf(connection, "stack trace: %s", debug.Stack())
-			fmt.Fprintf(connection, "error: %s", r)
-		}
-	}()
-
 	shellIO, err = pty.StartWithSize(shell, &pty.Winsize{Cols: uint16(ptyReq.Columns), Rows: uint16(ptyReq.Rows)})
 	if err != nil {
 		log.Info("Could not start pty (%s)", err)
 		close()
 		return
 	}
-
-	log.Info("trace! after pty start with size")
 
 	// pipe session to bash and visa-versa
 	var once sync.Once
@@ -210,7 +195,6 @@ func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, r
 	}()
 
 	defer once.Do(close)
-	log.Info("trace! before shell wait")
 
 	shell.Wait()
 }
