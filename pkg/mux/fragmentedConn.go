@@ -5,9 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"log"
 	"net"
-	"runtime/debug"
 	"time"
 )
 
@@ -65,7 +63,6 @@ func (fc *fragmentedConnection) Write(b []byte) (n int, err error) {
 
 func (fc *fragmentedConnection) Close() error {
 
-	log.Println("closed? ", string(debug.Stack()))
 	fc.writeBuffer.Close()
 	fc.readBuffer.Close()
 
