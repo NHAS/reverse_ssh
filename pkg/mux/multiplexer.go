@@ -10,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net"
@@ -20,12 +21,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/NHAS/reverse_ssh/pkg/mux/protocols"
 	"golang.org/x/net/websocket"
 )
 
 type MultiplexerConfig struct {
-	SSH  bool
-	HTTP bool
+	Control   bool
+	Downloads bool
 
 	TLS               bool
 	AutoTLSCommonName string
@@ -78,7 +80,7 @@ func genX509KeyPair(AutoTLSCommonName string) (tls.Certificate, error) {
 
 type Multiplexer struct {
 	sync.RWMutex
-	protocols      map[string]*multiplexerListener
+	result         map[protocols.Type]*multiplexerListener
 	done           bool
 	listeners      map[string]net.Listener
 	newConnections chan net.Conn
@@ -141,6 +143,109 @@ func (m *Multiplexer) StartListener(network, address string) error {
 	return nil
 }
 
+func (m *Multiplexer) startHttpServer() {
+	listener := m.getProtoListener(protocols.HTTP)
+	go func(l net.Listener) {
+
+		srv := &http.Server{
+			ReadTimeout:  60 * time.Second,
+			WriteTimeout: 60 * time.Second,
+			Handler:      m.collector(),
+		}
+
+		log.Println(srv.Serve(l))
+	}(listener)
+}
+
+func (m *Multiplexer) collector() http.HandlerFunc {
+
+	var (
+		connections = map[string]*fragmentedConnection{}
+		lck         sync.Mutex
+	)
+
+	return func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodHead && req.Method != http.MethodGet && req.Method != http.MethodPost {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		lck.Lock()
+		defer lck.Unlock()
+
+		id := req.URL.Query().Get("item")
+		c, ok := connections[id]
+		if !ok {
+			if req.Method == http.MethodHead {
+				var err error
+
+				c, id, err = NewFragmentCollector()
+				if err != nil {
+					log.Println("error generating new fragment collector: ", err)
+					http.Error(w, "Server Error", http.StatusInternalServerError)
+
+					return
+				}
+
+				connections[id] = c
+				http.SetCookie(w, &http.Cookie{
+					Name:  "NID",
+					Value: id,
+				})
+
+				l := m.result[protocols.C2]
+				select {
+				//Allow whatever we're multiplexing to apply backpressure if it cant accept things
+				case l.connections <- c:
+					log.Println("added connection to ssh pool")
+				case <-time.After(2 * time.Second):
+
+					log.Println(l.protocol, "Failed to accept new http connection within 2 seconds, closing connection (may indicate high resource usage)")
+					c.Close()
+					delete(connections, id)
+					http.Error(w, "Server Error", http.StatusInternalServerError)
+					return
+				}
+
+				http.Redirect(w, req, "/download", http.StatusTemporaryRedirect)
+				return
+
+			}
+
+			log.Println("client connected but did not have a valid session id")
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		defer func() {
+			if req.Method == http.MethodPost {
+				log.Println("finished: ", req.Method)
+			}
+		}()
+		switch req.Method {
+
+		// Get any buffered/queued data
+		case http.MethodGet:
+			_, err := io.Copy(w, c.writeBuffer)
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+			}
+		// Add data
+		case http.MethodPost:
+			_, err := io.Copy(c.readBuffer, req.Body)
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+
+			}
+		}
+
+	}
+}
+
 func (m *Multiplexer) StopListener(address string) error {
 	m.Lock()
 	defer m.Unlock()
@@ -182,7 +287,7 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 
 	m.newConnections = make(chan net.Conn)
 	m.listeners = make(map[string]net.Listener)
-	m.protocols = map[string]*multiplexerListener{}
+	m.result = map[protocols.Type]*multiplexerListener{}
 	m.config = _c
 
 	err := m.StartListener(network, address)
@@ -190,13 +295,18 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 		return nil, err
 	}
 
-	if m.config.SSH {
-		m.protocols["ssh"] = newMultiplexerListener(m.listeners[address].Addr(), "ssh")
+	if m.config.Control {
+		m.result[protocols.C2] = newMultiplexerListener(m.listeners[address].Addr(), protocols.C2)
 	}
 
-	if m.config.HTTP {
-		m.protocols["http"] = newMultiplexerListener(m.listeners[address].Addr(), "http")
+	if m.config.Downloads {
+		m.result[protocols.Download] = newMultiplexerListener(m.listeners[address].Addr(), protocols.Download)
 	}
+
+	m.result[protocols.HTTP] = newMultiplexerListener(m.listeners[address].Addr(), protocols.HTTP)
+
+	// Starts the composer http server turns a bunch of posts/gets into a coherent connection
+	m.startHttpServer()
 
 	var waitingConnections int32
 	go func() {
@@ -213,133 +323,26 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 
 				defer atomic.AddInt32(&waitingConnections, -1)
 
-				conn.SetDeadline(time.Now().Add(2 * time.Second))
-
-				var proto string
-				conn, proto, err = m.determineProtocol(conn)
+				newConnection, proto, err := m.unwrapTransports(conn)
 				if err != nil {
-					log.Println("Multiplexing failed (initial determination): ", err)
+					log.Println("Multiplexing failed (unwrapping): ", err)
 					return
 				}
 
-				if m.config.TLS && proto == "tls" {
-
-					if m.config.tlsConfig == nil {
-
-						tlsConfig := &tls.Config{
-							PreferServerCipherSuites: true,
-							CurvePreferences: []tls.CurveID{
-								tls.CurveP256,
-								tls.X25519, // Go 1.8 only
-							},
-							MinVersion: tls.VersionTLS12,
-						}
-
-						if m.config.TLSCertPath != "" {
-							cert, err := tls.LoadX509KeyPair(m.config.TLSCertPath, m.config.TLSKeyPath)
-							if err != nil {
-
-								log.Println("TLS is enabled but loading certs/key failed: ", m.config.TLSCertPath, " err: ", err)
-								return
-							}
-
-							tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
-						} else {
-							cert, err := genX509KeyPair(m.config.AutoTLSCommonName)
-							if err != nil {
-								log.Println("TLS is enabled but generating certs/key failed: ", err)
-								return
-							}
-							tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
-						}
-
-						m.config.tlsConfig = tlsConfig
-					}
-
-					// this is TLS so replace the connection
-					c := tls.Server(conn, m.config.tlsConfig)
-					err := c.Handshake()
-					if err != nil {
-						conn.Close()
-
-						if !strings.Contains(err.Error(), "remote error: tls: bad certificate") {
-							log.Println("Multiplexing failed (tls handshake): ", err)
-						}
-						return
-					}
-
-					conn = c
-
-				}
-
-				conn.SetDeadline(time.Time{})
-
-				functionalConn, proto, err := m.determineProtocol(conn)
-				if err != nil {
-					conn.Close()
-					log.Println("Error determining functional protocol: ", err)
-					return
-				}
-
-				if proto == "ws" {
-					wsHttp := http.NewServeMux()
-					wsConnChan := make(chan net.Conn, 1)
-
-					wsServer := websocket.Server{
-						Config: websocket.Config{},
-
-						// Disable origin validation because.... its ssh we dont need it
-						Handshake: nil,
-						Handler: func(c *websocket.Conn) {
-							// Pain and suffering https://github.com/golang/go/issues/7350
-							c.PayloadType = websocket.BinaryFrame
-
-							wsW := websocketWrapper{
-								wsConn:  c,
-								tcpConn: conn,
-								done:    make(chan interface{}),
-							}
-
-							wsConnChan <- &wsW
-
-							<-wsW.done
-						},
-					}
-
-					wsHttp.Handle("/ws", wsServer)
-
-					go http.Serve(&singleConnListener{conn: functionalConn}, wsHttp)
-
-					select {
-					case wsConn := <-wsConnChan:
-						functionalConn, proto, err = m.determineProtocol(wsConn)
-						if err != nil {
-							wsConn.Close()
-							log.Println("failed to determine protocol via ws: ", err)
-							return
-						}
-
-					case <-time.After(2 * time.Second):
-						conn.Close()
-						log.Println("Multiplexing failed: websockets took too long to negotiate")
-						return
-					}
-				}
-
-				l, ok := m.protocols[proto]
+				l, ok := m.result[proto]
 				if !ok {
-					functionalConn.Close()
+					newConnection.Close()
 					log.Println("Multiplexing failed (final determination): ", proto)
 					return
 				}
 
 				select {
 				//Allow whatever we're multiplexing to apply backpressure if it cant accept things
-				case l.connections <- functionalConn:
+				case l.connections <- newConnection:
 				case <-time.After(2 * time.Second):
 
 					log.Println(l.protocol, "Failed to accept new connection within 2 seconds, closing connection (may indicate high resource usage)")
-					functionalConn.Close()
+					newConnection.Close()
 				}
 
 			}(conn)
@@ -352,8 +355,8 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 
 func Listen(network, address string) (*Multiplexer, error) {
 	c := MultiplexerConfig{
-		SSH:          true,
-		HTTP:         true,
+		Control:      true,
+		Downloads:    true,
 		TcpKeepAlive: 7200, // Linux default timeout is 2 hours
 	}
 
@@ -367,7 +370,7 @@ func (m *Multiplexer) Close() {
 		m.StopListener(address)
 	}
 
-	for _, v := range m.protocols {
+	for _, v := range m.result {
 		v.Close()
 	}
 
@@ -392,9 +395,9 @@ func isHttp(b []byte) bool {
 	return false
 }
 
-func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, string, error) {
+func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type, error) {
 
-	header := make([]byte, 7)
+	header := make([]byte, 14)
 	n, err := conn.Read(header)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to read header: %s", err)
@@ -403,26 +406,31 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, string, error)
 	c := &bufferedConn{prefix: header[:n], conn: conn}
 
 	if bytes.HasPrefix(header, []byte{0x16}) {
-		return c, "tls", nil
+		return c, protocols.TLS, nil
 	}
 
 	if bytes.HasPrefix(header, []byte{'S', 'S', 'H'}) {
-		return c, "ssh", nil
+		return c, protocols.C2, nil
 	}
 
 	if isHttp(header) {
+
 		if bytes.HasPrefix(header, []byte("GET /ws")) {
-			return c, "ws", nil
+			return c, protocols.Websockets, nil
 		}
 
-		return c, "http", nil
+		if bytes.HasPrefix(header, []byte("HEAD /download")) || bytes.HasPrefix(header, []byte("GET /download")) || bytes.HasPrefix(header, []byte("POST /download")) {
+			return c, protocols.HTTP, nil
+		}
+
+		return c, protocols.Download, nil
 	}
 
 	return nil, "", errors.New("unknown protocol: " + string(header[:n]))
 }
 
-func (m *Multiplexer) getProtoListener(proto string) net.Listener {
-	ml, ok := m.protocols[proto]
+func (m *Multiplexer) getProtoListener(proto protocols.Type) net.Listener {
+	ml, ok := m.result[proto]
 	if !ok {
 		panic("Unknown protocol passed: " + proto)
 	}
@@ -430,10 +438,138 @@ func (m *Multiplexer) getProtoListener(proto string) net.Listener {
 	return ml
 }
 
-func (m *Multiplexer) SSH() net.Listener {
-	return m.getProtoListener("ssh")
+func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type, error) {
+	conn.SetDeadline(time.Now().Add(2 * time.Second))
+
+	var proto protocols.Type
+	conn, proto, err := m.determineProtocol(conn)
+	if err != nil {
+		return nil, protocols.Invalid, fmt.Errorf("initial determination: %s", err)
+	}
+
+	conn.SetDeadline(time.Time{})
+
+	// Unwrap any outer tls if required
+	if m.config.TLS && proto == "tls" {
+
+		if m.config.tlsConfig == nil {
+
+			tlsConfig := &tls.Config{
+				PreferServerCipherSuites: true,
+				CurvePreferences: []tls.CurveID{
+					tls.CurveP256,
+					tls.X25519, // Go 1.8 only
+				},
+				MinVersion: tls.VersionTLS12,
+			}
+
+			if m.config.TLSCertPath != "" {
+				cert, err := tls.LoadX509KeyPair(m.config.TLSCertPath, m.config.TLSKeyPath)
+				if err != nil {
+					return nil, protocols.Invalid, fmt.Errorf("TLS is enabled but loading certs/key failed: %s, err: %s", m.config.TLSCertPath, err)
+				}
+
+				tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
+			} else {
+				cert, err := genX509KeyPair(m.config.AutoTLSCommonName)
+				if err != nil {
+					return nil, protocols.Invalid, fmt.Errorf("TLS is enabled but generating certs/key failed: %s", err)
+				}
+				tlsConfig.Certificates = append(tlsConfig.Certificates, cert)
+			}
+
+			m.config.tlsConfig = tlsConfig
+		}
+
+		// this is TLS so replace the connection
+		c := tls.Server(conn, m.config.tlsConfig)
+		err := c.Handshake()
+		if err != nil {
+			conn.Close()
+			return nil, protocols.Invalid, fmt.Errorf("multiplexing failed (tls handshake): err: %s", err)
+		}
+
+		// If we did unwrap tls, we now peek into the inner protocol to see whats there
+		conn, proto, err = m.determineProtocol(c)
+		if err != nil {
+			conn.Close()
+			return nil, protocols.Invalid, fmt.Errorf("error determining functional protocol: %s", err)
+		}
+
+	}
+
+	switch proto {
+	case protocols.Websockets:
+		return m.unwrapWebsockets(conn)
+	case protocols.HTTP:
+		// This will get passed off to a golang stdlib http server to do further unwrapping/feeding to the ssh component.
+		// Unlike the other connections this isnt a single stream, its multiple connections composed into one blob, so it has to be a lil non-standard
+		return conn, protocols.HTTP, nil
+	default:
+		// If the initial unwrapping was enough and left us with download or ssh, we can just quit
+		if protocols.FullyUnwrapped(proto) {
+			return conn, proto, nil
+		}
+	}
+
+	return nil, protocols.Invalid, fmt.Errorf("after unwrapping transports, nothing useable was found: %s", proto)
 }
 
-func (m *Multiplexer) HTTP() net.Listener {
-	return m.getProtoListener("http")
+func (m *Multiplexer) unwrapWebsockets(conn net.Conn) (net.Conn, protocols.Type, error) {
+	wsHttp := http.NewServeMux()
+	wsConnChan := make(chan net.Conn, 1)
+
+	wsServer := websocket.Server{
+		Config: websocket.Config{},
+
+		// Disable origin validation because.... its ssh we dont need it
+		Handshake: nil,
+		Handler: func(c *websocket.Conn) {
+			// Pain and suffering https://github.com/golang/go/issues/7350
+			c.PayloadType = websocket.BinaryFrame
+
+			wsW := websocketWrapper{
+				wsConn:  c,
+				tcpConn: conn,
+				done:    make(chan interface{}),
+			}
+
+			wsConnChan <- &wsW
+
+			<-wsW.done
+		},
+	}
+
+	wsHttp.Handle("/ws", wsServer)
+
+	go http.Serve(&singleConnListener{conn: conn}, wsHttp)
+
+	select {
+	case wsConn := <-wsConnChan:
+		// Determine if we're downloading a file over this ws connection, or connecting to ssh
+		result, proto, err := m.determineProtocol(wsConn)
+		if err != nil {
+			conn.Close()
+			return nil, protocols.Invalid, fmt.Errorf("failed to determine protocol being carried by ws: %s", err)
+		}
+
+		if !protocols.FullyUnwrapped(proto) {
+			conn.Close()
+			return nil, protocols.Invalid, errors.New("after unwrapping websockets found another protocol to unwrap (not control channel or download), does not support infinite protocol nesting")
+		}
+
+		return result, proto, nil
+
+	case <-time.After(2 * time.Second):
+		conn.Close()
+		return nil, protocols.Invalid, errors.New("multiplexing failed: websockets took too long to negotiate")
+	}
+}
+
+func (m *Multiplexer) ControlRequests() net.Listener {
+	return m.getProtoListener(protocols.C2)
+}
+
+func (m *Multiplexer) DownloadRequests() net.Listener {
+	return m.getProtoListener(protocols.Download)
 }

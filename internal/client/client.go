@@ -240,7 +240,7 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 			}
 
 			// Add on transports as we go
-			if scheme == "tls" || scheme == "wss" {
+			if scheme == "tls" || scheme == "wss" || scheme == "https" {
 
 				sniServerName := sni
 				if len(sni) == 0 {
@@ -265,8 +265,8 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 				conn = clientTlsConn
 			}
 
-			if scheme == "wss" || scheme == "ws" {
-
+			switch scheme {
+			case "wss", "ws":
 				c, err := websocket.NewConfig("ws://"+realAddr+"/ws", "ws://"+realAddr)
 				if err != nil {
 					log.Println("Could not create websockets configuration: ", err)
@@ -286,8 +286,20 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 				wsConn.PayloadType = websocket.BinaryFrame
 
 				conn = wsConn
+			case "http", "https":
+
+				conn, err = NewHTTPConn(scheme+"://"+realAddr, func() (net.Conn, error) {
+					return Connect(realAddr, proxyAddr, config.Timeout)
+				})
+
+				if err != nil {
+					log.Printf("Unable to connect HTTP: %s\n", err)
+					<-time.After(10 * time.Second)
+					continue
+				}
 
 			}
+
 		} else {
 			conn = &InetdConn{}
 		}

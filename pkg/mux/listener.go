@@ -3,16 +3,18 @@ package mux
 import (
 	"errors"
 	"net"
+
+	"github.com/NHAS/reverse_ssh/pkg/mux/protocols"
 )
 
 type multiplexerListener struct {
 	addr        net.Addr
 	connections chan net.Conn
 	closed      bool
-	protocol    string
+	protocol    protocols.Type
 }
 
-func newMultiplexerListener(addr net.Addr, protocol string) *multiplexerListener {
+func newMultiplexerListener(addr net.Addr, protocol protocols.Type) *multiplexerListener {
 	return &multiplexerListener{addr: addr, connections: make(chan net.Conn), protocol: protocol}
 }
 
