@@ -2,7 +2,6 @@ package mux
 
 import (
 	"bytes"
-	"encoding/binary"
 	"io"
 	"sync"
 )
@@ -15,8 +14,6 @@ type SyncBuffer struct {
 	wwait sync.Cond
 
 	maxLength int
-
-	currentChunk []byte
 
 	isClosed bool
 }
@@ -31,7 +28,7 @@ func (sb *SyncBuffer) BlockingRead(p []byte) (n int, err error) {
 		return 0, ErrClosed
 	}
 
-	n, err = sb.doRead(p)
+	n, err = sb.bb.Read(p)
 	if err == io.EOF {
 		for err == io.EOF {
 
@@ -42,7 +39,7 @@ func (sb *SyncBuffer) BlockingRead(p []byte) (n int, err error) {
 				return 0, ErrClosed
 			}
 
-			n, err = sb.doRead(p)
+			n, err = sb.bb.Read(p)
 		}
 		return
 	}
@@ -57,37 +54,7 @@ func (sb *SyncBuffer) Read(p []byte) (n int, err error) {
 	defer sb.wwait.Signal()
 	defer sb.Unlock()
 
-	return sb.doRead(p)
-}
-
-func (sb *SyncBuffer) doRead(p []byte) (n int, err error) {
-
-	if sb.isClosed {
-		return 0, ErrClosed
-	}
-
-	if sb.currentChunk == nil || len(sb.currentChunk) == 0 {
-		headerUint32 := make([]byte, 4)
-		n, err = sb.bb.Read(headerUint32)
-		if err != nil {
-			return 0, err
-		}
-
-		if n != 4 {
-			panic("header was of incorrect length")
-		}
-
-		chunkLength := binary.LittleEndian.Uint32(headerUint32)
-
-		sb.currentChunk = make([]byte, chunkLength)
-
-		sb.bb.Read(sb.currentChunk)
-	}
-
-	n = copy(p, sb.currentChunk[:min(len(p), len(sb.currentChunk))])
-	sb.currentChunk = sb.currentChunk[n:]
-
-	return n, nil
+	return sb.bb.Read(p)
 }
 
 // Write to the internal buffer, but if the buffer is too full block until the pressure has been relieved
@@ -101,7 +68,7 @@ func (sb *SyncBuffer) BlockingWrite(p []byte) (n int, err error) {
 	}
 
 	// In instances that blocking write is being used, Write() is not, its implicit and bad but we assume the starting buffer is 0
-	n, err = sb.doWrite(p)
+	n, err = sb.bb.Write(p)
 	if err != nil {
 		return 0, err
 	}
@@ -127,24 +94,11 @@ func (sb *SyncBuffer) Write(p []byte) (n int, err error) {
 	defer sb.rwait.Signal()
 	defer sb.Unlock()
 
-	return sb.doWrite(p)
-}
-
-func (sb *SyncBuffer) doWrite(p []byte) (n int, err error) {
 	if sb.isClosed {
 		return 0, ErrClosed
 	}
 
-	chunkLength := make([]byte, 4)
-
-	binary.LittleEndian.PutUint32(chunkLength, uint32(len(p)))
-
-	_, err = sb.bb.Write(append(chunkLength, p...))
-	if err != nil {
-		return 0, err
-	}
-
-	return len(p), nil
+	return sb.bb.Write(p)
 }
 
 // Threadsafe len()
