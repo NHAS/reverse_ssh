@@ -7,172 +7,165 @@ import (
 )
 
 type SyncBuffer struct {
+	bb *bytes.Buffer
 	sync.Mutex
-	*bytes.Buffer
-	waitingRead  chan interface{}
-	waitingWrite chan interface{}
 
-	closed chan interface{}
+	rwait sync.Cond
+	wwait sync.Cond
+
+	maxLength int
 
 	isClosed bool
 }
 
+// Read from the internal buffer, wait if the buffer is EOF until it is has something to return
 func (sb *SyncBuffer) BlockingRead(p []byte) (n int, err error) {
 	sb.Lock()
-	defer func() {
-
-		select {
-		// clear the write waiting buffer
-		case <-sb.waitingWrite:
-		default:
-			// Dont queue if nothing is waiting for us
-		}
-
-		sb.Unlock()
-	}()
+	defer sb.Unlock()
 
 	if sb.isClosed {
-		return 0, io.EOF
+		return 0, ErrClosed
 	}
 
-	n, err = sb.Buffer.Read(p)
+	n, err = sb.bb.Read(p)
 	if err == io.EOF {
-		sb.Unlock()
 
-		die := false
-		select {
-		case <-sb.waitingRead:
-		case <-sb.closed:
-			die = true
+		for err == io.EOF {
+
+			sb.wwait.Signal()
+			sb.rwait.Wait()
+
+			if sb.isClosed {
+				return 0, ErrClosed
+			}
+
+			n, err = sb.bb.Read(p)
 		}
-
-		sb.Lock()
-
-		if die {
-			return 0, io.EOF
-		}
-
-		return sb.Buffer.Read(p)
+		return
 	}
 
 	return
 }
 
+// Read contents of internal buffer, non-blocking and can return eof even if the buffer is still "open"
 func (sb *SyncBuffer) Read(p []byte) (n int, err error) {
-	sb.Lock()
-	defer func() {
 
-		select {
-		// clear the write waiting buffer
-		case <-sb.waitingWrite:
-		default:
-			// Dont queue if nothing is waiting for us
-		}
-
-		sb.Unlock()
-	}()
-
-	if sb.isClosed {
-		return 0, io.EOF
-	}
-
-	return sb.Buffer.Read(p)
-}
-
-func (sb *SyncBuffer) BlockingWrite(p []byte) (n int, err error) {
-	sb.Lock()
-	defer func() {
-
-		select {
-		// notify any blocked reads that it can now continue
-		case sb.waitingRead <- true:
-		default:
-			// dont wait for notify if nothing is waiting
-		}
-		sb.Unlock()
-	}()
-
-	if sb.isClosed {
-		return 0, io.EOF
-	}
-
-	if sb.Buffer.Len()+len(p) > 8096 {
-		sb.Unlock()
-		// If the buffer has grown too big, the client is probably gone, malicious or slow so wait until we have a read to clear the buffer
-
-		die := false
-		select {
-		case sb.waitingWrite <- true:
-		case <-sb.closed:
-			die = true
-		}
-
-		sb.Lock()
-
-		if die {
-			return 0, io.EOF
-		}
-	}
-
-	return sb.Buffer.Write(p)
-}
-
-func (sb *SyncBuffer) Write(p []byte) (n int, err error) {
-	sb.Lock()
-	defer func() {
-
-		select {
-		// notify any blocked reads that it can now continue
-		case sb.waitingRead <- true:
-		default:
-			// dont wait for notify if nothing is waiting
-		}
-		sb.Unlock()
-	}()
-
-	if sb.isClosed {
-		return 0, io.EOF
-	}
-
-	return sb.Buffer.Write(p)
-}
-
-func (sb *SyncBuffer) Len() int {
 	sb.Lock()
 	defer sb.Unlock()
-	return sb.Buffer.Len()
+	defer sb.wwait.Signal()
+
+	if sb.isClosed {
+		return 0, ErrClosed
+	}
+	return sb.bb.Read(p)
+}
+
+// Write to the internal buffer, but if the buffer is too full block until the pressure has been relieved
+func (sb *SyncBuffer) BlockingWrite(p []byte) (n int, err error) {
+	sb.Lock()
+	defer sb.Unlock()
+	defer sb.rwait.Signal()
+
+	if sb.isClosed {
+		return 0, ErrClosed
+	}
+
+	// If the buffer has grown too big, the client is probably gone, malicious or slow so wait until we have a read to clear the buffer
+	totalWritten := 0
+
+	// In instances that blocking write is being used, Write() is not, its implicit and bad but we assume the starting buffer is 0
+
+	n, _ = sb.bb.Write(p[:min(sb.maxLength, len(p))])
+	p = p[n:]
+	totalWritten += n
+
+	for {
+
+		sb.rwait.Signal()
+		sb.wwait.Wait()
+
+		if sb.isClosed {
+			return 0, ErrClosed
+		}
+
+		if sb.bb.Len() != 0 {
+			continue
+		}
+
+		if len(p) == 0 {
+			return totalWritten, nil
+		}
+
+		n, _ = sb.bb.Write(p[:min(sb.maxLength, len(p))])
+		p = p[n:]
+		totalWritten += n
+
+	}
+}
+
+// Write to the internal in-memory buffer, will not block
+// This can return ErrClosed if the buffer was closed
+func (sb *SyncBuffer) Write(p []byte) (n int, err error) {
+
+	sb.Lock()
+	defer sb.Unlock()
+	defer sb.rwait.Signal()
+
+	if sb.isClosed {
+		return 0, ErrClosed
+	}
+
+	return sb.bb.Write(p)
+}
+
+// Threadsafe len()
+func (sb *SyncBuffer) Len() int {
+
+	sb.Lock()
+	defer sb.Unlock()
+
+	return sb.bb.Len()
 }
 
 func (sb *SyncBuffer) Reset() {
+
 	sb.Lock()
 	defer sb.Unlock()
-	sb.Buffer.Reset()
+
+	sb.bb.Reset()
 }
 
+// Close, resets the internal buffer, wakes all blocking reads/writes
+// Double close is a no-op
 func (sb *SyncBuffer) Close() error {
+	sb.Lock()
+	defer sb.Unlock()
 
 	if sb.isClosed {
 		return nil
 	}
 
-	select {
-	case <-sb.closed:
-	default:
-
-		close(sb.closed)
-	}
-
-	sb.Lock()
 	sb.isClosed = true
-	sb.Unlock()
+
+	sb.rwait.Signal()
+	sb.wwait.Signal()
+
+	sb.bb.Reset()
+
 	return nil
 }
 
-func NewSyncBuffer() *SyncBuffer {
-	return &SyncBuffer{
-		Buffer:       bytes.NewBuffer(nil),
-		waitingRead:  make(chan interface{}),
-		waitingWrite: make(chan interface{}),
-		closed:       make(chan interface{}),
+func NewSyncBuffer(maxLength int) *SyncBuffer {
+
+	sb := &SyncBuffer{
+		bb:        bytes.NewBuffer(nil),
+		isClosed:  false,
+		maxLength: maxLength,
 	}
+
+	sb.rwait.L = &sb.Mutex
+	sb.wwait.L = &sb.Mutex
+
+	return sb
+
 }

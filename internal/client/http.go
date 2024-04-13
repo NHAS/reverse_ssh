@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"log"
@@ -18,8 +19,7 @@ type HTTPConn struct {
 
 	done chan interface{}
 
-	readBuffer  *mux.SyncBuffer
-	writeBuffer *mux.SyncBuffer
+	readBuffer *mux.SyncBuffer
 
 	client *http.Client
 }
@@ -27,10 +27,9 @@ type HTTPConn struct {
 func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn, error) {
 
 	result := &HTTPConn{
-		done:        make(chan interface{}),
-		readBuffer:  mux.NewSyncBuffer(),
-		writeBuffer: mux.NewSyncBuffer(),
-		address:     address,
+		done:       make(chan interface{}),
+		readBuffer: mux.NewSyncBuffer(8096),
+		address:    address,
 	}
 
 	result.client = &http.Client{
@@ -38,6 +37,9 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 			Dial: func(network, addr string) (net.Conn, error) {
 				return connector()
 			},
+			MaxConnsPerHost:   1,
+			MaxIdleConns:      -1,
+			DisableKeepAlives: true,
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -74,7 +76,6 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 	}
 
 	go result.startReadLoop()
-	go result.startWriteLoop()
 
 	return result, nil
 }
@@ -109,31 +110,6 @@ func (c *HTTPConn) startReadLoop() {
 	}
 }
 
-func (c *HTTPConn) startWriteLoop() {
-	for {
-		select {
-		case <-c.done:
-			return
-		default:
-		}
-
-		if c.writeBuffer.Len() == 0 {
-			time.Sleep(10 * time.Millisecond)
-			continue
-		}
-
-		resp, err := c.client.Post(c.address+"/download?item="+c.ID, "application/octet-stream", c.writeBuffer)
-		if err != nil {
-			log.Println("error writing data: ", err)
-			c.Close()
-			return
-		}
-		resp.Body.Close()
-
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
 func (c *HTTPConn) Read(b []byte) (n int, err error) {
 	select {
 	case <-c.done:
@@ -141,7 +117,10 @@ func (c *HTTPConn) Read(b []byte) (n int, err error) {
 	default:
 	}
 
-	return c.readBuffer.BlockingRead(b)
+	n, err = c.readBuffer.BlockingRead(b)
+	log.Println("br ", n, err)
+
+	return
 }
 
 func (c *HTTPConn) Write(b []byte) (n int, err error) {
@@ -151,11 +130,20 @@ func (c *HTTPConn) Write(b []byte) (n int, err error) {
 	default:
 	}
 
-	return c.writeBuffer.BlockingWrite(b)
+	resp, err := c.client.Post(c.address+"/download?item="+c.ID, "application/octet-stream", bytes.NewBuffer(b))
+	if err != nil {
+		c.Close()
+		return 0, err
+	}
+	resp.Body.Close()
+
+	log.Println("bw: ", len(b))
+
+	return len(b), nil
 }
 func (c *HTTPConn) Close() error {
+
 	c.readBuffer.Close()
-	c.writeBuffer.Close()
 
 	select {
 	case <-c.done:

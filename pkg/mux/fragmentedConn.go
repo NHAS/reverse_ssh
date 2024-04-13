@@ -5,11 +5,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"log"
 	"net"
+	"strconv"
 	"time"
 )
 
 var ErrClosed = errors.New("fragment collector has been closed")
+
+const maxBuffer = 8096
 
 type fragmentedConnection struct {
 	done chan interface{}
@@ -23,8 +27,8 @@ func NewFragmentCollector() (*fragmentedConnection, string, error) {
 	fc := &fragmentedConnection{
 		done: make(chan interface{}),
 
-		readBuffer:  NewSyncBuffer(),
-		writeBuffer: NewSyncBuffer(),
+		readBuffer:  NewSyncBuffer(maxBuffer),
+		writeBuffer: NewSyncBuffer(maxBuffer),
 	}
 
 	randomData := make([]byte, 16)
@@ -47,7 +51,11 @@ func (fc *fragmentedConnection) Read(b []byte) (n int, err error) {
 
 	}
 
-	return fc.readBuffer.BlockingRead(b)
+	n, err = fc.readBuffer.BlockingRead(b)
+
+	log.Println("sr: ", n, "err: ", err, "contents: ", strconv.Quote(string(b[:n])))
+
+	return
 }
 
 func (fc *fragmentedConnection) Write(b []byte) (n int, err error) {
@@ -58,7 +66,12 @@ func (fc *fragmentedConnection) Write(b []byte) (n int, err error) {
 	default:
 
 	}
-	return fc.readBuffer.BlockingWrite(b)
+
+	n, err = fc.writeBuffer.BlockingWrite(b)
+
+	log.Println("sw: ", n, "err: ", err)
+
+	return
 }
 
 func (fc *fragmentedConnection) Close() error {

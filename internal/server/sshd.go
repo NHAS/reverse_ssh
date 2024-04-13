@@ -364,6 +364,8 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 		return
 	}
 
+	log.Println("past this")
+
 	clientLog := logger.NewLog(sshConn.RemoteAddr().String())
 
 	if timeout > 0 {

@@ -171,12 +171,14 @@ func (m *Multiplexer) collector() http.HandlerFunc {
 		}
 
 		lck.Lock()
-		defer lck.Unlock()
+
+		defer req.Body.Close()
 
 		id := req.URL.Query().Get("item")
 		c, ok := connections[id]
 		if !ok {
 			if req.Method == http.MethodHead {
+				defer lck.Unlock()
 				var err error
 
 				c, id, err = NewFragmentCollector()
@@ -217,21 +219,20 @@ func (m *Multiplexer) collector() http.HandlerFunc {
 			return
 		}
 
-		defer func() {
-			if req.Method == http.MethodPost {
-				log.Println("finished: ", req.Method)
-			}
-		}()
+		lck.Unlock()
+
 		switch req.Method {
 
 		// Get any buffered/queued data
 		case http.MethodGet:
+
 			_, err := io.Copy(w, c.writeBuffer)
 			if err != nil {
 				if err == io.EOF {
 					return
 				}
 			}
+
 		// Add data
 		case http.MethodPost:
 			_, err := io.Copy(c.readBuffer, req.Body)
