@@ -29,6 +29,31 @@ func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		return fmt.Errorf("No clients matched '%s'", line.Arguments[0].Value())
 	}
 
+	if !line.IsSet("y") {
+
+		fmt.Fprintf(tty, "Kill %d clients? [N/y] ", len(connections))
+
+		if term, ok := tty.(*terminal.Terminal); ok {
+			term.EnableRaw()
+		}
+
+		b := make([]byte, 1)
+		_, err := tty.Read(b)
+		if err != nil {
+			if term, ok := tty.(*terminal.Terminal); ok {
+				term.DisableRaw()
+			}
+			return err
+		}
+		if term, ok := tty.(*terminal.Terminal); ok {
+			term.DisableRaw()
+		}
+
+		if !(b[0] == 'y' || b[0] == 'Y') {
+			return fmt.Errorf("\nUser did not enter y/Y, aborting")
+		}
+	}
+
 	killedClients := 0
 	for id, serverConn := range connections {
 		serverConn.SendRequest("kill", false, nil)
@@ -58,6 +83,7 @@ func (k *kill) Help(explain bool) string {
 		"kill <remote_id>",
 		"kill <glob pattern>",
 		"Stop the execute of the rssh client.",
+		"-y\tDo not prompt for confirmation before killing clients",
 	)
 }
 
