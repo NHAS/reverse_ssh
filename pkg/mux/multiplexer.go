@@ -455,8 +455,8 @@ func (m *Multiplexer) getProtoListener(proto protocols.Type) net.Listener {
 }
 
 func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type, error) {
-	//conn.SetDeadline(time.Now().Add(2 * time.Second))
-	conn.SetDeadline(time.Time{})
+	conn.SetDeadline(time.Now().Add(2 * time.Second))
+
 	var proto protocols.Type
 	conn, proto, err := m.determineProtocol(conn)
 	if err != nil {
