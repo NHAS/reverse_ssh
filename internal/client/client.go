@@ -415,7 +415,7 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 
 }
 
-var matchSchemeDefinition = regexp.MustCompile(".*\\:\\/\\/")
+var matchSchemeDefinition = regexp.MustCompile(`.*\:\/\/`)
 
 func determineConnectionType(addr string) (resultingAddr, transport string) {
 

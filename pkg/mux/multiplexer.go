@@ -37,6 +37,8 @@ type MultiplexerConfig struct {
 
 	TcpKeepAlive int
 
+	PollingAuthChecker func(key string, addr net.Addr) bool
+
 	tlsConfig *tls.Config
 }
 
@@ -168,6 +170,7 @@ func (m *Multiplexer) startHttpServer() {
 func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 
 	var (
+		// key to number of devices using that key
 		connections = map[string]*fragmentedConnection{}
 		lck         sync.Mutex
 	)
@@ -182,11 +185,21 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 
 		defer req.Body.Close()
 
-		id := req.URL.Query().Get("item")
+		id := req.URL.Query().Get("id")
 		c, ok := connections[id]
 		if !ok {
+			defer lck.Unlock()
+
 			if req.Method == http.MethodHead {
-				defer lck.Unlock()
+
+				if len(connections) > 2000 {
+					log.Println("server has too many polling connections (", len(connections), " limit is 2k")
+					http.Error(w, "Server Error", http.StatusInternalServerError)
+					return
+				}
+
+				key := req.URL.Query().Get("key")
+
 				var err error
 
 				realConn, ok := req.Context().Value(contextKey).(net.Conn)
@@ -196,7 +209,15 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 					return
 				}
 
-				c, id, err = NewFragmentCollector(localAddr, realConn.RemoteAddr())
+				if !m.config.PollingAuthChecker(key, realConn.RemoteAddr()) {
+					log.Println("client connected but the key for starting a new polling session was wrong")
+					http.Error(w, "Bad Request", http.StatusBadRequest)
+					return
+				}
+
+				c, id, err = NewFragmentCollector(localAddr, realConn.RemoteAddr(), func() {
+					delete(connections, id)
+				})
 				if err != nil {
 					log.Println("error generating new fragment collector: ", err)
 					http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -214,7 +235,6 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				select {
 				//Allow whatever we're multiplexing to apply backpressure if it cant accept things
 				case l.connections <- c:
-					log.Println("added connection to ssh pool")
 				case <-time.After(2 * time.Second):
 
 					log.Println(l.protocol, "Failed to accept new http connection within 2 seconds, closing connection (may indicate high resource usage)")
@@ -224,7 +244,7 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 					return
 				}
 
-				http.Redirect(w, req, "/download", http.StatusTemporaryRedirect)
+				http.Redirect(w, req, "/notification", http.StatusTemporaryRedirect)
 				return
 
 			}
@@ -236,6 +256,9 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 
 		lck.Unlock()
 
+		// Reset last seen time.
+		c.IsAlive()
+
 		switch req.Method {
 
 		// Get any buffered/queued data
@@ -246,6 +269,7 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				if err == io.EOF {
 					return
 				}
+				c.Close()
 			}
 
 		// Add data
@@ -255,7 +279,7 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				if err == io.EOF {
 					return
 				}
-
+				c.Close()
 			}
 		}
 
@@ -305,6 +329,10 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 	m.listeners = make(map[string]net.Listener)
 	m.result = map[protocols.Type]*multiplexerListener{}
 	m.config = _c
+
+	if _c.PollingAuthChecker == nil {
+		return nil, errors.New("no authentication method supplied for polling muxing, this may lead to extreme dos if not set. Must set it")
+	}
 
 	err := m.StartListener(network, address)
 	if err != nil {
@@ -435,7 +463,7 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 			return c, protocols.Websockets, nil
 		}
 
-		if bytes.HasPrefix(header, []byte("HEAD /download")) || bytes.HasPrefix(header, []byte("GET /download")) || bytes.HasPrefix(header, []byte("POST /download")) {
+		if bytes.HasPrefix(header, []byte("HEAD /push")) || bytes.HasPrefix(header, []byte("GET /push")) || bytes.HasPrefix(header, []byte("POST /push")) {
 			return c, protocols.HTTP, nil
 		}
 

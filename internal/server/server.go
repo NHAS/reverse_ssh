@@ -1,8 +1,10 @@
 package server
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -53,6 +55,22 @@ func Run(addr, dataDir, connectBackAddress, TLSCertPath, TLSKeyPath string, inse
 		TLSKeyPath:        TLSKeyPath,
 		AutoTLSCommonName: connectBackAddress,
 		TcpKeepAlive:      timeout,
+		PollingAuthChecker: func(key string, addr net.Addr) bool {
+
+			authorizedKey, err := hex.DecodeString(key)
+			if err != nil {
+				return false
+			}
+
+			pubKey, err := ssh.ParsePublicKey(authorizedKey)
+			if err != nil {
+				return false
+			}
+
+			_, err = CheckAuth(filepath.Join(dataDir, "authorized_controllee_keys"), pubKey, getIP(addr.String()), insecure)
+			return err == nil
+
+		},
 	}
 
 	privateKeyPath := filepath.Join(dataDir, "id_ed25519")

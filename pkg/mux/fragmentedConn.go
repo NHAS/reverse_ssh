@@ -21,9 +21,13 @@ type fragmentedConnection struct {
 
 	localAddr  net.Addr
 	remoteAddr net.Addr
+
+	isDead *time.Timer
+
+	onClose func()
 }
 
-func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr) (*fragmentedConnection, string, error) {
+func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr, onClosed func()) (*fragmentedConnection, string, error) {
 
 	fc := &fragmentedConnection{
 		done: make(chan interface{}),
@@ -32,7 +36,13 @@ func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr) (*fragmentedC
 		writeBuffer: NewSyncBuffer(maxBuffer),
 		localAddr:   localAddr,
 		remoteAddr:  remoteAddr,
+		onClose:     onClosed,
 	}
+
+	// Since the polling rate for a client is 10 ms, if they havent talked to us in any sense in 2 seconds they're dead
+	fc.isDead = time.AfterFunc(2*time.Second, func() {
+		fc.Close()
+	})
 
 	randomData := make([]byte, 16)
 	_, err := rand.Read(randomData)
@@ -43,6 +53,10 @@ func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr) (*fragmentedC
 	id := hex.EncodeToString(randomData)
 
 	return fc, id, nil
+}
+
+func (fc *fragmentedConnection) IsAlive() {
+	fc.isDead.Reset(2 * time.Second)
 }
 
 func (fc *fragmentedConnection) Read(b []byte) (n int, err error) {
@@ -82,6 +96,7 @@ func (fc *fragmentedConnection) Close() error {
 	case <-fc.done:
 	default:
 		close(fc.done)
+		fc.onClose()
 	}
 
 	return nil
