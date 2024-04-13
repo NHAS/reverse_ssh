@@ -121,6 +121,8 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		"wss":   line.IsSet("wss"),
 		"ws":    line.IsSet("ws"),
 		"stdio": line.IsSet("stdio"),
+		"http":  line.IsSet("http"),
+		"https": line.IsSet("https"),
 	}
 
 	numberTrue := 0
@@ -133,7 +135,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	if numberTrue > 1 {
-		return errors.New("cant use tls/wss/ws/std flags together (only supports one per client)")
+		return errors.New("cant use tls/wss/ws/std/http/https flags together (only supports one per client)")
 	}
 
 	buildConfig.ConnectBackAdress = scheme + buildConfig.ConnectBackAdress
@@ -223,6 +225,8 @@ func (e *link) Help(explain bool) string {
 		"\t--ws\tUse plain http websockets as the underlying transport",
 		"\t--wss\tUse TLS websockets as the underlying transport",
 		"\t--stdio\tUse stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
+		"\t--http\tUse http polling as the underlying transport",
+		"\t--https\tUse https polling as the underlying transport",
 		"\t--shared-object\tGenerate shared object file",
 		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
 		"\t--garble\tUse garble to obfuscate the binary (requires garble to be installed)",
