@@ -137,7 +137,7 @@ func (c *HTTPConn) Write(b []byte) (n int, err error) {
 	}
 	resp.Body.Close()
 
-	log.Println("bw: ", len(b))
+	//log.Println("bw: ", len(b))
 
 	return len(b), nil
 }

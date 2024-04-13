@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -53,7 +52,7 @@ func (fc *fragmentedConnection) Read(b []byte) (n int, err error) {
 
 	n, err = fc.readBuffer.BlockingRead(b)
 
-	log.Println("sr: ", n, "err: ", err, "contents: ", strconv.Quote(string(b[:n])))
+	//log.Println("sr: ", n, "err: ", err)
 
 	return
 }
@@ -82,7 +81,6 @@ func (fc *fragmentedConnection) Close() error {
 	select {
 	case <-fc.done:
 	default:
-
 		close(fc.done)
 	}
 

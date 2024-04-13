@@ -2,6 +2,7 @@ package mux
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"sync"
 )
@@ -15,21 +16,23 @@ type SyncBuffer struct {
 
 	maxLength int
 
+	currentChunk []byte
+
 	isClosed bool
 }
 
 // Read from the internal buffer, wait if the buffer is EOF until it is has something to return
 func (sb *SyncBuffer) BlockingRead(p []byte) (n int, err error) {
 	sb.Lock()
+	defer sb.wwait.Signal()
 	defer sb.Unlock()
 
 	if sb.isClosed {
 		return 0, ErrClosed
 	}
 
-	n, err = sb.bb.Read(p)
+	n, err = sb.doRead(p)
 	if err == io.EOF {
-
 		for err == io.EOF {
 
 			sb.wwait.Signal()
@@ -39,7 +42,7 @@ func (sb *SyncBuffer) BlockingRead(p []byte) (n int, err error) {
 				return 0, ErrClosed
 			}
 
-			n, err = sb.bb.Read(p)
+			n, err = sb.doRead(p)
 		}
 		return
 	}
@@ -51,34 +54,57 @@ func (sb *SyncBuffer) BlockingRead(p []byte) (n int, err error) {
 func (sb *SyncBuffer) Read(p []byte) (n int, err error) {
 
 	sb.Lock()
-	defer sb.Unlock()
 	defer sb.wwait.Signal()
+	defer sb.Unlock()
+
+	return sb.doRead(p)
+}
+
+func (sb *SyncBuffer) doRead(p []byte) (n int, err error) {
 
 	if sb.isClosed {
 		return 0, ErrClosed
 	}
-	return sb.bb.Read(p)
+
+	if sb.currentChunk == nil || len(sb.currentChunk) == 0 {
+		headerUint32 := make([]byte, 4)
+		n, err = sb.bb.Read(headerUint32)
+		if err != nil {
+			return 0, err
+		}
+
+		if n != 4 {
+			panic("header was of incorrect length")
+		}
+
+		chunkLength := binary.LittleEndian.Uint32(headerUint32)
+
+		sb.currentChunk = make([]byte, chunkLength)
+
+		sb.bb.Read(sb.currentChunk)
+	}
+
+	n = copy(p, sb.currentChunk[:min(len(p), len(sb.currentChunk))])
+	sb.currentChunk = sb.currentChunk[n:]
+
+	return n, nil
 }
 
 // Write to the internal buffer, but if the buffer is too full block until the pressure has been relieved
 func (sb *SyncBuffer) BlockingWrite(p []byte) (n int, err error) {
 	sb.Lock()
-	defer sb.Unlock()
 	defer sb.rwait.Signal()
+	defer sb.Unlock()
 
 	if sb.isClosed {
 		return 0, ErrClosed
 	}
 
-	// If the buffer has grown too big, the client is probably gone, malicious or slow so wait until we have a read to clear the buffer
-	totalWritten := 0
-
 	// In instances that blocking write is being used, Write() is not, its implicit and bad but we assume the starting buffer is 0
-
-	n, _ = sb.bb.Write(p[:min(sb.maxLength, len(p))])
-	p = p[n:]
-	totalWritten += n
-
+	n, err = sb.doWrite(p)
+	if err != nil {
+		return 0, err
+	}
 	for {
 
 		sb.rwait.Signal()
@@ -88,34 +114,37 @@ func (sb *SyncBuffer) BlockingWrite(p []byte) (n int, err error) {
 			return 0, ErrClosed
 		}
 
-		if sb.bb.Len() != 0 {
-			continue
+		if sb.bb.Len() == 0 {
+			return len(p), nil
 		}
-
-		if len(p) == 0 {
-			return totalWritten, nil
-		}
-
-		n, _ = sb.bb.Write(p[:min(sb.maxLength, len(p))])
-		p = p[n:]
-		totalWritten += n
-
 	}
 }
 
 // Write to the internal in-memory buffer, will not block
 // This can return ErrClosed if the buffer was closed
 func (sb *SyncBuffer) Write(p []byte) (n int, err error) {
-
 	sb.Lock()
-	defer sb.Unlock()
 	defer sb.rwait.Signal()
+	defer sb.Unlock()
 
+	return sb.doWrite(p)
+}
+
+func (sb *SyncBuffer) doWrite(p []byte) (n int, err error) {
 	if sb.isClosed {
 		return 0, ErrClosed
 	}
 
-	return sb.bb.Write(p)
+	chunkLength := make([]byte, 4)
+
+	binary.LittleEndian.PutUint32(chunkLength, uint32(len(p)))
+
+	_, err = sb.bb.Write(append(chunkLength, p...))
+	if err != nil {
+		return 0, err
+	}
+
+	return len(p), nil
 }
 
 // Threadsafe len()
