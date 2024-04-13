@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"log"
 	"net"
 	"time"
 )
@@ -57,8 +56,6 @@ func (fc *fragmentedConnection) Read(b []byte) (n int, err error) {
 
 	n, err = fc.readBuffer.BlockingRead(b)
 
-	//log.Println("sr: ", n, "err: ", err)
-
 	return
 }
 
@@ -72,8 +69,6 @@ func (fc *fragmentedConnection) Write(b []byte) (n int, err error) {
 	}
 
 	n, err = fc.writeBuffer.BlockingWrite(b)
-
-	log.Println("sw: ", n, "err: ", err)
 
 	return
 }

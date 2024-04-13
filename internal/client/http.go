@@ -118,7 +118,6 @@ func (c *HTTPConn) Read(b []byte) (n int, err error) {
 	}
 
 	n, err = c.readBuffer.BlockingRead(b)
-	log.Println("br ", n, err)
 
 	return
 }
@@ -137,8 +136,6 @@ func (c *HTTPConn) Write(b []byte) (n int, err error) {
 	}
 	resp.Body.Close()
 
-	//log.Println("bw: ", len(b))
-
 	return len(b), nil
 }
 func (c *HTTPConn) Close() error {
@@ -156,15 +153,14 @@ func (c *HTTPConn) Close() error {
 }
 
 func (c *HTTPConn) LocalAddr() net.Addr {
-	return &net.IPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: ""}
+	return &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: ""}
 }
 
 func (c *HTTPConn) RemoteAddr() net.Addr {
-	return &net.IPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: ""}
+	return &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: ""}
 }
 
 func (c *HTTPConn) SetDeadline(t time.Time) error {
-
 	return nil
 }
 
