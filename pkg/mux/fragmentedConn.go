@@ -19,15 +19,20 @@ type fragmentedConnection struct {
 
 	readBuffer  *SyncBuffer
 	writeBuffer *SyncBuffer
+
+	localAddr  net.Addr
+	remoteAddr net.Addr
 }
 
-func NewFragmentCollector() (*fragmentedConnection, string, error) {
+func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr) (*fragmentedConnection, string, error) {
 
 	fc := &fragmentedConnection{
 		done: make(chan interface{}),
 
 		readBuffer:  NewSyncBuffer(maxBuffer),
 		writeBuffer: NewSyncBuffer(maxBuffer),
+		localAddr:   localAddr,
+		remoteAddr:  remoteAddr,
 	}
 
 	randomData := make([]byte, 16)
@@ -88,11 +93,11 @@ func (fc *fragmentedConnection) Close() error {
 }
 
 func (fc *fragmentedConnection) LocalAddr() net.Addr {
-	return &net.TCPAddr{}
+	return fc.localAddr
 }
 
 func (fc *fragmentedConnection) RemoteAddr() net.Addr {
-	return &net.TCPAddr{}
+	return fc.remoteAddr
 }
 
 func (fc *fragmentedConnection) SetDeadline(t time.Time) error {

@@ -143,21 +143,29 @@ func (m *Multiplexer) StartListener(network, address string) error {
 	return nil
 }
 
+type ConnContextKey string
+
+var contextKey ConnContextKey = "conn"
+
 func (m *Multiplexer) startHttpServer() {
 	listener := m.getProtoListener(protocols.HTTP)
+
 	go func(l net.Listener) {
 
 		srv := &http.Server{
 			ReadTimeout:  60 * time.Second,
 			WriteTimeout: 60 * time.Second,
-			Handler:      m.collector(),
+			Handler:      m.collector(listener.Addr()),
+			ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+				return context.WithValue(ctx, contextKey, c)
+			},
 		}
 
 		log.Println(srv.Serve(l))
 	}(listener)
 }
 
-func (m *Multiplexer) collector() http.HandlerFunc {
+func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 
 	var (
 		connections = map[string]*fragmentedConnection{}
@@ -181,7 +189,14 @@ func (m *Multiplexer) collector() http.HandlerFunc {
 				defer lck.Unlock()
 				var err error
 
-				c, id, err = NewFragmentCollector()
+				realConn, ok := req.Context().Value(contextKey).(net.Conn)
+				if !ok {
+					log.Println("couldnt get real connection address")
+					http.Error(w, "Server Error", http.StatusInternalServerError)
+					return
+				}
+
+				c, id, err = NewFragmentCollector(localAddr, realConn.RemoteAddr())
 				if err != nil {
 					log.Println("error generating new fragment collector: ", err)
 					http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -440,8 +455,8 @@ func (m *Multiplexer) getProtoListener(proto protocols.Type) net.Listener {
 }
 
 func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type, error) {
-	conn.SetDeadline(time.Now().Add(2 * time.Second))
-
+	//conn.SetDeadline(time.Now().Add(2 * time.Second))
+	conn.SetDeadline(time.Time{})
 	var proto protocols.Type
 	conn, proto, err := m.determineProtocol(conn)
 	if err != nil {
