@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -43,6 +44,9 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 		Transport: &http.Transport{
 			Dial: func(network, addr string) (net.Conn, error) {
 				return connector()
+			},
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
 			},
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
