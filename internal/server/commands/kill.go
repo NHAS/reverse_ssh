@@ -52,6 +52,8 @@ func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		if !(b[0] == 'y' || b[0] == 'Y') {
 			return fmt.Errorf("\nUser did not enter y/Y, aborting")
 		}
+
+		fmt.Fprint(tty, "\n")
 	}
 
 	killedClients := 0
