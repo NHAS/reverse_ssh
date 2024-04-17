@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	mathrand "math/rand"
@@ -63,12 +64,12 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 
 	resp, err := result.client.Head(address + "/push?key=" + hex.EncodeToString(publicKeyBytes))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to %s/push?key=%s, err: %s", address, hex.EncodeToString(publicKeyBytes), err)
 	}
 	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusTemporaryRedirect {
-		return nil, errors.New("server refused to open a session for us")
+		return nil, fmt.Errorf("server refused to open a session for us: expected %d got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 	}
 
 	found := false
