@@ -444,6 +444,7 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 	header := make([]byte, 14)
 	n, err := conn.Read(header)
 	if err != nil {
+		conn.Close()
 		return nil, "", fmt.Errorf("failed to read header: %s", err)
 	}
 
@@ -470,6 +471,7 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 		return c, protocols.Download, nil
 	}
 
+	conn.Close()
 	return nil, "", errors.New("unknown protocol: " + string(header[:n]))
 }
 
@@ -536,7 +538,6 @@ func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type,
 		// If we did unwrap tls, we now peek into the inner protocol to see whats there
 		conn, proto, err = m.determineProtocol(c)
 		if err != nil {
-			conn.Close()
 			return nil, protocols.Invalid, fmt.Errorf("error determining functional protocol: %s", err)
 		}
 
