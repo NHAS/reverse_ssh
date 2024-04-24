@@ -43,6 +43,7 @@ And more!
     - [Setup](#setup)
     - [Basic Usage](#basic-usage)
   - [Fancy Features](#fancy-features)
+    - [Privileges](#privileges)
     - [Automatic connect-back](#automatic-connect-back)
     - [Reverse shell download (client generation and in-built HTTP server)](#reverse-shell-download-client-generation-and-in-built-http-server)
     - [Alternate Transports (HTTP/Websockets/TLS)](#alternate-transports-httpwebsocketstls)
@@ -126,6 +127,13 @@ scp -J your.rssh.server.internal:3232 dummy.machine:/etc/passwd .
 ```
 
 ## Fancy Features
+
+
+### Privileges
+The RSSH server supports very basic user privileges, where users found in the `data-directory`/`keys` (specified by `--datadir`) folder e.g `data-directory/keys/jim` will be assigned as a "user" only able to see clients that are public (found in the authorized_controllee_keys file without an `owners` tag, or an empty `owners` tag) or specifically assigned to them, e.g `owners="jim"`. 
+
+This can be changed at run time via an user sharing access to a client they own with the `access` command, or a server administrator. Defaultly, any public key found in the `authorized_keys` file will be marked as an administrator to retain backwards compatibility.
+Any changes made by the `access` command will not persist server reboot, and this will require editing the `authorized_controllee_keys` file for that specific client. 
 
 ### Automatic connect-back
 
