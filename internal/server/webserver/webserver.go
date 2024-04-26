@@ -80,9 +80,14 @@ func buildAndServe() http.HandlerFunc {
 			}
 
 			if linkExtension != "" {
-				log.Println("ext: ", linkExtension)
 
-				host, port := getHostnameAndPort(DefaultConnectBack)
+				host, port, err := net.SplitHostPort(DefaultConnectBack)
+				if err != nil {
+					host = DefaultConnectBack
+					port = "80"
+
+					log.Println("no port specified in external_address:", DefaultConnectBack, " defaulting to: ", DefaultConnectBack+":80")
+				}
 
 				output, err := shellscripts.MakeTemplate(shellscripts.Args{
 					OS:       f.Goos,
@@ -143,18 +148,4 @@ func buildAndServe() http.HandlerFunc {
 			return
 		}
 	}
-}
-
-func getHostnameAndPort(address string) (host, port string) {
-	for i := len(address) - 1; i > 0; i-- {
-		if address[i] == ':' {
-			host = address[:i]
-			if i < len(address) {
-				port = address[i+1:]
-			}
-			return
-		}
-	}
-
-	return
 }

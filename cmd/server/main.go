@@ -165,5 +165,7 @@ func main() {
 
 	}
 
+	log.Println("connect back: ", connectBackAddress)
+
 	server.Run(listenAddress, dataDir, connectBackAddress, tlscert, tlskey, insecure, webserver, tls, openproxy, timeout)
 }
