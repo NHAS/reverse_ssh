@@ -1,5 +1,5 @@
 # Reverse SSH
-![icon](icons/On_Top_Of_Fv.png)
+![icon](icons/On_Top_Of_Fv.png)  
 (Art credit to https://www.instagram.com/smart.hedgehog.art/)
 
 Want to use SSH for reverse shells? Now you can.
@@ -42,6 +42,9 @@ And more!
   - [TL;DR](#tldr)
     - [Setup](#setup)
     - [Basic Usage](#basic-usage)
+  - [Sponsors](#sponsors)
+    - [Individuals](#individuals)
+    - [Companies](#companies)
   - [Fancy Features](#fancy-features)
     - [Privileges](#privileges)
     - [Automatic connect-back](#automatic-connect-back)
@@ -125,6 +128,19 @@ ssh -D 9050 -J your.rssh.server.internal:3232 dummy.machine
 scp -J your.rssh.server.internal:3232 dummy.machine:/etc/passwd .
 
 ```
+
+## Sponsors 
+
+A huge thanks to the following folk for donating to the RSSH project and making all this work possible! 
+
+### Individuals
+[chikamobina](https://github.com/chikamobina) for their generous donations!
+
+### Companies
+
+[Carapace](https://carapace.nz/) is a New Zealand based security consultancy with an extremely talented team of folk!  
+[<img src="icons/carapace_logo.png">](https://carapace.nz/)
+
 
 ## Fancy Features
 
