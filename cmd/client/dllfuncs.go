@@ -6,11 +6,11 @@ import "C"
 
 //export VoidFunc
 func VoidFunc() {
-	Run(destination, fingerprint, "")
+	Run(destination, fingerprint, proxy, customSNI)
 }
 
 //export OnProcessAttach
 func OnProcessAttach() {
 
-	Run(destination, fingerprint, "")
+	Run(destination, fingerprint, proxy, customSNI)
 }
