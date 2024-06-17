@@ -245,7 +245,11 @@ func NewSSHEndpoint(dev ssh.Channel) *SSHEndpoint {
 	}
 }
 
-func (m *SSHEndpoint) ParseHeader(stack.PacketBufferPtr) bool {
+func (m *SSHEndpoint) SetLinkAddress(addr tcpip.LinkAddress) {
+
+}
+
+func (m *SSHEndpoint) ParseHeader(*stack.PacketBuffer) bool {
 	return true
 }
 
@@ -328,7 +332,7 @@ func (m *SSHEndpoint) WritePackets(pkts stack.PacketBufferList) (int, tcpip.Erro
 var lock sync.Mutex
 
 // WritePacket writes outbound packets
-func (m *SSHEndpoint) WritePacket(pkt stack.PacketBufferPtr) tcpip.Error {
+func (m *SSHEndpoint) WritePacket(pkt *stack.PacketBuffer) tcpip.Error {
 
 	pktBuf := pkt.ToBuffer()
 
@@ -359,11 +363,11 @@ func (*SSHEndpoint) ARPHardwareType() header.ARPHardwareType {
 }
 
 // AddHeader implements stack.LinkEndpoint.AddHeader.
-func (*SSHEndpoint) AddHeader(pkt stack.PacketBufferPtr) {
+func (*SSHEndpoint) AddHeader(*stack.PacketBuffer) {
 }
 
 // WriteRawPacket implements stack.LinkEndpoint.
-func (*SSHEndpoint) WriteRawPacket(stack.PacketBufferPtr) tcpip.Error {
+func (*SSHEndpoint) WriteRawPacket(*stack.PacketBuffer) tcpip.Error {
 	return &tcpip.ErrNotSupported{}
 }
 
@@ -429,7 +433,7 @@ func icmpResponder(s *stack.Stack) error {
 
 // ProcessICMP send back a ICMP echo reply from after receiving a echo request.
 // This code come mostly from pkg/tcpip/network/ipv4/icmp.go
-func ProcessICMP(nstack *stack.Stack, pkt stack.PacketBufferPtr) {
+func ProcessICMP(nstack *stack.Stack, pkt *stack.PacketBuffer) {
 	// (gvisor) pkg/tcpip/network/ipv4/icmp.go:174 - handleICMP
 
 	h := header.ICMPv4(pkt.TransportHeader().Slice())
