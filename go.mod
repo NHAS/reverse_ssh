@@ -5,6 +5,7 @@ go 1.22.4
 require (
 	github.com/ActiveState/termtest/conpty v0.5.0
 	github.com/creack/pty v1.1.21
+	github.com/fatih/color v1.15.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-ping/ping v1.1.0
 	github.com/justincormack/go-memfd v0.0.0-20170219213707-6e4af0518993
@@ -25,6 +26,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/kr/fs v0.1.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	golang.org/x/sync v0.6.0 // indirect

@@ -17,6 +17,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/fatih/color"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -444,7 +445,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 			})
 		}()
 
-		clientLog.Info("New controllable connection with id %s", id)
+		clientLog.Info("New controllable connection from %s with id %s", color.BlueString(username), color.YellowString(id))
 
 		observers.ConnectionState.Notify(observers.ClientState{
 			Status:    "connected",

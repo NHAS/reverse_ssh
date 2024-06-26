@@ -13,6 +13,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/fatih/color"
 )
 
 type watch struct {
@@ -123,9 +124,10 @@ func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLin
 		var arrowDirection = "<-"
 		if c.Status == "disconnected" {
 			arrowDirection = "->"
+			messages <- fmt.Sprintf("%s %s %s (%s %s) %s %s", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, color.BlueString(c.HostName), c.IP, color.YellowString(c.ID), c.Version, color.RedString(c.Status))
+		} else {
+			messages <- fmt.Sprintf("%s %s %s (%s %s) %s %s", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, color.BlueString(c.HostName), c.IP, color.YellowString(c.ID), c.Version, color.GreenString(c.Status))
 		}
-
-		messages <- fmt.Sprintf("%s %s %s (%s %s) %s %s", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, c.HostName, c.IP, c.ID, c.Version, c.Status)
 
 	})
 
