@@ -29,7 +29,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "GOOS", "GOARCH", "Version", "Type", "Hits")
+		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "GOOS", "GOARCH", "Version", "Type", "Hits", "Size")
 
 		files, err := data.ListDownloads(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
@@ -46,7 +46,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		for _, id := range ids {
 			file := files[id]
 
-			t.AddValues("http://"+path.Join(webserver.DefaultConnectBack, id), file.CallbackAddress, file.Goos, file.Goarch+file.Goarm, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits))
+			t.AddValues("http://"+path.Join(webserver.DefaultConnectBack, id), file.CallbackAddress, file.Goos, file.Goarch+file.Goarm, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits), fmt.Sprintf("%.2f MB", file.FileSize))
 		}
 
 		t.Fprint(tty)
