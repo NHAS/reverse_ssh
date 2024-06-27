@@ -201,11 +201,6 @@ func Build(config BuildConfig) (string, error) {
 
 	f.UrlPath = config.Name
 
-	err = data.CreateDownload(f)
-	if err != nil {
-		return "", err
-	}
-
 	if config.UPX {
 		output, err := exec.Command("upx", "-qq", "-f", f.FilePath).CombinedOutput()
 		if err != nil {
@@ -213,7 +208,18 @@ func Build(config BuildConfig) (string, error) {
 		}
 	}
 
+	fi, err := os.Stat(f.FilePath)
+	if err != nil {
+		fmt.Println("Error: ", err)
+	}
+	f.FileSize = float64(fi.Size()) / 1024 / 1024
+
 	os.Chmod(f.FilePath, 0600)
+
+	err = data.CreateDownload(f)
+	if err != nil {
+		return "", err
+	}
 
 	Autocomplete.Add(config.Name)
 

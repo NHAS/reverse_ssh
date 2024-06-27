@@ -22,6 +22,7 @@ type Download struct {
 	FileType        string
 	Hits            int
 	Version         string
+	FileSize        float64
 }
 
 func CreateDownload(file Download) error {
