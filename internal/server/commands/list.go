@@ -11,6 +11,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
 	"github.com/NHAS/reverse_ssh/pkg/table"
+	"github.com/fatih/color"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -110,7 +111,7 @@ func (l *list) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 			owners = "public"
 		}
 
-		fmt.Fprintf(tty, "%s %s %s %s, owners: %s, version: %s", tr.id, keyId, users.NormaliseHostname(tr.sc.User()), tr.sc.RemoteAddr().String(), owners, tr.sc.ClientVersion())
+		fmt.Fprintf(tty, "%s %s %s %s, owners: %s, version: %s", color.YellowString(tr.id), keyId, color.BlueString(users.NormaliseHostname(tr.sc.User())), tr.sc.RemoteAddr().String(), owners, tr.sc.ClientVersion())
 
 		if i != len(toReturn)-1 {
 			fmt.Fprint(tty, sep)
