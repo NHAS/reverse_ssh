@@ -173,8 +173,11 @@ func Build(config BuildConfig) (string, error) {
 	if config.SharedLibrary {
 
 		var crossCompiler string
-		if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && f.Goos == "windows" && f.Goarch == "amd64" {
+		if (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && f.Goos == "windows" {
 			crossCompiler = "x86_64-w64-mingw32-gcc"
+			if f.Goarch == "386" {
+				crossCompiler = "i686-w64-mingw32-gcc"
+			}
 		}
 
 		cmd.Env = append(cmd.Env, "CC="+crossCompiler)
@@ -185,7 +188,8 @@ func Build(config BuildConfig) (string, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		if strings.Contains(err.Error(), "garble") && strings.Contains(err.Error(), "x86_64-w64-mingw32-ld") && strings.Contains(err.Error(), "undefined reference to") {
+		if strings.Contains(err.Error(), "garble") && (strings.Contains(err.Error(), "i686-w64-mingw32-ld") || strings.Contains(err.Error(), "x86_64-w64-mingw32-ld")) &&
+			strings.Contains(err.Error(), "undefined reference to") {
 			// Try to recover if the linking fails by clearing the cache
 			if cleanErr := exec.Command("go", "clean", "-cache").Run(); cleanErr != nil {
 				return "", fmt.Errorf("Error (was unable to automatically clean cache): " + err.Error() + "\n" + string(output))
