@@ -135,6 +135,7 @@ A huge thanks to the following folk for donating to the RSSH project and making 
 
 ### Individuals
 [chikamobina](https://github.com/chikamobina) for their generous donations!
+[wrighterase (ctrlzero)](https://github.com/wrighterase) for their pull requests and donation! 
 
 ### Companies
 
