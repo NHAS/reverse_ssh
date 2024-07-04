@@ -22,6 +22,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+func exit(session ssh.Channel, code int) {
+	status := struct{ Status uint32 }{uint32(code)}
+	session.SendRequest("exit-status", false, ssh.Marshal(&status))
+}
+
 // Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
 // However these calls are done through requests, rather than opening a new channel
 // This callback just sorts out what the client wants to be doing
@@ -38,7 +43,10 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 			log.Warning("Could not accept channel (%s)", err)
 			return
 		}
-		defer connection.Close()
+		defer func() {
+			exit(connection, 0)
+			connection.Close()
+		}()
 
 		for req := range requests {
 			log.Info("Session got request: %q", req.Type)
@@ -124,7 +132,6 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
 			case "pty-req":
 
-				//Ignoring the error here as we are not fully parsing the payload, leaving the unmarshal func a bit confused (thus returning an error)
 				pty, err := internal.ParsePtyReq(req.Payload)
 				if err != nil {
 					log.Warning("Got undecodable pty request: %s", err)
