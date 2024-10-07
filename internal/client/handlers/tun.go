@@ -245,7 +245,19 @@ func NewSSHEndpoint(dev ssh.Channel) *SSHEndpoint {
 	}
 }
 
+func (m *SSHEndpoint) Close() {
+	m.tunnel.Close()
+}
+
+func (m *SSHEndpoint) SetOnCloseAction(func()) {
+
+}
+
 func (m *SSHEndpoint) SetLinkAddress(addr tcpip.LinkAddress) {
+
+}
+
+func (m *SSHEndpoint) SetMTU(uint32) {
 
 }
 
