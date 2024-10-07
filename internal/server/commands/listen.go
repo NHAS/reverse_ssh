@@ -126,7 +126,7 @@ func (l *listen) client(user *users.User, tty io.ReadWriter, line terminal.Parse
 			return err
 		}
 
-		p, err := strconv.Atoi(port)
+		p, err := strconv.ParseInt(port, 10, 32)
 		if err != nil {
 			return err
 		}
@@ -201,7 +201,7 @@ func (l *listen) client(user *users.User, tty io.ReadWriter, line terminal.Parse
 			return err
 		}
 
-		p, err := strconv.Atoi(port)
+		p, err := strconv.ParseInt(port, 10, 32)
 		if err != nil {
 			return err
 		}

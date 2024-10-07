@@ -114,7 +114,7 @@ func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh
 		return err
 	}
 
-	originatorPortInt, err := strconv.Atoi(originatorPort)
+	originatorPortInt, err := strconv.ParseInt(originatorPort, 10, 32)
 	if err != nil {
 		return err
 	}

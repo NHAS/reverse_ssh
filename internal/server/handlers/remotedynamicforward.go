@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -90,9 +89,10 @@ func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh
 	for i := len(originatorAddress) - 1; i > 0; i-- {
 		if originatorAddress[i] == ':' {
 
-			e, err := strconv.Atoi(originatorAddress[i+1:])
+			e, err := strconv.ParseInt(originatorAddress[i+1:], 10, 32)
 			if err != nil {
-				log.Fatal(err)
+				sshConn.Close()
+				return fmt.Errorf("failed to parse port number: %s", err)
 			}
 
 			originatorPort = uint32(e)
