@@ -22,6 +22,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"golang.org/x/crypto/ssh"
+	socks "golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
 )
 
@@ -52,6 +53,7 @@ func GetProxyDetails(proxy string) (string, error) {
 	if err != nil ||
 		(proxyURL.Scheme != "http" &&
 			proxyURL.Scheme != "https" &&
+			proxyURL.Scheme != "socks" &&
 			proxyURL.Scheme != "socks5") {
 		// proxy was bogus. Try prepending "http://" to it and
 		// see if that parses correctly. If not, we fall
@@ -64,68 +66,85 @@ func GetProxyDetails(proxy string) (string, error) {
 	}
 
 	if proxyURL.Port() != "" {
-		return proxyURL.Host, nil
+		return proxyURL.Scheme + "://" + proxyURL.Host, nil
 	}
 
 	// If there is no port set we need to add a default for the tcp connection
 	// Yes most of these are not supported LACHLAN, and thats fine. Im lazy
 	switch proxyURL.Scheme {
 	case "socks5":
-		return proxyURL.Host + ":1080", nil
+		return proxyURL.Scheme + "://" + proxyURL.Host + ":1080", nil
 	case "https":
-		return proxyURL.Host + ":443", nil
+		return proxyURL.Scheme + "://" + proxyURL.Host + ":443", nil
 	}
-	return proxyURL.Host + ":80", nil
+	return proxyURL.Scheme + "://" + proxyURL.Host + ":80", nil
 }
 
 func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err error) {
 
 	if len(proxy) != 0 {
 		log.Println("Setting HTTP proxy address as: ", proxy)
+		proxyURL, _ := url.Parse(proxy) // Already parsed
 
-		proxyCon, err := net.DialTimeout("tcp", proxy, timeout)
-		if err != nil {
-			return conn, err
-		}
+		if proxyURL.Scheme == "http" {
 
-		if tcpC, ok := proxyCon.(*net.TCPConn); ok {
-			tcpC.SetKeepAlivePeriod(2 * time.Hour)
-		}
-
-		req := []string{
-			fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
-			fmt.Sprintf("Host: %s", addr),
-		}
-
-		err = WriteHTTPReq(req, proxyCon)
-		if err != nil {
-			return conn, fmt.Errorf("unable to connect proxy %s", proxy)
-		}
-
-		var responseStatus []byte
-		for {
-			b := make([]byte, 1)
-			_, err := proxyCon.Read(b)
+			proxyCon, err := net.DialTimeout("tcp", proxyURL.Host, timeout)
 			if err != nil {
-				return conn, fmt.Errorf("reading from proxy failed")
+				return conn, err
 			}
-			responseStatus = append(responseStatus, b...)
 
-			if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
-				break
+			if tcpC, ok := proxyCon.(*net.TCPConn); ok {
+				tcpC.SetKeepAlivePeriod(2 * time.Hour)
 			}
+
+			req := []string{
+				fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
+				fmt.Sprintf("Host: %s", addr),
+			}
+
+			err = WriteHTTPReq(req, proxyCon)
+			if err != nil {
+				return conn, fmt.Errorf("unable to connect proxy %s", proxy)
+			}
+
+			var responseStatus []byte
+			for {
+				b := make([]byte, 1)
+				_, err := proxyCon.Read(b)
+				if err != nil {
+					return conn, fmt.Errorf("reading from proxy failed")
+				}
+				responseStatus = append(responseStatus, b...)
+
+				if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
+					break
+				}
+			}
+
+			if !(bytes.Contains(bytes.ToLower(responseStatus), []byte("200"))) {
+				parts := bytes.Split(responseStatus, []byte("\r\n"))
+				if len(parts) > 1 {
+					return proxyCon, fmt.Errorf("failed to proxy: '%s'", parts[0])
+				}
+			}
+
+			log.Println("Proxy accepted CONNECT request, connection set up!")
+
+			return proxyCon, nil
 		}
-
-		if !(bytes.Contains(bytes.ToLower(responseStatus), []byte("200"))) {
-			parts := bytes.Split(responseStatus, []byte("\r\n"))
-			if len(parts) > 1 {
-				return proxyCon, fmt.Errorf("failed to proxy: '%s'", parts[0])
+		if proxyURL.Scheme == "socks" || proxyURL.Scheme == "socks5" {
+			dial, err := socks.SOCKS5("tcp", proxyURL.Host, nil, nil)
+			if err != nil {
+				log.Println("reading from socks failed")
+				return nil, err
 			}
+			proxyCon, err := dial.Dial("tcp", addr)
+			if err != nil {
+				log.Println("failed to socks")
+				return nil, err
+			}
+			return proxyCon, nil
 		}
-
-		log.Println("Proxy accepted CONNECT request, connection set up!")
-
-		return proxyCon, nil
 	}
 
 	conn, err = net.DialTimeout("tcp", addr, timeout)
