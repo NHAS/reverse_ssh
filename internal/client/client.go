@@ -71,13 +71,19 @@ func GetProxyDetails(proxy string) (string, error) {
 
 	// If there is no port set we need to add a default for the tcp connection
 	// Yes most of these are not supported LACHLAN, and thats fine. Im lazy
-	switch proxyURL.Scheme {
-	case "socks5":
-		return proxyURL.Scheme + "://" + proxyURL.Host + ":1080", nil
-	case "https":
-		return proxyURL.Scheme + "://" + proxyURL.Host + ":443", nil
+
+	port := proxyURL.Port()
+	if port == "" {
+		switch proxyURL.Scheme {
+		case "socks5":
+			proxyURL.Host += ":1080"
+		case "https":
+			proxyURL.Host += ":443"
+		case "http":
+			proxyURL.Host += ":80"
+		}
 	}
-	return proxyURL.Scheme + "://" + proxyURL.Host + ":80", nil
+	return proxyURL.Scheme + proxyURL.Host, nil
 }
 
 func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err error) {
