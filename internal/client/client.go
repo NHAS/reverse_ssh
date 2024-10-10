@@ -54,7 +54,8 @@ func GetProxyDetails(proxy string) (string, error) {
 		(proxyURL.Scheme != "http" &&
 			proxyURL.Scheme != "https" &&
 			proxyURL.Scheme != "socks" &&
-			proxyURL.Scheme != "socks5") {
+			proxyURL.Scheme != "socks5" &&
+			proxyURL.Scheme != "socks4") {
 		// proxy was bogus. Try prepending "http://" to it and
 		// see if that parses correctly. If not, we fall
 		// through and complain about the original one.
@@ -65,17 +66,12 @@ func GetProxyDetails(proxy string) (string, error) {
 		return "", fmt.Errorf("invalid proxy address %q: %v", proxy, err)
 	}
 
-	if proxyURL.Port() != "" {
-		return proxyURL.Scheme + "://" + proxyURL.Host, nil
-	}
-
 	// If there is no port set we need to add a default for the tcp connection
 	// Yes most of these are not supported LACHLAN, and thats fine. Im lazy
-
 	port := proxyURL.Port()
 	if port == "" {
 		switch proxyURL.Scheme {
-		case "socks5":
+		case "socks5", "socks", "socks4":
 			proxyURL.Host += ":1080"
 		case "https":
 			proxyURL.Host += ":443"
@@ -96,7 +92,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 
 			proxyCon, err := net.DialTimeout("tcp", proxyURL.Host, timeout)
 			if err != nil {
-				return conn, err
+				return nil, err
 			}
 
 			if tcpC, ok := proxyCon.(*net.TCPConn); ok {
@@ -110,7 +106,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 
 			err = WriteHTTPReq(req, proxyCon)
 			if err != nil {
-				return conn, fmt.Errorf("unable to connect proxy %s", proxy)
+				return nil, fmt.Errorf("unable to connect proxy %s", proxy)
 			}
 
 			var responseStatus []byte
@@ -130,7 +126,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 			if !(bytes.Contains(bytes.ToLower(responseStatus), []byte("200"))) {
 				parts := bytes.Split(responseStatus, []byte("\r\n"))
 				if len(parts) > 1 {
-					return proxyCon, fmt.Errorf("failed to proxy: '%s'", parts[0])
+					return nil, fmt.Errorf("failed to proxy: %q", parts[0])
 				}
 			}
 
@@ -141,21 +137,23 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 		if proxyURL.Scheme == "socks" || proxyURL.Scheme == "socks5" {
 			dial, err := socks.SOCKS5("tcp", proxyURL.Host, nil, nil)
 			if err != nil {
-				log.Println("reading from socks failed")
-				return nil, err
+				return nil, fmt.Errorf("reading from socks failed: %s", err)
 			}
 			proxyCon, err := dial.Dial("tcp", addr)
 			if err != nil {
-				log.Println("failed to socks")
-				return nil, err
+
+				return nil, fmt.Errorf("failed to dial socks: %s", err)
 			}
+
+			log.Println("SOCKS Proxy accepted dial, connection set up!")
+
 			return proxyCon, nil
 		}
 	}
 
 	conn, err = net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
-		return conn, err
+		return nil, fmt.Errorf("failed to connect: %s", err)
 	}
 
 	if tcpC, ok := conn.(*net.TCPConn); ok {
