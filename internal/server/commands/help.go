@@ -15,7 +15,7 @@ type help struct {
 }
 
 func (h *help) ValidArgs() map[string]string {
-	return map[string]string{"-l": "List all function names only"}
+	return map[string]string{"l": "List all function names only"}
 }
 
 func (h *help) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
