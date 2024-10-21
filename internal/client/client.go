@@ -79,7 +79,7 @@ func GetProxyDetails(proxy string) (string, error) {
 			proxyURL.Host += ":80"
 		}
 	}
-	return proxyURL.Scheme + proxyURL.Host, nil
+	return proxyURL.Scheme + "://" + proxyURL.Host, nil
 }
 
 func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err error) {
