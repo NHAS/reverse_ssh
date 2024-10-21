@@ -244,6 +244,21 @@ func (l *listen) client(user *users.User, tty io.ReadWriter, line terminal.Parse
 	return nil
 }
 
+func (w *listen) ValidArgs() map[string]string {
+
+	r := map[string]string{
+		"on":   "Turn on port, e.g --on :8080 127.0.0.1:4444",
+		"auto": "Automatically turn on server control port on clients that match criteria, (use --off --auto to disable and --l --auto to view)",
+		"off":  "Turn off port, e.g --off :8080 127.0.0.1:4444",
+		"l":    "List all enabled addresses",
+	}
+
+	addDuplicateFlags("Open server port on client/s takes a pattern, e.g -c *, --client your.hostname.here", r, "client", "c")
+	addDuplicateFlags("Change the server listeners", r, "server", "s")
+
+	return r
+}
+
 func (w *listen) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 	if line.IsSet("h") || len(line.Flags) < 1 {
 		fmt.Fprintf(tty, "%s", w.Help(false))
@@ -298,16 +313,10 @@ func (w *listen) Help(explain bool) string {
 		return "Change, add or stop rssh server port. Open the server port on a client (proxy)"
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(w.ValidArgs(),
 		"listen [OPTION] [PORT]",
 		"listen starts or stops listening control ports",
 		"it allows you to change the servers listening port, or open the servers control port on an rssh client, so that forwarding is easier",
-		"\t--client (-c)\tOpen server port on client/s takes a pattern, e.g -c *, --client your.hostname.here",
-		"\t--server (-s)\tChange the server listeners",
-		"\t--on\tTurn on port, e.g --on :8080 127.0.0.1:4444",
-		"\t--auto\tAutomatically turn on server control port on clients that match criteria, (use --off --auto to disable and --l --auto to view)",
-		"\t--off\tTurn off port, e.g --off :8080 127.0.0.1:4444",
-		"\t-l\tList all enabled addresses",
 	)
 }
 

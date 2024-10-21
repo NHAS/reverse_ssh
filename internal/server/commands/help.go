@@ -14,6 +14,10 @@ import (
 type help struct {
 }
 
+func (h *help) ValidArgs() map[string]string {
+	return map[string]string{"-l": "List all function names only"}
+}
+
 func (h *help) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if line.IsSet("l") {
@@ -83,9 +87,8 @@ func (h *help) Help(explain bool) string {
 		return "Get help for commands, or display all commands"
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(h.ValidArgs(),
 		"help",
 		"help <functions>",
-		"-l\tList all function names only",
 	)
 }

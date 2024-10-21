@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -20,11 +19,14 @@ type watch struct {
 	datadir string
 }
 
-func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
-
-	if line.IsSet("h") || line.IsSet("help") {
-		return errors.New(w.Help(false))
+func (w *watch) ValidArgs() map[string]string {
+	return map[string]string{
+		"a": "Lists all previous connection events",
+		"l": "List previous n number of connection events, e.g watch -l 10 shows last 10 connections",
 	}
+}
+
+func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if line.IsSet("a") {
 
@@ -167,12 +169,10 @@ func (w *watch) Help(explain bool) string {
 		return "Watches controllable client connections"
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(w.ValidArgs(),
 		"watch [OPTIONS]",
 		"Watch shows continuous connection status of clients (prints the joining and leaving of clients)",
 		"Defaultly waits for new connection events",
-		"\t-a\tLists all previous connection events",
-		"\t-l\tList previous n number of connection events, e.g watch -l 10 shows last 10 connections",
 	)
 }
 

@@ -59,11 +59,13 @@ func (s *service) Execute(line terminal.ParsedLine, connection ssh.Channel, subs
 	}
 
 	return errors.New(terminal.MakeHelpText(
+		map[string]string{
+			"name":      "Name of service to act on, defaults to 'rssh'",
+			"install":   "Optionally, when supplied an argument rssh will copy itself there",
+			"uninstall": "Will uninstall the service set by name",
+		},
 		"service [MODE] [ARGS|...]",
 		"The service submodule can install or removed the rssh binary as a service",
-		"\t--name\tName of service to act on, defaults to 'rssh'",
-		"\t--install\tOptionally, when supplied an argument rssh will copy itself there",
-		"\t--uninstall\tWill uninstall the service set by name",
 	))
 }
 

@@ -14,6 +14,10 @@ type kill struct {
 	log logger.Logger
 }
 
+func (k *kill) ValidArgs() map[string]string {
+	return map[string]string{"-y": "Do not prompt for confirmation before killing clients"}
+}
+
 func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if len(line.Arguments) != 1 {
@@ -81,11 +85,10 @@ func (k *kill) Help(explain bool) string {
 		return "Stop the execute of the rssh client."
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(k.ValidArgs(),
 		"kill <remote_id>",
 		"kill <glob pattern>",
 		"Stop the execute of the rssh client.",
-		"-y\tDo not prompt for confirmation before killing clients",
 	)
 }
 

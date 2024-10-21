@@ -13,8 +13,17 @@ import (
 type webhook struct {
 }
 
+func (w *webhook) ValidArgs() map[string]string {
+	return map[string]string{
+		"on":       "Turns on webhook/s, must supply output as url",
+		"off":      "Turns off existing webhook url",
+		"insecure": "Disable TLS certificate checking",
+		"l":        "Lists active webhooks",
+	}
+}
+
 func (w *webhook) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
-	if line.IsSet("h") || len(line.Flags) < 1 {
+	if len(line.Flags) < 1 {
 		fmt.Fprintf(tty, "%s", w.Help(false))
 		return nil
 	}
@@ -96,12 +105,8 @@ func (w *webhook) Help(explain bool) string {
 		return "Add or remove webhooks"
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(w.ValidArgs(),
 		"webhook [OPTIONS]",
 		"Allows you to set webhooks which currently show the joining and leaving of clients",
-		"\t--on\tTurns on webhook/s, must supply output as url",
-		"\t--off\tTurns off existing webhook url",
-		"\t--insecure\tDisable TLS certificate checking",
-		"\t-l\tLists active webhooks",
 	)
 }

@@ -11,6 +11,10 @@ import (
 type privilege struct {
 }
 
+func (p *privilege) ValidArgs() map[string]string {
+	return map[string]string{}
+}
+
 func (p *privilege) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	fmt.Fprintf(tty, "%s\n", user.PrivilegeString())
@@ -27,7 +31,7 @@ func (p *privilege) Help(explain bool) string {
 		return "Privilege shows the current user privilege level."
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(p.ValidArgs(),
 		"priv ",
 		"Print the currrent privilege level.",
 	)

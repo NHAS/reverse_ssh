@@ -22,11 +22,39 @@ type link struct {
 
 var spaceMatcher = regexp.MustCompile(`[\s]+`)
 
-func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
+func (l *link) ValidArgs() map[string]string {
 
-	if line.IsSet("h") || line.IsSet("help") {
-		return errors.New(l.Help(false))
+	r := map[string]string{
+		"s":             "Set homeserver address, defaults to server --external_address if set, or server listen address if not",
+		"l":             "List currently active download links",
+		"r":             "Remove download link",
+		"C":             "Comment to add as the public key (acts as the name)",
+		"goos":          "Set the target build operating system (default runtime GOOS)",
+		"goarch":        "Set the target build architecture (default runtime GOARCH)",
+		"goarm":         "Set the go arm variable (not set by default)",
+		"name":          "Set the link download url/filename (default random characters)",
+		"proxy":         "Set connect proxy address to bake it",
+		"tls":           "Use TLS as the underlying transport",
+		"ws":            "Use plain http websockets as the underlying transport",
+		"wss":           "Use TLS websockets as the underlying transport",
+		"stdio":         "Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
+		"http":          "Use http polling as the underlying transport",
+		"https":         "Use https polling as the underlying transport",
+		"shared-object": "Generate shared object file",
+		"fingerprint":   "Set RSSH server fingerprint will default to server public key",
+		"garble":        "Use garble to obfuscate the binary (requires garble to be installed)",
+		"upx":           "Use upx to compress the final binary (requires upx to be installed)",
+		"no-lib-c":      "Compile client without glibc",
+		"sni":           "When TLS is in use, set a custom SNI for the client to connect with",
 	}
+
+	// Add duplicate flags for owners
+	addDuplicateFlags("Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson", r, "owners", "o")
+
+	return r
+}
+
+func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if toList, ok := line.Flags["l"]; ok {
 		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "GOOS", "GOARCH", "Version", "Type", "Hits", "Size")
@@ -208,32 +236,10 @@ func (e *link) Help(explain bool) string {
 		return "Generate client binary and return link to it"
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(e.ValidArgs(),
 		"link [OPTIONS]",
 		"Link will compile a client and serve the resulting binary on a link which is returned.",
 		"This requires the web server component has been enabled.",
-		"\t-s\tSet homeserver address, defaults to server --external_address if set, or server listen address if not.",
-		"\t-l\tList currently active download links",
-		"\t-r\tRemove download link",
-		"\t-C\tComment to add as the public key (acts as the name)",
-		"\t--goos\tSet the target build operating system (default runtime GOOS)",
-		"\t--goarch\tSet the target build architecture (default runtime GOARCH)",
-		"\t--goarm\tSet the go arm variable (not set by default)",
-		"\t--name\tSet the link download url/filename (default random characters)",
-		"\t--proxy\tSet connect proxy address to bake it",
-		"\t--tls\tUse TLS as the underlying transport",
-		"\t--ws\tUse plain http websockets as the underlying transport",
-		"\t--wss\tUse TLS websockets as the underlying transport",
-		"\t--stdio\tUse stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
-		"\t--http\tUse http polling as the underlying transport",
-		"\t--https\tUse https polling as the underlying transport",
-		"\t--shared-object\tGenerate shared object file",
-		"\t--fingerprint\tSet RSSH server fingerprint will default to server public key",
-		"\t--garble\tUse garble to obfuscate the binary (requires garble to be installed)",
-		"\t--upx\tUse upx to compress the final binary (requires upx to be installed)",
-		"\t--no-lib-c\tCompile client without glibc",
-		"\t--sni\tWhen TLS is in use, set a custom SNI for the client to connect with",
-		"\t--owners|-o\tSet owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson ",
 	)
 }
 

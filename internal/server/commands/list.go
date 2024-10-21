@@ -49,6 +49,12 @@ func fancyTable(tty io.ReadWriter, applicable []displayItem) {
 	t.Fprint(tty)
 }
 
+func (l *list) ValidArgs() map[string]string {
+	return map[string]string{
+		"t": "Print all attributes in pretty table",
+		"h": "Print help"}
+}
+
 func (l *list) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	filter := ""
@@ -59,11 +65,6 @@ func (l *list) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		if len(args) != 0 {
 			filter = line.RawLine[args[0].End():]
 		}
-	}
-
-	if line.IsSet("h") {
-		fmt.Fprintf(tty, "%s", l.Help(false))
-		return nil
 	}
 
 	var toReturn []displayItem
@@ -135,10 +136,8 @@ func (l *list) Help(explain bool) string {
 		return "List connected controllable hosts."
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(l.ValidArgs(),
 		"ls [OPTION] [FILTER]",
 		"Filter uses glob matching against all attributes of a target (id, public key hash, hostname, ip)",
-		"\t-t\tPrint all attributes in pretty table",
-		"\t-h\tPrint help",
 	)
 }

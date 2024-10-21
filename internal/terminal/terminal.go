@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,9 +22,10 @@ import (
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 )
 
-var ErrTrample = errors.New("Function already registered")
-var ErrCtrlC = errors.New("Ctrl + C")
-var ErrCtrlD = errors.New("Ctrl + D")
+var (
+	ErrCtrlC = errors.New("ctrl + C")
+	ErrCtrlD = errors.New("ctrl + D")
+)
 
 type TerminalFunctionCallback func(term *Terminal, args ...string) error
 
@@ -230,39 +230,12 @@ func (t *Terminal) AddValueAutoComplete(placement string, trie ...*trie.Trie) er
 	defer t.lock.Unlock()
 
 	if _, ok := t.autoCompleteValues[placement]; ok {
-		return errors.New("Trampling function value, ignoring")
+		return errors.New("trampling function value, ignoring")
 	}
 
 	t.autoCompleteValues[placement] = trie
 
 	return nil
-}
-
-func collapse(s string, char byte) string {
-
-	var sb strings.Builder
-	sb.Grow(len(s))
-
-	run := false
-	for _, v := range s {
-		if byte(v) == char {
-			run = true
-			continue
-		}
-
-		if run {
-			sb.WriteByte(char)
-			run = false
-		}
-
-		sb.WriteByte(byte(v))
-	}
-
-	if run {
-		sb.WriteByte(char)
-	}
-
-	return sb.String()
 }
 
 func defaultAutoComplete(term *Terminal, line string, pos int, key rune) (newLine string, newPos int, ok bool) {
@@ -505,6 +478,20 @@ func (t *Terminal) AddCommands(m map[string]Command) error {
 	return nil
 }
 
+func (t *Terminal) removeDuplicates(stringsSlice []string) []string {
+	allKeys := make(map[string]bool)
+	list := []string{}
+	for _, item := range stringsSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+
+	sort.Strings(list)
+	return list
+}
+
 func (t *Terminal) Run() error {
 	for {
 		//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
@@ -525,6 +512,36 @@ func (t *Terminal) Run() error {
 				continue
 			}
 
+			_, isSmallHelp := parsedLine.Flags["h"]
+			_, isBigHelp := parsedLine.Flags["help"]
+
+			if isSmallHelp || isBigHelp {
+				fmt.Fprint(t, f.Help(false))
+				continue
+			}
+
+			validFlags := f.ValidArgs()
+
+			failed := []string{}
+			for flag := range parsedLine.Flags {
+				_, ok := validFlags[flag]
+				if !ok && !(flag == "h" || flag == "help") {
+					failed = append(failed, flag)
+				}
+			}
+
+			if len(failed) > 0 {
+				failed = t.removeDuplicates(failed)
+				suffix := ""
+				if len(failed) > 1 {
+					suffix = "s"
+				}
+
+				fmt.Fprintf(t, "invalid flag%s: %q\n\n", suffix, strings.Join(failed, ", "))
+				fmt.Fprint(t, f.Help(false))
+				continue
+			}
+
 			err = f.Run(t.user, t, parsedLine)
 			if err != nil {
 				if err == io.EOF {
@@ -542,7 +559,6 @@ func (t *Terminal) queue(data []rune) {
 	t.outBuf = append(t.outBuf, []byte(string(data))...)
 }
 
-var eraseUnderCursor = []rune{' ', keyEscape, '[', 'D'}
 var space = []rune{' '}
 
 func isPrintable(key rune) bool {
@@ -1302,47 +1318,6 @@ func (s *stRingBuffer) NthPreviousEntry(n int) (value string, ok bool) {
 		index += s.max
 	}
 	return s.entries[index], true
-}
-
-// readPasswordLine reads from reader until it finds \n or io.EOF.
-// The slice returned does not include the \n.
-// readPasswordLine also ignores any \r it finds.
-// Windows uses \r as end of line. So, on Windows, readPasswordLine
-// reads until it finds \r and ignores any \n it finds during processing.
-func readPasswordLine(reader io.Reader) ([]byte, error) {
-	var buf [1]byte
-	var ret []byte
-
-	for {
-		n, err := reader.Read(buf[:])
-		if n > 0 {
-			switch buf[0] {
-			case '\b':
-				if len(ret) > 0 {
-					ret = ret[:len(ret)-1]
-				}
-			case '\n':
-				if runtime.GOOS != "windows" {
-					return ret, nil
-				}
-				// otherwise ignore \n
-			case '\r':
-				if runtime.GOOS == "windows" {
-					return ret, nil
-				}
-				// otherwise ignore \r
-			default:
-				ret = append(ret, buf[0])
-			}
-			continue
-		}
-		if err != nil {
-			if err == io.EOF && len(ret) > 0 {
-				return ret, nil
-			}
-			return ret, err
-		}
-	}
 }
 
 func (t *Terminal) resetAutoComplete() {

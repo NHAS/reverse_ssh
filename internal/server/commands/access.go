@@ -15,10 +15,6 @@ type access struct {
 
 func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
-	if line.IsSet("h") || line.IsSet("help") {
-		return errors.New(s.Help(false))
-	}
-
 	var err error
 
 	pattern, err := line.GetArgString("p")
@@ -103,6 +99,20 @@ func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLi
 	return fmt.Errorf("%d client owners modified", changes)
 }
 
+func (s *access) ValidArgs() map[string]string {
+
+	r := map[string]string{
+		"y": "Auto confirm prompt",
+	}
+
+	addDuplicateFlags("Clients to act on", r, "p", "pattern")
+	addDuplicateFlags("Set the ownership of the client, comma seperated user list", r, "o", "owners")
+	addDuplicateFlags("Set the ownership to only the current user", r, "c", "current")
+	addDuplicateFlags("Set the ownership to anyone on the server", r, "a", "all")
+
+	return r
+}
+
 func (s *access) Expect(line terminal.ParsedLine) []string {
 	if line.Section != nil {
 		switch line.Section.Value() {
@@ -118,14 +128,9 @@ func (s *access) Help(explain bool) string {
 		return "Temporarily share/unhide client connection."
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(s.ValidArgs(),
 		"access [OPTIONS] -p <FILTER>",
 		"Change ownership of client connection, only lasts until restart of rssh server, to make permanent edit authorized_controllee_keys 'owner' option",
 		"Filter uses glob matching against all attributes of a target (id, public key hash, hostname, ip)",
-		"-p|--pattern\tClients to act on",
-		"-o|--owners\tSet the ownership of the client, comma seperated user list",
-		"-c|--current\tSet the ownership to only the current user",
-		"-a|--all\tSet the ownership to anyone on the server",
-		"-y\tAuto confirm prompt",
 	)
 }

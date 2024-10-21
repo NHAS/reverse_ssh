@@ -35,6 +35,13 @@ complete -F _RSSHCLIENTSCOMPLETION ssh REPLACEMEWITH_THE_REAL_SERVER_NAME_4259e8
 complete -F _RSSHCLIENTSCOMPLETION ssh REPLACEMEWITH_THE_REAL_SERVER_NAME_4259e892-f7ca-4428-afb0-9af135ce9458 listen -c 
 complete -F _RSSHCLIENTSCOMPLETION ssh REPLACEMEWITH_THE_REAL_SERVER_NAME_4259e892-f7ca-4428-afb0-9af135ce9458 kill `
 
+func (k *shellAutocomplete) ValidArgs() map[string]string {
+	return map[string]string{
+		"clients":          "Return a list of client ids",
+		"shell-completion": "Generate bash completion to put in .bashrc/.zshrc with optional server name (will use rssh as server name if not set)",
+	}
+}
+
 func (k *shellAutocomplete) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if line.IsSet("clients") {
@@ -91,9 +98,7 @@ func (k *shellAutocomplete) Help(explain bool) string {
 		return "Generate bash/zsh autocompletion, or match clients and return list of ids"
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(k.ValidArgs(),
 		"autocomplete",
-		"--clients\tReturn a list of client ids",
-		"--shell-completion [server name]\tGenerate bash completion to put in .bashrc/.zshrc with optional server name (will use rssh as server name if not set)",
 	)
 }

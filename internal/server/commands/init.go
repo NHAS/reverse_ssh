@@ -48,3 +48,9 @@ func CreateCommands(session string, user *users.User, log logger.Logger, datadir
 
 	return o
 }
+
+func addDuplicateFlags(helpText string, m map[string]string, flags ...string) {
+	for _, flag := range flags {
+		m[flag] = helpText
+	}
+}

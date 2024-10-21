@@ -11,6 +11,10 @@ import (
 type who struct {
 }
 
+func (w *who) ValidArgs() map[string]string {
+	return map[string]string{}
+}
+
 func (w *who) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	allUsers := users.ListUsers()
@@ -31,5 +35,5 @@ func (w *who) Help(explain bool) string {
 		return "List users connected to the RSSH server"
 	}
 
-	return terminal.MakeHelpText("who")
+	return terminal.MakeHelpText(w.ValidArgs(), "who")
 }

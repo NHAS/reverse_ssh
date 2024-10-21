@@ -3,6 +3,7 @@ package terminal
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -390,10 +391,25 @@ func ParseLine(line string, cursorPosition int) (pl ParsedLine) {
 
 }
 
-func MakeHelpText(lines ...string) (s string) {
+func MakeHelpText(flags map[string]string, lines ...string) (s string) {
 	for _, v := range lines {
 		s += v + "\n"
 	}
 
-	return s
+	flagLines := []string{}
+
+	for flag, description := range flags {
+
+		prefix := "--"
+		if len(flag) == 1 {
+			prefix = "-"
+		}
+
+		flagLines = append(flagLines, "\t"+prefix+flag+"\t"+description)
+	}
+
+	// Sigh, golang
+	sort.Strings(flagLines)
+
+	return s + strings.Join(flagLines, "\n") + "\n"
 }

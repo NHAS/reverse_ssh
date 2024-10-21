@@ -10,6 +10,10 @@ import (
 type exit struct {
 }
 
+func (e *exit) ValidArgs() map[string]string {
+	return map[string]string{}
+}
+
 func (e *exit) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 	return io.EOF
 }
@@ -23,5 +27,5 @@ func (e *exit) Help(explain bool) string {
 		return "Close server console"
 	}
 
-	return terminal.MakeHelpText("exit")
+	return terminal.MakeHelpText(e.ValidArgs(), "exit")
 }

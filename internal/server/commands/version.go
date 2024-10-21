@@ -12,6 +12,10 @@ import (
 type version struct {
 }
 
+func (v *version) ValidArgs() map[string]string {
+	return map[string]string{}
+}
+
 func (v *version) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 	fmt.Fprintln(tty, internal.Version)
 	return nil
@@ -26,5 +30,5 @@ func (v *version) Help(explain bool) string {
 		return "Give server build version"
 	}
 
-	return terminal.MakeHelpText("version")
+	return terminal.MakeHelpText(v.ValidArgs(), "version")
 }

@@ -19,6 +19,13 @@ type connect struct {
 	session string
 }
 
+func (c *connect) ValidArgs() map[string]string {
+
+	return map[string]string{
+		"shell": "Set the shell (or program) to start on connection, this also takes an http, https or rssh url that be downloaded to disk and executed",
+	}
+}
+
 func (c *connect) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	sess, err := c.user.Session(c.session)
@@ -103,9 +110,8 @@ func (c *connect) Help(explain bool) string {
 		return "Start shell on remote controllable host."
 	}
 
-	return terminal.MakeHelpText(
+	return terminal.MakeHelpText(c.ValidArgs(),
 		"connect "+autocomplete.RemoteId,
-		"\t--shell\tSet the shell (or program) to start on connection, this also takes an http, https or rssh url that be downloaded to disk and executed",
 	)
 }
 
