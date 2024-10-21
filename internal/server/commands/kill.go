@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -15,13 +16,13 @@ type kill struct {
 }
 
 func (k *kill) ValidArgs() map[string]string {
-	return map[string]string{"-y": "Do not prompt for confirmation before killing clients"}
+	return map[string]string{"y": "Do not prompt for confirmation before killing clients"}
 }
 
 func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if len(line.Arguments) != 1 {
-		return fmt.Errorf(k.Help(false))
+		return errors.New(k.Help(false))
 	}
 
 	connections, err := user.SearchClients(line.Arguments[0].Value())
