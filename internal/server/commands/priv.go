@@ -33,6 +33,6 @@ func (p *privilege) Help(explain bool) string {
 
 	return terminal.MakeHelpText(p.ValidArgs(),
 		"priv ",
-		"Print the currrent privilege level.",
+		"Print the currrent user privilege level.",
 	)
 }

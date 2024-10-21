@@ -23,9 +23,15 @@ func (e *exit) Expect(line terminal.ParsedLine) []string {
 }
 
 func (e *exit) Help(explain bool) string {
+
+	const description = "Close server console connection"
+
 	if explain {
 		return "Close server console"
 	}
 
-	return terminal.MakeHelpText(e.ValidArgs(), "exit")
+	return terminal.MakeHelpText(e.ValidArgs(),
+		"exit",
+		description,
+	)
 }

@@ -26,9 +26,13 @@ func (v *version) Expect(line terminal.ParsedLine) []string {
 }
 
 func (v *version) Help(explain bool) string {
+	const description = "Give server build version"
+
 	if explain {
-		return "Give server build version"
+		return description
 	}
 
-	return terminal.MakeHelpText(v.ValidArgs(), "version")
+	return terminal.MakeHelpText(v.ValidArgs(),
+		"version",
+		description)
 }

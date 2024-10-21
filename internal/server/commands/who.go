@@ -31,9 +31,12 @@ func (w *who) Expect(line terminal.ParsedLine) []string {
 }
 
 func (w *who) Help(explain bool) string {
+	const description = "List users connected to the RSSH server"
 	if explain {
-		return "List users connected to the RSSH server"
+		return description
 	}
 
-	return terminal.MakeHelpText(w.ValidArgs(), "who")
+	return terminal.MakeHelpText(w.ValidArgs(),
+		"who",
+		description)
 }

@@ -106,12 +106,14 @@ func (c *connect) Expect(line terminal.ParsedLine) []string {
 }
 
 func (c *connect) Help(explain bool) string {
+	const description = "Start shell on remote controllable host."
 	if explain {
 		return "Start shell on remote controllable host."
 	}
 
 	return terminal.MakeHelpText(c.ValidArgs(),
 		"connect "+autocomplete.RemoteId,
+		description,
 	)
 }
 

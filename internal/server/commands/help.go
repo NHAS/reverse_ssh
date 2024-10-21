@@ -83,12 +83,15 @@ func (h *help) Expect(line terminal.ParsedLine) []string {
 }
 
 func (h *help) Help(explain bool) string {
+
+	const description = "Get help for commands, or display all commands"
 	if explain {
-		return "Get help for commands, or display all commands"
+		return description
 	}
 
 	return terminal.MakeHelpText(h.ValidArgs(),
 		"help",
 		"help <functions>",
+		description,
 	)
 }
