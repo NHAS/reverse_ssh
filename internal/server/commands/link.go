@@ -25,27 +25,29 @@ var spaceMatcher = regexp.MustCompile(`[\s]+`)
 func (l *link) ValidArgs() map[string]string {
 
 	r := map[string]string{
-		"s":             "Set homeserver address, defaults to server --external_address if set, or server listen address if not",
-		"l":             "List currently active download links",
-		"r":             "Remove download link",
-		"C":             "Comment to add as the public key (acts as the name)",
-		"goos":          "Set the target build operating system (default runtime GOOS)",
-		"goarch":        "Set the target build architecture (default runtime GOARCH)",
-		"goarm":         "Set the go arm variable (not set by default)",
-		"name":          "Set the link download url/filename (default random characters)",
-		"proxy":         "Set connect proxy address to bake it",
-		"tls":           "Use TLS as the underlying transport",
-		"ws":            "Use plain http websockets as the underlying transport",
-		"wss":           "Use TLS websockets as the underlying transport",
-		"stdio":         "Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
-		"http":          "Use http polling as the underlying transport",
-		"https":         "Use https polling as the underlying transport",
-		"shared-object": "Generate shared object file",
-		"fingerprint":   "Set RSSH server fingerprint will default to server public key",
-		"garble":        "Use garble to obfuscate the binary (requires garble to be installed)",
-		"upx":           "Use upx to compress the final binary (requires upx to be installed)",
-		"no-lib-c":      "Compile client without glibc",
-		"sni":           "When TLS is in use, set a custom SNI for the client to connect with",
+		"s":                 "Set homeserver address, defaults to server --external_address if set, or server listen address if not",
+		"l":                 "List currently active download links",
+		"r":                 "Remove download link",
+		"C":                 "Comment to add as the public key (acts as the name)",
+		"goos":              "Set the target build operating system (default runtime GOOS)",
+		"goarch":            "Set the target build architecture (default runtime GOARCH)",
+		"goarm":             "Set the go arm variable (not set by default)",
+		"name":              "Set the link download url/filename (default random characters)",
+		"proxy":             "Set connect proxy address to bake it",
+		"tls":               "Use TLS as the underlying transport",
+		"ws":                "Use plain http websockets as the underlying transport",
+		"wss":               "Use TLS websockets as the underlying transport",
+		"stdio":             "Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
+		"http":              "Use http polling as the underlying transport",
+		"https":             "Use https polling as the underlying transport",
+		"shared-object":     "Generate shared object file",
+		"fingerprint":       "Set RSSH server fingerprint will default to server public key",
+		"garble":            "Use garble to obfuscate the binary (requires garble to be installed)",
+		"upx":               "Use upx to compress the final binary (requires upx to be installed)",
+		"no-lib-c":          "Compile client without glibc",
+		"sni":               "When TLS is in use, set a custom SNI for the client to connect with",
+		"working-directory": "Set download/working directory for automatic script (i.e doing curl https://<url>.sh)",
+		"raw-download":      "Download over raw TCP, outputs bash downloader rather than http",
 	}
 
 	// Add duplicate flags for owners
@@ -117,6 +119,8 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		UPX:           line.IsSet("upx"),
 		Garble:        line.IsSet("garble"),
 		DisableLibC:   line.IsSet("no-lib-c"),
+
+		RawDownload: line.IsSet("raw-download"),
 	}
 
 	var err error
@@ -204,6 +208,11 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		if err != nil && err != terminal.ErrFlagNotSet {
 			return err
 		}
+	}
+
+	buildConfig.WorkingDirectory, err = line.GetArgString("working-directory")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
 	}
 
 	if spaceMatcher.MatchString(buildConfig.Owners) {

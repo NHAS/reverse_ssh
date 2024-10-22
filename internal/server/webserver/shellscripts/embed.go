@@ -11,12 +11,13 @@ import (
 var shellTemplates embed.FS
 
 type Args struct {
-	Protocol string
-	Host     string
-	Port     string
-	Name     string
-	Arch     string
-	OS       string
+	Protocol         string
+	Host             string
+	Port             string
+	Name             string
+	Arch             string
+	OS               string
+	WorkingDirectory string
 }
 
 func MakeTemplate(attributes Args, extension string) ([]byte, error) {

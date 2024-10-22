@@ -15,7 +15,16 @@ func (bc *bufferedConn) Read(b []byte) (n int, err error) {
 		n = copy(b, bc.prefix)
 
 		bc.prefix = bc.prefix[n:]
-		return n, nil
+
+		var err error
+		if len(b)-n > 0 {
+			// If we havent exhausted the size of b, read some more
+			var actualRead int
+			actualRead, err = bc.conn.Read(b[n:])
+			n += actualRead
+		}
+
+		return n, err
 	}
 
 	return bc.conn.Read(b)

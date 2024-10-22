@@ -10,12 +10,14 @@ const (
 	TLS        Type = "tls"
 
 	// Final control/data channel
-	Download Type = "download"
-	C2       Type = "ssh"
+	HTTPDownload Type = "download"
+	TCPDownload  Type = "downloadBash"
+
+	C2 Type = "ssh"
 
 	Invalid Type = "invalid"
 )
 
 func FullyUnwrapped(currentProtocol Type) bool {
-	return currentProtocol == C2 || currentProtocol == Download
+	return currentProtocol == C2 || currentProtocol == HTTPDownload || currentProtocol == TCPDownload
 }
