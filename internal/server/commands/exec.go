@@ -23,11 +23,6 @@ func (e *exec) ValidArgs() map[string]string {
 }
 
 func (e *exec) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
-	if line.IsSet("h") {
-		fmt.Fprintf(tty, "%s", e.Help(false))
-		return nil
-	}
-
 	if len(line.Arguments) < 2 {
 		return fmt.Errorf("Not enough arguments supplied. Needs at least, host|filter command...")
 	}

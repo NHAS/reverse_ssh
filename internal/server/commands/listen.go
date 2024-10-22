@@ -260,10 +260,6 @@ func (w *listen) ValidArgs() map[string]string {
 }
 
 func (w *listen) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
-	if line.IsSet("h") || len(line.Flags) < 1 {
-		fmt.Fprintf(tty, "%s", w.Help(false))
-		return nil
-	}
 
 	onAddrs, err := line.GetArgsString("on")
 	if err != nil && err != terminal.ErrFlagNotSet {
