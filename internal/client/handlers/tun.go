@@ -294,13 +294,15 @@ func (m *SSHEndpoint) dispatchLoop() {
 			continue
 		}
 
-		var (
-		// This seemingly is always set to 0 which is unhelpful
-		//pktLength uint16 = binary.BigEndian.Uint16(packet[:2])
-		//family    uint16 = binary.BigEndian.Uint16(packet[2:4])
-		)
+		//https://kernel.googlesource.com/pub/scm/linux/kernel/git/stable/linux-stable/+/v3.4.85/Documentation/networking/tuntap.txt
+		// The SSH client gives us data in the tuntap frame format (which is 4 bytes long)
+		//  3.2 Frame format:
+		//   If flag IFF_NO_PI is not set each frame format is:
+		//   Flags [2 bytes]
+		//   Proto [2 bytes]
+		//   Raw protocol(IP, IPv6, etc) frame.
 
-		//Remove the SSH added family address uint32 (for layer 3 tun)
+		//Remove that
 		packet = packet[4:n]
 
 	outer:
