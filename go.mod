@@ -14,6 +14,7 @@ require (
 	golang.org/x/sys v0.26.0
 	gorm.io/gorm v1.25.12
 	gvisor.dev/gvisor v0.0.0-20241007183343-a0f7780447a8
+	inet.af/tcpproxy v0.0.0-20231102063150-2862066fc2a9
 )
 
 require (
@@ -28,6 +29,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
