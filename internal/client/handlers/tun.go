@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -102,7 +101,7 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 	tcpHandler := tcp.NewForwarder(ns, 30000, 4000, forwardTCP)
 
 	// Forward UDP connections
-	udpHandler := udp.NewForwarder(ns, forwardUDP())
+	udpHandler := udp.NewForwarder(ns, forwardUDP)
 
 	// Register forwarders
 	ns.SetTransportProtocolHandler(tcp.ProtocolNumber, tcpHandler.HandlePacket)
@@ -142,72 +141,78 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 
 }
 
-func forwardUDP() func(request *udp.ForwarderRequest) {
-	return func(request *udp.ForwarderRequest) {
-		go func() {
-			id := request.ID()
+func forwardUDP(request *udp.ForwarderRequest) {
 
-			var wq waiter.Queue
+	id := request.ID()
 
-			ep, iperr := request.CreateEndpoint(&wq)
-			if iperr != nil {
-				return
-			}
+	var wq waiter.Queue
+	ep, iperr := request.CreateEndpoint(&wq)
+	if iperr != nil {
+		log.Println("[+] failed to create endpoint for udp: ", iperr)
 
-			log.Printf("tun [+] %s -> %s:%d/udp\n", id.RemoteAddress, id.LocalAddress, id.LocalPort)
-
-			fwdDst := net.UDPAddr{
-				IP:   net.ParseIP(id.LocalAddress.String()),
-				Port: int(id.LocalPort),
-			}
-
-			remote, err := net.DialUDP("udp", nil, &fwdDst)
-			if err != nil {
-				return
-			}
-
-			local := gonet.NewUDPConn(&wq, ep)
-
-			err = Proxy(local, remote)
-			if err != nil {
-				log.Printf("proxy connection closed with error: %v", err)
-			}
-		}()
+		return
 	}
+	defer ep.Close()
+
+	log.Printf("tun [+] %s -> %s:%d/udp\n", id.RemoteAddress, id.LocalAddress, id.LocalPort)
+
+	fwdDst := net.UDPAddr{
+		IP:   net.ParseIP(id.LocalAddress.String()),
+		Port: int(id.LocalPort),
+	}
+
+	remote, err := net.DialUDP("udp", nil, &fwdDst)
+	if err != nil {
+		log.Println("[+] failed to dial udp: ", err)
+		return
+	}
+
+	local := gonet.NewUDPConn(&wq, ep)
+
+	err = Proxy(local, remote)
+	if err != nil {
+		log.Printf("proxy connection closed with error: %v", err)
+	}
+
 }
 
 func forwardTCP(request *tcp.ForwarderRequest) {
-	go func() {
-		id := request.ID()
 
-		var wq waiter.Queue
-		ep, errTcp := request.CreateEndpoint(&wq)
-		if errTcp != nil {
-			request.Complete(true)
-			return
-		}
+	id := request.ID()
 
-		fwdDst := net.TCPAddr{
-			IP:   net.ParseIP(id.LocalAddress.String()),
-			Port: int(id.LocalPort),
-		}
+	fwdDst := net.TCPAddr{
+		IP:   net.ParseIP(id.LocalAddress.String()),
+		Port: int(id.LocalPort),
+	}
 
-		log.Printf("[+] %s -> %s:%d/tcp\n", id.RemoteAddress, id.LocalAddress, id.LocalPort)
+	log.Printf("[+] %s -> %s:%d/tcp\n", id.RemoteAddress, id.LocalAddress, id.LocalPort)
 
-		local := gonet.NewTCPConn(&wq, ep)
+	remote, err := net.Dial("tcp", fwdDst.String())
+	if err != nil {
+		log.Printf("failed to dial: %s:%d/tcp", id.LocalAddress, id.LocalPort)
+		request.Complete(true)
+		return
+	}
+	defer remote.Close()
 
-		remote, err := net.Dial("tcp", fwdDst.String())
-		if err != nil {
-			fmt.Println(err)
-			request.Complete(true)
-			return
-		}
-
-		err = Proxy(local, remote)
-		if err != nil {
+	var wq waiter.Queue
+	ep, errTcp := request.CreateEndpoint(&wq)
+	request.Complete(false)
+	if errTcp != nil {
+		// ErrConnectionRefused is a transient error
+		if _, ok := errTcp.(*tcpip.ErrConnectionRefused); !ok {
 			log.Printf("proxy connection closed with error: %v", err)
 		}
-	}()
+		return
+	}
+	defer ep.Close()
+
+	local := gonet.NewTCPConn(&wq, ep)
+	err = Proxy(local, remote)
+	if err != nil {
+		log.Printf("proxy connection closed with error: %v", err)
+	}
+
 }
 
 func Proxy(c1, c2 net.Conn) error {
