@@ -183,20 +183,20 @@ func forwardTCP(request *tcp.ForwarderRequest) {
 		Port: int(id.LocalPort),
 	}
 
-	log.Printf("[+] %s -> %s:%d/tcp\n", id.RemoteAddress, id.LocalAddress, id.LocalPort)
+	//log.Printf("[+] %s -> %s:%d/tcp\n", id.RemoteAddress, id.LocalAddress, id.LocalPort)
 
-	outbound, err := net.Dial("tcp", fwdDst.String())
+	outbound, err := net.DialTimeout("tcp", fwdDst.String(), 5*time.Second)
 	if err != nil {
 		log.Printf("failed to dial: %s:%d/tcp", id.LocalAddress, id.LocalPort)
 		request.Complete(true)
 		return
 	}
-	defer outbound.Close()
 
 	var wq waiter.Queue
 	ep, errTcp := request.CreateEndpoint(&wq)
 
-	request.Complete(false)
+	//request.Complete(false)
+
 	if errTcp != nil {
 		// ErrConnectionRefused is a transient error
 		if _, ok := errTcp.(*tcpip.ErrConnectionRefused); !ok {
@@ -204,7 +204,6 @@ func forwardTCP(request *tcp.ForwarderRequest) {
 		}
 		return
 	}
-	defer ep.Close()
 
 	remote := tcpproxy.DialProxy{
 		DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -277,7 +276,8 @@ func (m *SSHEndpoint) Attach(dispatcher stack.NetworkDispatcher) {
 
 func (m *SSHEndpoint) dispatchLoop() {
 	for {
-		packet := make([]byte, 1504)
+		// Copying ssh spec
+		packet := make([]byte, 32*1024)
 
 		n, err := m.tunnel.Read(packet)
 		if err != nil {
@@ -290,25 +290,75 @@ func (m *SSHEndpoint) dispatchLoop() {
 			continue
 		}
 
-		//Remove the SSH added family address uint32 (for layer 3 tun)
-		packet = packet[4:]
-
 		if !m.IsAttached() {
 			continue
 		}
 
-		pkb := stack.NewPacketBuffer(stack.PacketBufferOptions{
-			Payload: buffer.MakeWithData(packet[:n-4]),
-		})
+		var (
+		// This seemingly is always set to 0 which is unhelpful
+		//pktLength uint16 = binary.BigEndian.Uint16(packet[:2])
+		//family    uint16 = binary.BigEndian.Uint16(packet[2:4])
+		)
 
-		switch header.IPVersion(packet) {
-		case header.IPv4Version:
-			m.dispatcher.DeliverNetworkPacket(header.IPv4ProtocolNumber, pkb)
-		case header.IPv6Version:
-			m.dispatcher.DeliverNetworkPacket(header.IPv6ProtocolNumber, pkb)
+		//Remove the SSH added family address uint32 (for layer 3 tun)
+		packet = packet[4:n]
+
+	outer:
+		for len(packet) > 0 {
+
+			var totalLen uint16
+			switch header.IPVersion(packet) {
+			case header.IPv4Version:
+
+				if len(packet) < header.IPv4MinimumSize {
+					log.Println("ipv4 packet was smaller than the minimum size")
+
+					break outer
+				}
+
+				totalLen = header.IPv4(packet).TotalLength()
+				// extremely brittle, because we have to throw out an entire buffers worth of data if people give us fucky packets
+				// unfortunately because ssh isnt giving us discrete packet sizes we have to deal with this
+				if uint16(len(packet)) < totalLen {
+					log.Println("invalid ipv4 packet, packet was smaller than reported length in packet header")
+
+					break outer
+				}
+
+				pkb := stack.NewPacketBuffer(stack.PacketBufferOptions{
+					Payload: buffer.MakeWithData(packet[:totalLen]),
+				})
+
+				m.dispatcher.DeliverNetworkPacket(header.IPv4ProtocolNumber, pkb)
+			case header.IPv6Version:
+
+				if len(packet) < header.IPv6MinimumSize {
+					log.Println("ipv6 packet was smaller than the minimum size ditching")
+
+					break outer
+				}
+
+				// not supporting multiple headers because fuck that noise
+				totalLen = header.IPv6MinimumSize + header.IPv6(packet).PayloadLength()
+				if uint16(len(packet)) < totalLen {
+					log.Println("invalid ipv6 packet length, the total length was greater than the remaining packet length")
+
+					break outer
+				}
+
+				pkb := stack.NewPacketBuffer(stack.PacketBufferOptions{
+					Payload: buffer.MakeWithData(packet[:totalLen]),
+				})
+
+				m.dispatcher.DeliverNetworkPacket(header.IPv6ProtocolNumber, pkb)
+			default:
+				log.Println("recieved something that wasnt a ipv6 or ipv4 packet: family: ", header.IPVersion(packet), "len:", len(packet))
+				break outer
+			}
+
+			packet = packet[min(totalLen+4, uint16(len(packet))):]
 		}
 
-		pkb.DecRef()
 	}
 }
 
@@ -514,7 +564,6 @@ func ProcessICMP(nstack *stack.Stack, pkt *stack.PacketBuffer) {
 		}
 
 		replyPkt.TransportProtocolNumber = header.ICMPv4ProtocolNumber
-
 		if err := r.WriteHeaderIncludedPacket(replyPkt); err != nil {
 			return
 		}
