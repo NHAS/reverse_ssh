@@ -368,6 +368,13 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 
 					realConn.Timeout = time.Duration(timeout*2) * time.Second
 
+				case "log-to-file":
+					req.Reply(true, nil)
+
+					if err := handlers.Console.ToFile(string(req.Payload)); err != nil {
+						log.Println("Failed to direct log to file ", string(req.Payload), err)
+					}
+
 				case "tcpip-forward":
 					go handlers.StartRemoteForward(nil, req, sshConn)
 
@@ -417,8 +424,9 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 		//session is handled here as a legacy hangerover from allowing a client who has directly connected to the servers console to run the connect command
 		//Otherwise anything else should be done via jumphost syntax -J
 		err = connection.RegisterChannelCallbacks(chans, clientLog, map[string]func(newChannel ssh.NewChannel, log logger.Logger){
-			"session": handlers.Session(connection.NewSession(sshConn)),
-			"jump":    handlers.JumpHandler(sshPriv, sshConn),
+			"session":        handlers.Session(connection.NewSession(sshConn)),
+			"jump":           handlers.JumpHandler(sshPriv, sshConn),
+			"log-to-console": handlers.LogToConsole,
 		})
 
 		sshConn.Close()
