@@ -237,6 +237,8 @@ func Proxy(c1, c2 net.Conn) error {
 type SSHEndpoint struct {
 	dispatcher stack.NetworkDispatcher
 	tunnel     ssh.Channel
+
+	lock sync.Mutex
 }
 
 func NewSSHEndpoint(dev ssh.Channel) *SSHEndpoint {
@@ -333,34 +335,33 @@ func (m *SSHEndpoint) IsAttached() bool {
 func (m *SSHEndpoint) WritePackets(pkts stack.PacketBufferList) (int, tcpip.Error) {
 	n := 0
 	for _, pkt := range pkts.AsSlice() {
-		if err := m.WritePacket(pkt); err != nil {
-			break
+		if err := m.writePacket(pkt); err != nil {
+			return n, err
 		}
 		n++
 	}
 	return n, nil
 }
 
-var lock sync.Mutex
-
 // WritePacket writes outbound packets
-func (m *SSHEndpoint) WritePacket(pkt *stack.PacketBuffer) tcpip.Error {
+func (m *SSHEndpoint) writePacket(pkt *stack.PacketBuffer) tcpip.Error {
 
-	pktBuf := pkt.ToBuffer()
+	pktBuf := pkt.ToView().AsSlice()
 
 	//I have quite literally no idea why a lock here fixes ssh issues
-	lock.Lock()
-	defer lock.Unlock()
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
 	// 3.2 Frame Format
 	// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/tuntap.rst?id=HEAD
-	packet := make([]byte, 4+pktBuf.Size())
+	packet := make([]byte, 4)
 	binary.BigEndian.PutUint16(packet, 1)
 	binary.BigEndian.PutUint16(packet[2:], uint16(pkt.NetworkProtocolNumber))
 
-	copy(packet[4:], pktBuf.Flatten())
+	packet = append(packet, pktBuf...)
 
 	if _, err := m.tunnel.Write(packet); err != nil {
+		log.Println("failed to write packet to tunnel: ", err)
 		return &tcpip.ErrInvalidEndpointState{}
 	}
 	return nil
