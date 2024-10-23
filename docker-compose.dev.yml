@@ -1,0 +1,36 @@
+services:                                                                                                                                                                                                                                                                      
+  container1:
+    image: archlinux
+    command: sleep infinity
+    volumes:
+       - ./bin/:/usr/local/bin
+    networks:
+      custom_network:
+        ipv4_address: 172.25.0.2
+
+
+  container2:
+    image: archlinux
+    ports:
+      - "3232:3232/tcp"
+    volumes:
+       - ./bin/:/usr/local/bin
+    command: sleep infinity
+    networks:
+      custom_network:
+        ipv4_address: 172.25.0.3
+
+  container3:
+    image: archlinux
+    command: sleep infinity
+    privileged: true
+    networks:
+      custom_network:
+        ipv4_address: 172.25.0.4
+
+networks:
+  custom_network:
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
+          gateway: 172.25.0.1
