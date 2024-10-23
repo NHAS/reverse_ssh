@@ -951,6 +951,19 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 	return
 }
 
+func (t *Terminal) Clear() {
+
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	// Erases the screen and moves the cursor to the home position.
+	t.queue([]rune("\x1b[2J\x1b[H"))
+	t.queue(t.prompt)
+	t.cursorX, t.cursorY = 0, 0
+	t.advanceCursor(visualLength(t.prompt))
+	t.setLine(t.line, t.pos)
+}
+
 // addKeyToLine inserts the given key at the current position in the current
 // line.
 func (t *Terminal) addKeyToLine(key rune) {
