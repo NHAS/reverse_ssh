@@ -169,15 +169,18 @@ func forwardUDP(request *udp.ForwarderRequest) {
 
 	local := gonet.NewUDPConn(&wq, ep)
 
-	err = Proxy(local, remote)
+	err = proxy(local, remote)
 	if err != nil {
 		log.Printf("proxy connection closed with error: %v", err)
 	}
 
 }
 
+var lock sync.Mutex
+
 func forwardTCP(request *tcp.ForwarderRequest) {
 
+	lock.Lock()
 	id := request.ID()
 
 	fwdDst := net.TCPAddr{
@@ -191,31 +194,39 @@ func forwardTCP(request *tcp.ForwarderRequest) {
 	if err != nil {
 		log.Printf("failed to dial: %s:%d/tcp", id.LocalAddress, id.LocalPort)
 		request.Complete(true)
+		lock.Unlock()
 		return
 	}
 	defer remote.Close()
 
 	var wq waiter.Queue
 	ep, errTcp := request.CreateEndpoint(&wq)
+
 	request.Complete(false)
 	if errTcp != nil {
 		// ErrConnectionRefused is a transient error
 		if _, ok := errTcp.(*tcpip.ErrConnectionRefused); !ok {
 			log.Printf("proxy connection closed with error: %v", err)
 		}
+		lock.Unlock()
 		return
 	}
 	defer ep.Close()
 
+	ep.SocketOptions().SetDelayOption(false)
+
 	local := gonet.NewTCPConn(&wq, ep)
-	err = Proxy(local, remote)
+
+	lock.Unlock()
+
+	err = proxy(local, remote)
 	if err != nil {
 		log.Printf("proxy connection closed with error: %v", err)
 	}
 
 }
 
-func Proxy(c1, c2 net.Conn) error {
+func proxy(c1, c2 net.Conn) error {
 	connClosed := make(chan error, 2)
 
 	defer c1.Close()
