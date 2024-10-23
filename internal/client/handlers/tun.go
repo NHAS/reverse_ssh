@@ -82,7 +82,6 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 			tcp.NewProtocol,
 			udp.NewProtocol,
 			icmp.NewProtocol4,
-			icmp.NewProtocol6,
 		},
 		HandleLocal: false,
 	})
@@ -282,8 +281,9 @@ func (m *SSHEndpoint) dispatchLoop() {
 
 		n, err := m.tunnel.Read(packet)
 		if err != nil {
-			log.Println("i die AHHHHHHH: ", err)
-			break
+			log.Println("failed to read from tunnel: ", err)
+			m.tunnel.Close()
+			return
 		}
 
 		if n < 4 {
@@ -387,7 +387,6 @@ func icmpResponder(s *stack.Stack) error {
 		for {
 			var buff bytes.Buffer
 			_, err := rawProto.Read(&buff, tcpip.ReadOptions{})
-
 			if _, ok := err.(*tcpip.ErrWouldBlock); ok {
 				// Wait for data to become available.
 
