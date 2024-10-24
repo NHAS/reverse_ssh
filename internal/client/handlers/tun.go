@@ -402,63 +402,28 @@ func (m *SSHEndpoint) dispatchLoop() {
 		//Remove that
 		packet = packet[4:]
 
-	outer:
-		for len(packet) > 0 {
+		switch header.IPVersion(packet) {
+		case header.IPv4Version:
 
-			var totalLen uint16
-			switch header.IPVersion(packet) {
-			case header.IPv4Version:
+			pkb := stack.NewPacketBuffer(stack.PacketBufferOptions{
+				Payload: buffer.MakeWithData(packet),
+			})
 
-				if len(packet) < header.IPv4MinimumSize {
-					log.Println("ipv4 packet was smaller than the minimum size")
+			m.dispatcher.DeliverNetworkPacket(header.IPv4ProtocolNumber, pkb)
+		case header.IPv6Version:
 
-					break outer
-				}
+			pkb := stack.NewPacketBuffer(stack.PacketBufferOptions{
+				Payload: buffer.MakeWithData(packet),
+			})
 
-				totalLen = header.IPv4(packet).TotalLength()
-				// extremely brittle, because we have to throw out an entire buffers worth of data if people give us fucky packets
-				// unfortunately because ssh isnt giving us discrete packet sizes we have to deal with this
-				if uint16(len(packet)) < totalLen {
-					log.Println("invalid ipv4 packet, packet was smaller than reported length in packet header")
-
-					break outer
-				}
-
-				pkb := stack.NewPacketBuffer(stack.PacketBufferOptions{
-					Payload: buffer.MakeWithData(packet[:totalLen]),
-				})
-
-				m.dispatcher.DeliverNetworkPacket(header.IPv4ProtocolNumber, pkb)
-			case header.IPv6Version:
-
-				if len(packet) < header.IPv6MinimumSize {
-					log.Println("ipv6 packet was smaller than the minimum size ditching")
-
-					break outer
-				}
-
-				// not supporting multiple headers because fuck that noise
-				totalLen = header.IPv6MinimumSize + header.IPv6(packet).PayloadLength()
-				if uint16(len(packet)) < totalLen {
-					log.Println("invalid ipv6 packet length, the total length was greater than the remaining packet length")
-
-					break outer
-				}
-
-				pkb := stack.NewPacketBuffer(stack.PacketBufferOptions{
-					Payload: buffer.MakeWithData(packet[:totalLen]),
-				})
-
-				m.dispatcher.DeliverNetworkPacket(header.IPv6ProtocolNumber, pkb)
-			default:
-				log.Println("recieved something that wasnt a ipv6 or ipv4 packet: family: ", header.IPVersion(packet), "len:", len(packet))
-				break outer
-			}
-
-			packet = packet[min(totalLen+4, uint16(len(packet))):]
+			m.dispatcher.DeliverNetworkPacket(header.IPv6ProtocolNumber, pkb)
+		default:
+			log.Println("recieved something that wasnt a ipv6 or ipv4 packet: family: ", header.IPVersion(packet), "len:", len(packet))
+			return
 		}
 
 	}
+
 }
 
 // IsAttached implements stack.LinkEndpoint.
