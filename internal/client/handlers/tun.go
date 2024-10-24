@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -41,6 +42,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var (
+	nicIds    = map[tcpip.NICID]bool{}
+	nicIdsLck sync.Mutex
+)
+
 func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 
 	defer func() {
@@ -65,6 +71,50 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 		newChannel.Reject(ssh.ConnectionFailed, "connection closed")
 		return
 	}
+
+	var NICID tcpip.NICID
+
+	allocatedNicId := false
+	for i := 0; i < 3; i++ {
+
+		buff := make([]byte, 4)
+		_, err := rand.Read(buff)
+		if err != nil {
+			newChannel.Reject(ssh.ResourceShortage, "no resources")
+			l.Warning("unable to allocate new nicid %s", err)
+
+			return
+		}
+
+		NICID = tcpip.NICID(binary.BigEndian.Uint32(buff))
+
+		nicIdsLck.Lock()
+
+		if _, ok := nicIds[NICID]; ok {
+			nicIdsLck.Unlock()
+			continue
+		}
+
+		nicIds[NICID] = true
+		allocatedNicId = true
+		nicIdsLck.Unlock()
+
+		break
+	}
+
+	if !allocatedNicId {
+		newChannel.Reject(ssh.ResourceShortage, "could not allocate nicid after 3 attempts")
+		l.Warning("unable to allocate new nicid after 3 attempts")
+
+		return
+	}
+
+	defer func() {
+		nicIdsLck.Lock()
+		defer nicIdsLck.Unlock()
+
+		delete(nicIds, NICID)
+	}()
 
 	tunnel, req, err := newChannel.Accept()
 	if err != nil {
@@ -95,7 +145,6 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 		return
 	}
 
-	const NICID = 1
 	// Create a new NIC
 	if err := ns.CreateNIC(NICID, linkEP); err != nil {
 		l.Error("CreateNIC: %v", err)
@@ -109,7 +158,7 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 	}
 
 	// Forward TCP connections
-	tcpHandler := tcp.NewForwarder(ns, 30000, 4000, forwardTCP)
+	tcpHandler := tcp.NewForwarder(ns, 0, 14000, forwardTCP)
 
 	// Forward UDP connections
 	udpHandler := udp.NewForwarder(ns, forwardUDP)
