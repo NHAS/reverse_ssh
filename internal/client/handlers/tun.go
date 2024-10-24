@@ -352,6 +352,9 @@ func (sb *sshBuffer) ReadSingle() ([]byte, error) {
 	if len(sb.head.buf) == 0 && sb.head == sb.tail {
 		// If we have no messages right now, just wait until we do
 		sb.Cond.Wait()
+		if sb.closed {
+			return nil, io.EOF
+		}
 	}
 
 	result := make([]byte, len(sb.head.buf))
