@@ -381,11 +381,10 @@ RSSH and SSH support creating tuntap interfaces that allow you to route traffic 
 First set up a tun (layer 3) device on your local machine.
 ```sh
 sudo ip tuntap add dev tun0 mode tun
-sudo ip addr add 172.16.0.1/24 dev tun0
 sudo ip link set dev tun0 up
 
 # This will defaultly route all non-local network traffic through the tunnel
-sudo ip route add 0.0.0.0/0 via 172.16.0.1 dev tun0
+sudo ip route add 0.0.0.0/0 dev tun0
 ```
 
 Install a client on a remote machine, this will not work if you have your RSSH client on the same host as your tun device.

@@ -10,12 +10,14 @@ import (
 	"log"
 	"net"
 	"os/exec"
+	"reflect"
 	"runtime"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"unsafe"
 
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/go-ping/ping"
@@ -87,7 +89,11 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 	})
 	defer ns.Close()
 
-	linkEP := NewSSHEndpoint(tunnel)
+	linkEP, err := NewSSHEndpoint(tunnel)
+	if err != nil {
+		l.Error("failed to create new SSH endpoint: %s", err)
+		return
+	}
 
 	const NICID = 1
 	// Create a new NIC
@@ -183,7 +189,7 @@ func forwardTCP(request *tcp.ForwarderRequest) {
 		Port: int(id.LocalPort),
 	}
 
-	//log.Printf("[+] %s -> %s:%d/tcp\n", id.RemoteAddress, id.LocalAddress, id.LocalPort)
+	log.Printf("[+] %s -> %s:%d/tcp\n", id.RemoteAddress, id.LocalAddress, id.LocalPort)
 
 	outbound, err := net.DialTimeout("tcp", fwdDst.String(), 5*time.Second)
 	if err != nil {
@@ -195,7 +201,7 @@ func forwardTCP(request *tcp.ForwarderRequest) {
 	var wq waiter.Queue
 	ep, errTcp := request.CreateEndpoint(&wq)
 
-	//request.Complete(false)
+	request.Complete(false)
 
 	if errTcp != nil {
 		// ErrConnectionRefused is a transient error
@@ -217,18 +223,63 @@ type SSHEndpoint struct {
 	dispatcher stack.NetworkDispatcher
 	tunnel     ssh.Channel
 
+	channelPtr unsafe.Pointer
+
+	pending *sshBuffer
+
 	lock sync.Mutex
 }
 
-func NewSSHEndpoint(dev ssh.Channel) *SSHEndpoint {
-	return &SSHEndpoint{
+// func (c *channel) adjustWindow(adj uint32) error {
+//
+//go:linkname adjustWindow golang.org/x/crypto/ssh.(*channel).adjustWindow
+func adjustWindow(c unsafe.Pointer, n uint32) error
+
+func NewSSHEndpoint(dev ssh.Channel) (*SSHEndpoint, error) {
+
+	r := &SSHEndpoint{
 		tunnel: dev,
 	}
+
+	const bufferName = "pending"
+
+	// Get the reflect.Value of the concrete channel
+	val := reflect.ValueOf(dev)
+	r.channelPtr = val.UnsafePointer()
+
+	val = val.Elem()
+
+	if val.Type().Name() != "channel" {
+		return nil, fmt.Errorf("extended channels are not supported: %s", val.Type().Name())
+	}
+
+	// Get the buffer field by name
+	field := val.FieldByName(bufferName)
+	if !field.IsValid() {
+		return nil, fmt.Errorf("field %s not found", bufferName)
+	}
+
+	r.pending = (*sshBuffer)(field.UnsafePointer())
+	return r, nil
+}
+
+func (m *SSHEndpoint) ReadSSHPacket() ([]byte, error) {
+	buff, err := m.pending.ReadSingle()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(buff) > 0 {
+		err = adjustWindow(m.channelPtr, uint32(len(buff)))
+		if len(buff) > 0 && err == io.EOF {
+			err = nil
+		}
+	}
+
+	return buff, err
 }
 
 func (m *SSHEndpoint) Close() {
-	log.Println("closed")
-	debug.PrintStack()
 	m.tunnel.Close()
 }
 
@@ -274,19 +325,65 @@ func (m *SSHEndpoint) Attach(dispatcher stack.NetworkDispatcher) {
 	go m.dispatchLoop()
 }
 
-func (m *SSHEndpoint) dispatchLoop() {
-	for {
-		// Copying ssh spec
-		packet := make([]byte, 32*1024)
+// https://github.com/golang/crypto/blob/master/ssh/buffer.go#L42
+// buffer provides a linked list buffer for data exchange
+// between producer and consumer. Theoretically the buffer is
+// of unlimited capacity as it does no allocation of its own.
+type sshBuffer struct {
+	// protects concurrent access to head, tail and closed
+	*sync.Cond
 
-		n, err := m.tunnel.Read(packet)
+	head *element // the buffer that will be read first
+	tail *element // the buffer that will be read last
+
+	closed bool
+}
+
+// adapted from https://github.com/golang/crypto/blob/master/ssh/buffer.go#L66
+func (sb *sshBuffer) ReadSingle() ([]byte, error) {
+
+	sb.Cond.L.Lock()
+	defer sb.Cond.L.Unlock()
+
+	if sb.closed {
+		return nil, io.EOF
+	}
+
+	if len(sb.head.buf) == 0 && sb.head == sb.tail {
+		// If we have no messages right now, just wait until we do
+		sb.Cond.Wait()
+	}
+
+	result := make([]byte, len(sb.head.buf))
+	n := copy(result, sb.head.buf)
+
+	sb.head.buf = sb.head.buf[n:]
+
+	if sb.head != sb.tail {
+		sb.head = sb.head.next
+	}
+
+	return result, nil
+}
+
+// An element represents a single link in a linked list.
+type element struct {
+	buf  []byte
+	next *element
+}
+
+func (m *SSHEndpoint) dispatchLoop() {
+
+	for {
+
+		packet, err := m.ReadSSHPacket()
 		if err != nil {
 			log.Println("failed to read from tunnel: ", err)
 			m.tunnel.Close()
 			return
 		}
 
-		if n < 4 {
+		if len(packet) < 4 {
 			continue
 		}
 
@@ -303,7 +400,7 @@ func (m *SSHEndpoint) dispatchLoop() {
 		//   Raw protocol(IP, IPv6, etc) frame.
 
 		//Remove that
-		packet = packet[4:n]
+		packet = packet[4:]
 
 	outer:
 		for len(packet) > 0 {
