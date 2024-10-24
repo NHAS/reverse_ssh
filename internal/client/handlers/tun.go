@@ -419,7 +419,6 @@ func (m *SSHEndpoint) dispatchLoop() {
 			m.dispatcher.DeliverNetworkPacket(header.IPv6ProtocolNumber, pkb)
 		default:
 			log.Println("recieved something that wasnt a ipv6 or ipv4 packet: family: ", header.IPVersion(packet), "len:", len(packet))
-			return
 		}
 
 	}
