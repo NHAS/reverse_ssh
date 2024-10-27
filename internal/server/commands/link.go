@@ -251,7 +251,3 @@ func (e *link) Help(explain bool) string {
 		"This requires the web server component has been enabled.",
 	)
 }
-
-func Link() *link {
-	return &link{}
-}

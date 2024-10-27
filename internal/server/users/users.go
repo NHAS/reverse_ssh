@@ -266,14 +266,6 @@ func (u *User) PrivilegeString() string {
 	}
 }
 
-func GetUser(username string) (*User, error) {
-
-	lck.RLock()
-	defer lck.RUnlock()
-
-	return _getUser(username)
-}
-
 // Non-threadsafe variant, used internally when outer function is locked
 func _getUser(username string) (*User, error) {
 	u, ok := users[username]

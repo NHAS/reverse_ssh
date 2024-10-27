@@ -109,13 +109,6 @@ func ServerPortForward(clientId string) func(_ string, _ *users.User, newChannel
 	}
 }
 
-func GetRemoteForwards(clientId string) string {
-	currentRemoteForwardsLck.RLock()
-	defer currentRemoteForwardsLck.RUnlock()
-
-	return currentRemoteForwards[clientId]
-}
-
 func StopRemoteForward(clientId string) {
 	currentRemoteForwardsLck.Lock()
 	defer currentRemoteForwardsLck.Unlock()

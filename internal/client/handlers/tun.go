@@ -285,6 +285,7 @@ func forwardUDP(tunstats *stat) func(request *udp.ForwarderRequest) {
 			// will be dropped. We will start processing the packets again when we get a new
 			// forwarder request.
 			ep.Close()
+			p.Close()
 		}()
 	}
 
