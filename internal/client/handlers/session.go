@@ -87,7 +87,8 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 					return
 				}
 
-				if u, ok := isUrl(command); ok {
+				u, ok := isUrl(command)
+				if ok {
 					command, err = download(session.ServerConnection, u)
 					if err != nil {
 						fmt.Fprintf(connection, "%s", err.Error())
@@ -96,10 +97,10 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 				}
 
 				if session.Pty != nil {
-					runCommandWithPty(command, line.Chunks[1:], session.Pty, requests, log, connection)
+					runCommandWithPty(u.Query().Get("argv"), command, line.Chunks[1:], session.Pty, requests, log, connection)
 					return
 				}
-				runCommand(command, line.Chunks[1:], connection)
+				runCommand(u.Query().Get("argv"), command, line.Chunks[1:], connection)
 
 				return
 			case "shell":
@@ -118,7 +119,8 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 				parts := strings.Split(shellPath.Cmd, " ")
 				if len(parts) > 0 {
 					command := parts[0]
-					if u, ok := isUrl(parts[0]); ok {
+					u, ok := isUrl(parts[0])
+					if ok {
 						command, err = download(session.ServerConnection, u)
 						if err != nil {
 							fmt.Fprintf(connection, "%s", err.Error())
@@ -126,7 +128,7 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 						}
 					}
 
-					runCommandWithPty(command, parts[1:], session.Pty, requests, log, connection)
+					runCommandWithPty(u.Query().Get("argv"), command, parts[1:], session.Pty, requests, log, connection)
 				}
 				return
 				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
@@ -152,7 +154,7 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 	}
 }
 
-func runCommand(command string, args []string, connection ssh.Channel) {
+func runCommand(argv string, command string, args []string, connection ssh.Channel) {
 	//Set a path if no path is set to search
 	if len(os.Getenv("PATH")) == 0 {
 		if runtime.GOOS != "windows" {
@@ -163,6 +165,9 @@ func runCommand(command string, args []string, connection ssh.Channel) {
 	}
 
 	cmd := exec.Command(command, args...)
+	if len(argv) != 0 {
+		cmd.Args[0] = argv
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -204,15 +209,26 @@ func isUrl(data string) (*url.URL, bool) {
 }
 
 func download(serverConnection ssh.Conn, fromUrl *url.URL) (result string, err error) {
+	if fromUrl == nil {
+		return "", errors.New("url was nil")
+	}
 
 	var (
 		reader   io.ReadCloser
 		filename string
 	)
 
-	switch fromUrl.Scheme {
+	urlCopy := *fromUrl
+
+	query := urlCopy.Query()
+	query.Del("argv")
+
+	urlCopy.RawQuery = query.Encode()
+
+	switch urlCopy.Scheme {
 	case "http", "https":
-		resp, err := http.Get(fromUrl.String())
+
+		resp, err := http.Get(urlCopy.String())
 		if err != nil {
 			return "", err
 		}
@@ -220,7 +236,7 @@ func download(serverConnection ssh.Conn, fromUrl *url.URL) (result string, err e
 
 		reader = resp.Body
 
-		filename = path.Base(fromUrl.Path)
+		filename = path.Base(urlCopy.Path)
 		if filename == "." {
 			filename, err = internal.RandomString(16)
 			if err != nil {
@@ -229,7 +245,7 @@ func download(serverConnection ssh.Conn, fromUrl *url.URL) (result string, err e
 		}
 
 	case "rssh":
-		filename = path.Base(strings.TrimSuffix(fromUrl.String(), "rssh://"))
+		filename = path.Base(strings.TrimSuffix(urlCopy.String(), "rssh://"))
 
 		ch, reqs, err := serverConnection.OpenChannel("rssh-download", []byte(filename))
 		if err != nil {

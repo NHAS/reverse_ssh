@@ -35,13 +35,13 @@ func shell(ptyReq *internal.PtyReq, connection ssh.Channel, requests <-chan *ssh
 		}
 	}
 
-	runCommandWithPty(path, nil, ptyReq, requests, log, connection)
+	runCommandWithPty("", path, nil, ptyReq, requests, log, connection)
 
 	connection.Close()
 
 }
 
-func runCommandWithPty(command string, args []string, pty *internal.PtyReq, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
+func runCommandWithPty(argv, command string, args []string, pty *internal.PtyReq, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
 
 	fullCommand := command + " " + strings.Join(args, " ")
 	vsn := windows.RtlGetVersion()
@@ -51,7 +51,7 @@ func runCommandWithPty(command string, args []string, pty *internal.PtyReq, requ
 		runWithWinPty(fullCommand, connection, requests, log, pty)
 
 	} else {
-		err := runWithConpty(fullCommand, connection, requests, log, pty)
+		err := runWithConpty(argv, fullCommand, connection, requests, log, pty)
 		if err != nil {
 			log.Error("unable to run with conpty, falling back to winpty: %v", err)
 			runWithWinPty(fullCommand, connection, requests, log, pty)
@@ -106,7 +106,7 @@ func runWithWinPty(command string, connection ssh.Channel, reqs <-chan *ssh.Requ
 	return nil
 }
 
-func runWithConpty(command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq *internal.PtyReq) error {
+func runWithConpty(argv, command string, connection ssh.Channel, reqs <-chan *ssh.Request, log logger.Logger, ptyReq *internal.PtyReq) error {
 
 	cpty, err := conpty.New(int16(ptyReq.Columns), int16(ptyReq.Rows))
 	if err != nil {
@@ -118,10 +118,15 @@ func runWithConpty(command string, connection ssh.Channel, reqs <-chan *ssh.Requ
 		return err
 	}
 
+	argvParts := []string{}
+	if len(argv) != 0 {
+		argvParts = []string{argv}
+	}
+
 	// Spawn and catch new powershell process
 	pid, _, err := cpty.Spawn(
 		path,
-		[]string{},
+		argvParts,
 		&syscall.ProcAttr{
 			Env: os.Environ(),
 		},

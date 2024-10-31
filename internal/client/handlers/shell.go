@@ -124,7 +124,7 @@ func init() {
 
 }
 
-func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
+func runCommandWithPty(argv string, command string, args []string, ptyReq *internal.PtyReq, requests <-chan *ssh.Request, log logger.Logger, connection ssh.Channel) {
 
 	if ptyReq == nil {
 		log.Error("Requested to run a command with a pty, but did not start a pty")
@@ -133,6 +133,10 @@ func runCommandWithPty(command string, args []string, ptyReq *internal.PtyReq, r
 
 	// Fire up a shell for this session
 	shell := exec.Command(command, args...)
+	if len(argv) != 0 {
+		shell.Args[0] = argv
+	}
+
 	shell.Env = os.Environ()
 
 	close := func() {
@@ -208,10 +212,10 @@ func shell(ptyReq *internal.PtyReq, connection ssh.Channel, requests <-chan *ssh
 	}
 
 	if ptyReq != nil {
-		runCommandWithPty(path, nil, ptyReq, requests, log, connection)
+		runCommandWithPty("", path, nil, ptyReq, requests, log, connection)
 		return
 	}
 
-	runCommand(path, nil, connection)
+	runCommand("", path, nil, connection)
 
 }

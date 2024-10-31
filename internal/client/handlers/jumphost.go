@@ -52,7 +52,7 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) func(newChannel ssh.Ne
 		clientLog := logger.NewLog(serverConn.RemoteAddr().String())
 		clientLog.Info("New SSH connection, version %s", conn.ClientVersion())
 
-		session := connection.NewSession(conn)
+		session := connection.NewSession(serverConn)
 
 		go func(in <-chan *ssh.Request) {
 			for r := range in {
