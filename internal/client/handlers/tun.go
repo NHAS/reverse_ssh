@@ -23,8 +23,8 @@ import (
 
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/go-ping/ping"
+	"github.com/inetaf/tcpproxy"
 	"gvisor.dev/gvisor/pkg/buffer"
-	"inet.af/tcpproxy"
 
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
