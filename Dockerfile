@@ -6,7 +6,7 @@ RUN apt update -y
 RUN apt upgrade -y
 RUN apt install -y upx-ucl gcc-mingw-w64
 
-RUN go install mvdan.cc/garble@latest
+RUN go install mvdan.cc/garble@master
 
 ENV PATH="${PATH}:$(go env GOPATH)/bin"
 
