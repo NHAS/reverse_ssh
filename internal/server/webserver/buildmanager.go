@@ -38,6 +38,7 @@ type BuildConfig struct {
 
 	SharedLibrary bool
 	UPX           bool
+	Lzma          bool
 	Garble        bool
 	DisableLibC   bool
 	RawDownload   bool
@@ -209,10 +210,21 @@ func Build(config BuildConfig) (string, error) {
 
 	f.UrlPath = config.Name
 
+	if config.Lzma && !config.UPX {
+		return "", errors.New("Cannot use --lzma without --upx")
+	}
+
 	if config.UPX {
-		output, err := exec.Command("upx", "-qq", "-f", f.FilePath).CombinedOutput()
-		if err != nil {
-			return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
+		if config.Lzma {
+			output, err := exec.Command("upx", "--lzma", "-qq", "-f", f.FilePath).CombinedOutput()
+			if err != nil {
+				return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
+			}
+		} else {
+			output, err := exec.Command("upx", "-qq", "-f", f.FilePath).CombinedOutput()
+			if err != nil {
+				return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
+			}
 		}
 	}
 

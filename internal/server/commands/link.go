@@ -44,6 +44,7 @@ func (l *link) ValidArgs() map[string]string {
 		"fingerprint":       "Set RSSH server fingerprint will default to server public key",
 		"garble":            "Use garble to obfuscate the binary (requires garble to be installed)",
 		"upx":               "Use upx to compress the final binary (requires upx to be installed)",
+		"lzma":              "Use lzma compression for smaller binary at the cost of overhead at execution (requires upx flag to be set)",
 		"no-lib-c":          "Compile client without glibc",
 		"sni":               "When TLS is in use, set a custom SNI for the client to connect with",
 		"working-directory": "Set download/working directory for automatic script (i.e doing curl https://<url>.sh)",
@@ -117,6 +118,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	buildConfig := webserver.BuildConfig{
 		SharedLibrary: line.IsSet("shared-object"),
 		UPX:           line.IsSet("upx"),
+		Lzma:          line.IsSet("lzma"),
 		Garble:        line.IsSet("garble"),
 		DisableLibC:   line.IsSet("no-lib-c"),
 
