@@ -215,16 +215,15 @@ func Build(config BuildConfig) (string, error) {
 	}
 
 	if config.UPX {
+		upxArgs := []string{"-qq", "-f", f.FilePath}
+
 		if config.Lzma {
-			output, err := exec.Command("upx", "--lzma", "-qq", "-f", f.FilePath).CombinedOutput()
-			if err != nil {
-				return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
-			}
-		} else {
-			output, err := exec.Command("upx", "-qq", "-f", f.FilePath).CombinedOutput()
-			if err != nil {
-				return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
-			}
+			upxArgs = append([]string{"--lzma"}, upxArgs...)
+		}
+
+		output, err := exec.Command("upx", upxArgs...).CombinedOutput()
+		if err != nil {
+			return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
 		}
 	}
 
