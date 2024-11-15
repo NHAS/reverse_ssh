@@ -190,7 +190,7 @@ link [OPTIONS]
 Link will compile a client and serve the resulting binary on a link which is returned.
 This requires the web server component has been enabled.
 	--fingerprint	Set RSSH server fingerprint will default to server public key
-	--garble	Use garble to obfuscate the binary (requires garble to be installed)
+	--garble	Use garble to obfuscate the binary (requires garble@master to be installed)
 	--goarch	Set the target build architecture (default runtime GOARCH)
 	--goarm	Set the go arm variable (not set by default)
 	--goos	Set the target build operating system (default runtime GOOS)

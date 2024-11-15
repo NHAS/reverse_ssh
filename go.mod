@@ -8,13 +8,13 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-ping/ping v1.1.0
+	github.com/inetaf/tcpproxy v0.0.0-20240214030015-3ce58045626c
 	github.com/pkg/sftp v1.13.6
 	golang.org/x/crypto v0.28.0
 	golang.org/x/net v0.30.0
 	golang.org/x/sys v0.26.0
 	gorm.io/gorm v1.25.12
 	gvisor.dev/gvisor v0.0.0-20241007183343-a0f7780447a8
-	inet.af/tcpproxy v0.0.0-20231102063150-2862066fc2a9
 )
 
 require (
