@@ -12,6 +12,11 @@ import (
 )
 
 func (l *Logger) Ulogf(callerStackDepth int, u Urgency, format string, v ...interface{}) {
+
+	if u < globalLevel {
+		return
+	}
+
 	pc, file, line, ok := runtime.Caller(callerStackDepth)
 	if !ok {
 		file = "?"

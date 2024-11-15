@@ -12,6 +12,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
 func printHelp() {
@@ -33,6 +34,8 @@ func printHelp() {
 	fmt.Println("\t--timeout\t\tSet rssh client timeout (when a client is considered disconnected) defaults, in seconds, defaults to 5, if set to 0 timeout is disabled")
 	fmt.Println("  Utility")
 	fmt.Println("\t--fingerprint\t\tPrint fingerprint and exit. (Will generate server key if none exists)")
+	fmt.Println("\t--log-level\t\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
+
 }
 
 func main() {
@@ -51,6 +54,7 @@ func main() {
 		"help":                    true,
 		"timeout":                 true,
 		"openproxy":               true,
+		"log-level":               true,
 	})
 
 	if err != nil {
@@ -84,6 +88,15 @@ func main() {
 	}
 
 	log.Printf("Loading files from %s\n", dataDir)
+
+	logLevel, err := options.GetArgString("log-level")
+	if err == nil {
+		urg, err := logger.StrToUrgency(logLevel)
+		if err != nil {
+			log.Fatal(err)
+		}
+		logger.SetLogLevel(urg)
+	}
 
 	if options.IsSet("fingerprint") {
 		private, err := server.CreateOrLoadServerKeys(filepath.Join(dataDir, "id_ed25519"))

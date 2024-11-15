@@ -1,16 +1,29 @@
 package logger
 
+import (
+	"fmt"
+	"math"
+	"strings"
+)
+
 type Urgency int
 
 const (
-	INFO Urgency = iota
+	DISABLE         = math.MaxInt
+	INFO    Urgency = iota
 	WARN
 	ERROR
 	FATAL
 )
 
+var globalLevel Urgency = INFO
+
 type Logger struct {
 	id string
+}
+
+func SetLogLevel(level Urgency) {
+	globalLevel = level
 }
 
 func (l *Logger) Info(format string, v ...interface{}) {
@@ -39,9 +52,30 @@ func urgency(u Urgency) string {
 		return "ERROR"
 	case FATAL:
 		return "FATAL"
+	case DISABLE:
+		return "DISABLED"
 	}
 
 	return "UNKNOWN_URGENCY"
+}
+
+func StrToUrgency(s string) (Urgency, error) {
+	s = strings.ToUpper(s)
+
+	switch s {
+	case "INFO":
+		return INFO, nil
+	case "WARNING":
+		return WARN, nil
+	case "ERROR":
+		return ERROR, nil
+	case "FATAL":
+		return FATAL, nil
+	case "DISABLED":
+		return DISABLE, nil
+	}
+
+	return 0, fmt.Errorf("urgency %q isnt a valid urgency [INFO,WARNING,ERROR,FATAL,DISABLED]", s)
 }
 
 func NewLog(id string) Logger {
