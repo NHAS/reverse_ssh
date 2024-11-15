@@ -2,14 +2,13 @@ package logger
 
 import (
 	"fmt"
-	"math"
 	"strings"
 )
 
 type Urgency int
 
 const (
-	DISABLE         = math.MaxInt
+	DISABLE         = 0
 	INFO    Urgency = iota
 	WARN
 	ERROR
