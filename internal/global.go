@@ -16,6 +16,7 @@ import (
 )
 
 var Version string
+var C2_label string = "catcher"
 
 type ShellStruct struct {
 	Cmd string
