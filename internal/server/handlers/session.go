@@ -17,6 +17,7 @@ import (
 // Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
 // However these calls are done through requests, rather than opening a new channel
 // This callback just sorts out what the client wants to be doing
+
 func Session(datadir string) ChannelHandler {
 	return func(connectionDetails string, user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
 
@@ -75,7 +76,7 @@ func Session(datadir string) ChannelHandler {
 				// (i.e. no command in the Payload)
 				req.Reply(len(req.Payload) == 0, nil)
 
-				term := terminal.NewAdvancedTerminal(connection, user, sess, "catcher$ ")
+				term := terminal.NewAdvancedTerminal(connection, user, sess, internal.C2_label+"$ ")
 
 				term.SetSize(int(sess.Pty.Columns), int(sess.Pty.Rows))
 
