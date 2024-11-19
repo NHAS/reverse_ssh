@@ -35,7 +35,7 @@ func printHelp() {
 	fmt.Println("  Utility")
 	fmt.Println("\t--fingerprint\t\tPrint fingerprint and exit. (Will generate server key if none exists)")
 	fmt.Println("\t--log-level\t\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
-	fmt.Println("\t--c2-label\t\tChange C2 label.  (Default: catcher)")
+	fmt.Println("\t--console-label\t\tChange console label.  (Default: catcher)")
 
 }
 
@@ -56,7 +56,7 @@ func main() {
 		"timeout":                 true,
 		"openproxy":               true,
 		"log-level":               true,
-		"c2-label":                true,
+		"console-label":           true,
 	})
 
 	if err != nil {
@@ -141,7 +141,15 @@ func main() {
 	insecure := options.IsSet("insecure")
 	openproxy := options.IsSet("openproxy")
 
-	internal.C2_label, _ = options.GetArgString("c2-label")
+	potentialConsoleLabel, err := options.GetArgString("console-label")
+	if err == nil {
+		internal.ConsoleLabel = potentialConsoleLabel
+	} else {
+		potentialConsoleLabel, ok := os.LookupEnv("RSSH_CONSOLE_LABEL")
+		if ok {
+			internal.ConsoleLabel = potentialConsoleLabel
+		}
+	}
 
 	tls := options.IsSet("tls")
 	tlscert, _ := options.GetArgString("tlscert")

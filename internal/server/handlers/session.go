@@ -76,7 +76,7 @@ func Session(datadir string) ChannelHandler {
 				// (i.e. no command in the Payload)
 				req.Reply(len(req.Payload) == 0, nil)
 
-				term := terminal.NewAdvancedTerminal(connection, user, sess, internal.C2_label+"$ ")
+				term := terminal.NewAdvancedTerminal(connection, user, sess, internal.ConsoleLabel+"$ ")
 
 				term.SetSize(int(sess.Pty.Columns), int(sess.Pty.Rows))
 

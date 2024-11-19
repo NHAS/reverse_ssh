@@ -15,8 +15,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var Version string
-var C2_label string = "catcher"
+var (
+	Version      string
+	ConsoleLabel string = "catcher"
+)
 
 type ShellStruct struct {
 	Cmd string
