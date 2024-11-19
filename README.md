@@ -94,6 +94,7 @@ services:
     environment:
       - EXTERNAL_ADDRESS=<your.rssh.server.internal>:3232
       - RSSH_CONSOLE_LABEL=c2.label
+      - RSSH_LOG_LEVEL=INFO # DISABLED, INFO, WARNING, ERROR, FATAL
       - SEED_AUTHORIZED_KEYS=${SSH_PUBLIC_KEY}
     volumes:
       - ./data:/data

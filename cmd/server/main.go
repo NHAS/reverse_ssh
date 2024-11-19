@@ -91,8 +91,18 @@ func main() {
 
 	log.Printf("Loading files from %s\n", dataDir)
 
-	logLevel, err := options.GetArgString("log-level")
-	if err == nil {
+	var (
+		logLevel string
+		ok       bool
+	)
+
+	logLevel, err = options.GetArgString("log-level")
+	ok = err == nil
+	if err != nil {
+		logLevel, ok = os.LookupEnv("RSSH_LOG_LEVEL")
+	}
+
+	if ok {
 		urg, err := logger.StrToUrgency(logLevel)
 		if err != nil {
 			log.Fatal(err)
