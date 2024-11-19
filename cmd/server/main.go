@@ -143,11 +143,11 @@ func main() {
 
 	potentialConsoleLabel, err := options.GetArgString("console-label")
 	if err == nil {
-		internal.ConsoleLabel = potentialConsoleLabel
+		internal.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
 	} else {
 		potentialConsoleLabel, ok := os.LookupEnv("RSSH_CONSOLE_LABEL")
 		if ok {
-			internal.ConsoleLabel = potentialConsoleLabel
+			internal.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
 		}
 	}
 
