@@ -49,6 +49,7 @@ func printHelp() {
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
+	fmt.Println("\t\t--winauth\tWhen using kerberos auth on proxy server")
 
 }
 
