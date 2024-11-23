@@ -38,6 +38,7 @@ var (
 	proxy       string
 	ignoreInput string
 	customSNI   string
+	winauth     bool = false
 )
 
 func printHelp() {
@@ -93,6 +94,10 @@ func main() {
 	}
 
 	processArgv, _ := line.GetArgsString("process_name")
+
+	if line.IsSet("winauth") {
+		winauth = true
+	}
 
 	if !(line.IsSet("d") || line.IsSet("destination")) && len(destination) == 0 && len(line.Arguments) < 1 {
 		fmt.Println("No destination specified")
