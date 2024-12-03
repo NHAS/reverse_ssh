@@ -18,7 +18,7 @@ import (
 
 var elog debug.Log
 
-func Fork(destination, fingerprint, proxyaddress, sni string, pretendArgv ...string) error {
+func Fork(destination, fingerprint, proxyaddress, sni string, winauth bool, pretendArgv ...string) error {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {
@@ -71,7 +71,7 @@ func runService(name, destination, fingerprint, proxyaddress, sni string) {
 		fingerprint,
 		proxyaddress,
 		sni,
-		winauth,
+		useKerberos,
 	})
 	if err != nil {
 		elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
@@ -109,7 +109,7 @@ Outer:
 	return
 }
 
-func Run(destination, fingerprint, proxyaddress, sni string) {
+func Run(destination, fingerprint, proxyaddress, sni string, winauth bool) {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {

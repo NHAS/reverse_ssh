@@ -21,7 +21,6 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client/handlers"
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
-	"github.com/NHAS/reverse_ssh/pkg/wauth"
 	"golang.org/x/crypto/ssh"
 	socks "golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
@@ -89,9 +88,22 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 		log.Println("Setting HTTP proxy address as: ", proxy)
 		proxyURL, _ := url.Parse(proxy) // Already parsed
 
-		if proxyURL.Scheme == "http" {
+		if proxyURL.Scheme == "http" || proxyURL.Scheme == "https" {
 
-			proxyCon, err := net.DialTimeout("tcp", proxyURL.Host, timeout)
+			var (
+				proxyCon net.Conn
+				err      error
+			)
+			switch proxyURL.Scheme {
+			case "http":
+				proxyCon, err = net.DialTimeout("tcp", proxyURL.Host, timeout)
+			case "https":
+				proxyCon, err = tls.DialWithDialer(&net.Dialer{
+					Timeout: timeout,
+				}, "tcp", proxyURL.Host, &tls.Config{
+					InsecureSkipVerify: true,
+				})
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -106,7 +118,7 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 			}
 
 			if winauth {
-				req = append(req, fmt.Sprintf("Proxy-Authorization: %s", wauth.GetAuthorizationHeader(proxy)))
+				req = AdditionalHeaders(proxy, req)
 			}
 
 			err = WriteHTTPReq(req, proxyCon)

