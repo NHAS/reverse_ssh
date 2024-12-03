@@ -21,6 +21,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client/handlers"
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/NHAS/reverse_ssh/pkg/wauth"
 	"golang.org/x/crypto/ssh"
 	socks "golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
@@ -82,7 +83,7 @@ func GetProxyDetails(proxy string) (string, error) {
 	return proxyURL.Scheme + "://" + proxyURL.Host, nil
 }
 
-func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err error) {
+func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.Conn, err error) {
 
 	if len(proxy) != 0 {
 		log.Println("Setting HTTP proxy address as: ", proxy)
@@ -102,6 +103,10 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 			req := []string{
 				fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
 				fmt.Sprintf("Host: %s", addr),
+			}
+
+			if winauth {
+				req = append(req, fmt.Sprintf("Proxy-Authorization: %s", wauth.GetAuthorizationHeader(proxy)))
 			}
 
 			err = WriteHTTPReq(req, proxyCon)
@@ -163,7 +168,7 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	return
 }
 
-func Run(addr, fingerprint, proxyAddr, sni string) {
+func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
 	if sysinfoError != nil {
@@ -223,7 +228,7 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 		if scheme != "stdio" {
 			log.Println("Connecting to ", addr)
 			// First create raw TCP connection
-			conn, err = Connect(realAddr, proxyAddr, config.Timeout)
+			conn, err = Connect(realAddr, proxyAddr, config.Timeout, winauth)
 			if err != nil {
 
 				if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
@@ -312,7 +317,7 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 			case "http", "https":
 
 				conn, err = NewHTTPConn(scheme+"://"+realAddr, func() (net.Conn, error) {
-					return Connect(realAddr, proxyAddr, config.Timeout)
+					return Connect(realAddr, proxyAddr, config.Timeout, winauth)
 				})
 
 				if err != nil {

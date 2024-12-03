@@ -8,7 +8,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-//go:embed private_key
 var privateKey []byte
 
 func GetPrivateKey() (ssh.Signer, error) {

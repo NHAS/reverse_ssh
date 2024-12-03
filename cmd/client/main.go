@@ -38,6 +38,7 @@ var (
 	proxy       string
 	ignoreInput string
 	customSNI   string
+	winauth     bool = false
 )
 
 func printHelp() {
@@ -48,6 +49,7 @@ func printHelp() {
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
+	fmt.Println("\t\t--winauth\tWhen using kerberos auth on proxy server")
 
 }
 
@@ -93,6 +95,10 @@ func main() {
 	}
 
 	processArgv, _ := line.GetArgsString("process_name")
+
+	if line.IsSet("winauth") {
+		winauth = true
+	}
 
 	if !(line.IsSet("d") || line.IsSet("destination")) && len(destination) == 0 && len(line.Arguments) < 1 {
 		fmt.Println("No destination specified")

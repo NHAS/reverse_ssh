@@ -52,6 +52,7 @@ func Fork(destination, fingerprint, proxyaddress, sni string, pretendArgv ...str
 
 type rsshService struct {
 	Dest, Fingerprint, Proxy, SNI string
+	Winauth                       bool
 }
 
 func runService(name, destination, fingerprint, proxyaddress, sni string) {
@@ -70,6 +71,7 @@ func runService(name, destination, fingerprint, proxyaddress, sni string) {
 		fingerprint,
 		proxyaddress,
 		sni,
+		winauth,
 	})
 	if err != nil {
 		elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
@@ -82,7 +84,7 @@ func (m *rsshService) Execute(args []string, r <-chan svc.ChangeRequest, changes
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
 
-	go client.Run(m.Dest, m.Fingerprint, m.Proxy, m.SNI)
+	go client.Run(m.Dest, m.Fingerprint, m.Proxy, m.SNI, m.Winauth)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
 Outer:
@@ -112,12 +114,12 @@ func Run(destination, fingerprint, proxyaddress, sni string) {
 	inService, err := svc.IsWindowsService()
 	if err != nil {
 		log.Printf("failed to determine if we are running in service: %v", err)
-		client.Run(destination, fingerprint, proxyaddress, sni)
+		client.Run(destination, fingerprint, proxyaddress, sni, winauth)
 	}
 
 	if !inService {
 
-		client.Run(destination, fingerprint, proxyaddress, sni)
+		client.Run(destination, fingerprint, proxyaddress, sni, winauth)
 		return
 	}
 
