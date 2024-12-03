@@ -180,6 +180,24 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 	return
 }
 
+func getCaseInsensitiveEnv(envs ...string) (ret []string) {
+
+	lower := map[string]bool{}
+
+	for _, env := range envs {
+		lower[strings.ToLower(env)] = true
+	}
+
+	for _, e := range os.Environ() {
+
+		part := strings.SplitN(e, "=", 2)
+		if len(part) > 1 && lower[strings.ToLower(part[0])] {
+			ret = append(ret, part[1])
+		}
+	}
+	return ret
+}
+
 func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
@@ -232,10 +250,10 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 
 	realAddr, scheme := determineConnectionType(addr)
 
-	triedHttpproxy := false
-	triedHttpsproxy := false
+	// fetch the environment variables, but the first proxy is done from the supplied proxyAddr arg
+	potentialProxies := getCaseInsensitiveEnv("http_proxy", "https_proxy")
+	triedProxyIndex := 0
 	for {
-
 		var conn net.Conn
 		if scheme != "stdio" {
 			log.Println("Connecting to ", addr)
@@ -247,31 +265,22 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 					log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", addr, errMsg)
 				}
 
-				log.Printf("Unable to connect TCP: %s\n", err)
+				log.Printf("Unable to connect directly TCP: %s\n", err)
 
-				if os.Getenv("http_proxy") != "" && !triedHttpproxy {
-					triedHttpproxy = true
-					log.Println("Trying to proxy via http_proxy (", os.Getenv("http_proxy"), ")")
-
-					proxyAddr, err = GetProxyDetails(os.Getenv("http_proxy"))
-					if err != nil {
-						log.Println("Could not parse the http_proxy value: ", os.Getenv("http_proxy"))
-						continue
+				if len(potentialProxies) > 0 {
+					if len(potentialProxies) <= triedProxyIndex {
+						log.Fatalf("Unable to connect via proxies (from env): %v", potentialProxies)
 					}
+					proxy := potentialProxies[triedProxyIndex]
+					triedProxyIndex++
 
-					continue
-				}
+					log.Println("Trying to proxy via env variable (", proxy, ")")
 
-				if os.Getenv("https_proxy") != "" && !triedHttpsproxy {
-					triedHttpsproxy = true
-					log.Println("Trying to proxy via https_proxy (", os.Getenv("https_proxy"), ")")
-
-					proxyAddr, err = GetProxyDetails(os.Getenv("https_proxy"))
+					proxyAddr, err = GetProxyDetails(proxy)
 					if err != nil {
-						log.Println("Could not parse the https_proxy value: ", os.Getenv("https_proxy"))
-						continue
+						log.Println("Could not parse the env proxy value: ", proxy)
 					}
-
+					// dont wait 10 seconds, just immediately try the proxy
 					continue
 				}
 
@@ -361,6 +370,11 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 
 			<-time.After(10 * time.Second)
 			continue
+		}
+
+		if len(potentialProxies) > 0 {
+			// reset proxy counter after success, so we always check the avaliable proxies
+			triedProxyIndex = 0
 		}
 
 		log.Println("Successfully connnected", addr)
