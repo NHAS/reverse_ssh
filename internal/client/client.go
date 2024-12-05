@@ -118,7 +118,7 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 			}
 
 			if winauth {
-				req = AdditionalHeaders(proxy, req)
+				req = additionalHeaders(proxy, req)
 			}
 
 			err = WriteHTTPReq(req, proxyCon)
@@ -158,7 +158,6 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 			}
 			proxyCon, err := dial.Dial("tcp", addr)
 			if err != nil {
-
 				return nil, fmt.Errorf("failed to dial socks: %s", err)
 			}
 
