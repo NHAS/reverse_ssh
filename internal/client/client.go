@@ -253,6 +253,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 	// fetch the environment variables, but the first proxy is done from the supplied proxyAddr arg
 	potentialProxies := getCaseInsensitiveEnv("http_proxy", "https_proxy")
 	triedProxyIndex := 0
+	initialProxyAddr := proxyAddr
 	for {
 		var conn net.Conn
 		if scheme != "stdio" {
@@ -269,7 +270,10 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 
 				if len(potentialProxies) > 0 {
 					if len(potentialProxies) <= triedProxyIndex {
-						log.Fatalf("Unable to connect via proxies (from env): %v", potentialProxies)
+						log.Printf("Unable to connect via proxies (from env), retrying with proxy as %q: %v", potentialProxies, initialProxyAddr)
+						triedProxyIndex = 0
+						proxyAddr = initialProxyAddr
+						continue
 					}
 					proxy := potentialProxies[triedProxyIndex]
 					triedProxyIndex++
@@ -280,7 +284,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 					if err != nil {
 						log.Println("Could not parse the env proxy value: ", proxy)
 					}
-					// dont wait 10 seconds, just immediately try the proxy
+					// dont wait 10 seconds, just immediately try each proxy
 					continue
 				}
 
