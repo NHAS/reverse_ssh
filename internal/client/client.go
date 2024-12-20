@@ -82,15 +82,28 @@ func GetProxyDetails(proxy string) (string, error) {
 	return proxyURL.Scheme + "://" + proxyURL.Host, nil
 }
 
-func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err error) {
+func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.Conn, err error) {
 
 	if len(proxy) != 0 {
 		log.Println("Setting HTTP proxy address as: ", proxy)
 		proxyURL, _ := url.Parse(proxy) // Already parsed
 
-		if proxyURL.Scheme == "http" {
+		if proxyURL.Scheme == "http" || proxyURL.Scheme == "https" {
 
-			proxyCon, err := net.DialTimeout("tcp", proxyURL.Host, timeout)
+			var (
+				proxyCon net.Conn
+				err      error
+			)
+			switch proxyURL.Scheme {
+			case "http":
+				proxyCon, err = net.DialTimeout("tcp", proxyURL.Host, timeout)
+			case "https":
+				proxyCon, err = tls.DialWithDialer(&net.Dialer{
+					Timeout: timeout,
+				}, "tcp", proxyURL.Host, &tls.Config{
+					InsecureSkipVerify: true,
+				})
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -102,6 +115,10 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 			req := []string{
 				fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
 				fmt.Sprintf("Host: %s", addr),
+			}
+
+			if winauth {
+				req = additionalHeaders(proxy, req)
 			}
 
 			err = WriteHTTPReq(req, proxyCon)
@@ -141,7 +158,6 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 			}
 			proxyCon, err := dial.Dial("tcp", addr)
 			if err != nil {
-
 				return nil, fmt.Errorf("failed to dial socks: %s", err)
 			}
 
@@ -163,7 +179,25 @@ func Connect(addr, proxy string, timeout time.Duration) (conn net.Conn, err erro
 	return
 }
 
-func Run(addr, fingerprint, proxyAddr, sni string) {
+func getCaseInsensitiveEnv(envs ...string) (ret []string) {
+
+	lower := map[string]bool{}
+
+	for _, env := range envs {
+		lower[strings.ToLower(env)] = true
+	}
+
+	for _, e := range os.Environ() {
+
+		part := strings.SplitN(e, "=", 2)
+		if len(part) > 1 && lower[strings.ToLower(part[0])] {
+			ret = append(ret, part[1])
+		}
+	}
+	return ret
+}
+
+func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
 	if sysinfoError != nil {
@@ -215,46 +249,41 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 
 	realAddr, scheme := determineConnectionType(addr)
 
-	triedHttpproxy := false
-	triedHttpsproxy := false
+	// fetch the environment variables, but the first proxy is done from the supplied proxyAddr arg
+	potentialProxies := getCaseInsensitiveEnv("http_proxy", "https_proxy")
+	triedProxyIndex := 0
+	initialProxyAddr := proxyAddr
 	for {
-
 		var conn net.Conn
 		if scheme != "stdio" {
 			log.Println("Connecting to ", addr)
 			// First create raw TCP connection
-			conn, err = Connect(realAddr, proxyAddr, config.Timeout)
+			conn, err = Connect(realAddr, proxyAddr, config.Timeout, winauth)
 			if err != nil {
 
 				if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
 					log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", addr, errMsg)
 				}
 
-				log.Printf("Unable to connect TCP: %s\n", err)
+				log.Printf("Unable to connect directly TCP: %s\n", err)
 
-				if os.Getenv("http_proxy") != "" && !triedHttpproxy {
-					triedHttpproxy = true
-					log.Println("Trying to proxy via http_proxy (", os.Getenv("http_proxy"), ")")
-
-					proxyAddr, err = GetProxyDetails(os.Getenv("http_proxy"))
-					if err != nil {
-						log.Println("Could not parse the http_proxy value: ", os.Getenv("http_proxy"))
+				if len(potentialProxies) > 0 {
+					if len(potentialProxies) <= triedProxyIndex {
+						log.Printf("Unable to connect via proxies (from env), retrying with proxy as %q: %v", potentialProxies, initialProxyAddr)
+						triedProxyIndex = 0
+						proxyAddr = initialProxyAddr
 						continue
 					}
+					proxy := potentialProxies[triedProxyIndex]
+					triedProxyIndex++
 
-					continue
-				}
+					log.Println("Trying to proxy via env variable (", proxy, ")")
 
-				if os.Getenv("https_proxy") != "" && !triedHttpsproxy {
-					triedHttpsproxy = true
-					log.Println("Trying to proxy via https_proxy (", os.Getenv("https_proxy"), ")")
-
-					proxyAddr, err = GetProxyDetails(os.Getenv("https_proxy"))
+					proxyAddr, err = GetProxyDetails(proxy)
 					if err != nil {
-						log.Println("Could not parse the https_proxy value: ", os.Getenv("https_proxy"))
-						continue
+						log.Println("Could not parse the env proxy value: ", proxy)
 					}
-
+					// dont wait 10 seconds, just immediately try each proxy
 					continue
 				}
 
@@ -312,7 +341,7 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 			case "http", "https":
 
 				conn, err = NewHTTPConn(scheme+"://"+realAddr, func() (net.Conn, error) {
-					return Connect(realAddr, proxyAddr, config.Timeout)
+					return Connect(realAddr, proxyAddr, config.Timeout, winauth)
 				})
 
 				if err != nil {
@@ -344,6 +373,11 @@ func Run(addr, fingerprint, proxyAddr, sni string) {
 
 			<-time.After(10 * time.Second)
 			continue
+		}
+
+		if len(potentialProxies) > 0 {
+			// reset proxy counter after success, so we always check the avaliable proxies
+			triedProxyIndex = 0
 		}
 
 		log.Println("Successfully connnected", addr)

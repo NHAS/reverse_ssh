@@ -49,6 +49,7 @@ func (l *link) ValidArgs() map[string]string {
 		"sni":               "When TLS is in use, set a custom SNI for the client to connect with",
 		"working-directory": "Set download/working directory for automatic script (i.e doing curl https://<url>.sh)",
 		"raw-download":      "Download over raw TCP, outputs bash downloader rather than http",
+		"use-kerberos":      "Instruct client to try and use kerberos ticket when using a proxy",
 	}
 
 	// Add duplicate flags for owners
@@ -116,13 +117,13 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	buildConfig := webserver.BuildConfig{
-		SharedLibrary: line.IsSet("shared-object"),
-		UPX:           line.IsSet("upx"),
-		Lzma:          line.IsSet("lzma"),
-		Garble:        line.IsSet("garble"),
-		DisableLibC:   line.IsSet("no-lib-c"),
-
-		RawDownload: line.IsSet("raw-download"),
+		SharedLibrary:   line.IsSet("shared-object"),
+		UPX:             line.IsSet("upx"),
+		Lzma:            line.IsSet("lzma"),
+		Garble:          line.IsSet("garble"),
+		DisableLibC:     line.IsSet("no-lib-c"),
+		UseKerberosAuth: line.IsSet("use-kerberos"),
+		RawDownload:     line.IsSet("raw-download"),
 	}
 
 	var err error
