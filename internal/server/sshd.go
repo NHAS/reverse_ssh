@@ -266,7 +266,6 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 
 				return perm, err
 			}
-
 			if err != ErrKeyNotInList {
 				return nil, fmt.Errorf("admin with supplied username (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
 			}
