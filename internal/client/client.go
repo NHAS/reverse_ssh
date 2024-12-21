@@ -256,7 +256,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 	for {
 		var conn net.Conn
 		if scheme != "stdio" {
-			log.Println("Connecting to ", addr)
+			log.Println("Connecting to", addr)
 			// First create raw TCP connection
 			conn, err = Connect(realAddr, proxyAddr, config.Timeout, winauth)
 			if err != nil {

@@ -294,11 +294,13 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 			}
 
 			if err != ErrKeyNotInList {
+
 				return nil, fmt.Errorf("client was denied login: %s", err)
 			}
 
 			perms, err = CheckAuth(authorizedProxyKeysPath, key, remoteIp, insecure || openproxy)
 			if err == nil {
+
 				perms.Extensions["type"] = "proxy"
 				return perms, err
 			}
