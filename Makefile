@@ -34,6 +34,7 @@ release: .generate_keys
 
 e2e: .generate_keys
 	go build -ldflags="github.com/NHAS/reverse_ssh/e2e.Version=$(shell git describe --tags)" -o e2e ./...
+	cp internal/client/keys/private_key.pub e2e/authorized_controllee_keys
 
 client: .generate_keys
 	go build $(BUILD_FLAGS) -ldflags="$(LDFLAGS_RELEASE)" -o bin ./cmd/client

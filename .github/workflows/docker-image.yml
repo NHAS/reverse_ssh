@@ -1,11 +1,39 @@
 name: Docker Image CI
 
-on:
-  push:
-    branches: ["main"]
+on: ["push"]
 
 jobs:
+  e2e_tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23.1"
+
+      - name: Update repos
+        run: sudo apt update
+
+      - name: Install mingw for windows dll tests
+        run: sudo apt install -y gcc-mingw-w64
+
+      - name: Make integration tests
+        run: yes | make e2e
+
+      - name: Run tests
+        working-directory: e2e
+        run: ./e2e
+    
   build:
+    needs: test
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true

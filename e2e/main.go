@@ -62,6 +62,8 @@ func main() {
 		log.Fatalf("Missing required files: %v", missingFiles)
 	}
 
+	reset()
+
 	kill := runServer()
 	defer kill()
 
@@ -82,7 +84,10 @@ func main() {
 	}
 	defer client.Close()
 
-	basics(serverLog)
+	// integration tests
+	basics()
+	clientTests()
+	linkTests()
 
 	log.Println("All passed!")
 }
@@ -98,7 +103,7 @@ func conditionExec(command, expectedOutput string, exitCode int, serverLogExpect
 	if err != nil {
 
 		if exitError, ok := err.(*ssh.ExitError); !ok || (ok && exitCode != exitError.ExitStatus()) {
-			log.Fatalf("Failed to execute command %q: %v", command, err)
+			log.Fatalf("Failed to execute command %q: %v: %q", command, err, output)
 		}
 	}
 
@@ -163,4 +168,11 @@ func runServer() func() {
 			cmd.Process.Kill()
 		}
 	}
+}
+
+func reset() {
+	os.RemoveAll("./cache")
+	os.RemoveAll("./downloads")
+	os.RemoveAll("./keys")
+	os.RemoveAll("./data.db")
 }

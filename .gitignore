@@ -16,3 +16,5 @@ e2e/cache
 e2e/keys
 e2e/data.db
 e2e/id_ed25519
+e2e/watch.log
+e2e/authorized_controllee_keys
