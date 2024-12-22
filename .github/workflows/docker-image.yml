@@ -33,7 +33,7 @@ jobs:
     
   build:
     needs: e2e_tests
-    if: startsWith(github.ref_name, 'refs/tags/') && matches(github.ref_name, '^v\d+\.\d+\.\d+$')
+    if: contains(github.ref, 'refs/tags/v[0-9]+.[0-9]+.[0-9]+')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
