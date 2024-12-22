@@ -6,3 +6,13 @@ internal/client/keys/*
 cmd/server/id_ed25519
 cmd/server/__debug_bin.exe
 cmd/client/__debug_bin.exe
+e2e/server
+e2e/client
+e2e/e2e
+e2e/authorized_keys
+e2e/id_e2e
+e2e/downloads
+e2e/cache
+e2e/keys
+e2e/data.db
+e2e/id_ed25519

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -17,6 +18,14 @@ import (
 // Session has a lot of 'function' in ssh. It can be used for shell, exec, subsystem, pty-req and more.
 // However these calls are done through requests, rather than opening a new channel
 // This callback just sorts out what the client wants to be doing
+
+func sendExitCode(code uint32, channel ssh.Channel) {
+
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, code)
+
+	channel.SendRequest("exit-status", false, b)
+}
 
 func Session(datadir string) ChannelHandler {
 	return func(connectionDetails string, user *users.User, newChannel ssh.NewChannel, log logger.Logger) {
@@ -63,13 +72,17 @@ func Session(datadir string) ChannelHandler {
 						req.Reply(true, nil)
 						err := m.Run(user, connection, line)
 						if err != nil {
+							sendExitCode(1, connection)
 							fmt.Fprintf(connection, "%s", err.Error())
 							return
 						}
+						sendExitCode(0, connection)
+
 						return
 					}
 				}
 				req.Reply(false, []byte("Unknown RSSH command"))
+				sendExitCode(1, connection)
 				return
 			case "shell":
 				// We only accept the default shell
@@ -87,8 +100,10 @@ func Session(datadir string) ChannelHandler {
 
 				err := term.Run()
 				if err != nil && err != io.EOF {
+					sendExitCode(1, connection)
 					log.Error("Error: %s", err)
 				}
+				sendExitCode(0, connection)
 
 				return
 				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actuall proceeds all of them
