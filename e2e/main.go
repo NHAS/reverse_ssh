@@ -19,7 +19,9 @@ func fileExists(path string) bool {
 }
 
 var (
-	Version string
+	Version   string
+	client    *ssh.Client
+	serverLog *os.File
 )
 
 const (
@@ -60,7 +62,7 @@ func main() {
 		log.Fatalf("Missing required files: %v", missingFiles)
 	}
 
-	serverLog, kill := runServer()
+	kill := runServer()
 	defer kill()
 
 	// Configure SSH client
@@ -74,25 +76,30 @@ func main() {
 	}
 
 	// Connect as administrator
-	client, err := ssh.Dial("tcp", listenAddr, config)
+	client, err = ssh.Dial("tcp", listenAddr, config)
 	if err != nil {
 		log.Fatalf("Failed to dial: %v", err)
 	}
 	defer client.Close()
 
+	basics(serverLog)
+
+	log.Println("All passed!")
+}
+
+func conditionExec(command, expectedOutput string, exitCode int, serverLogExpected string, withIn int) {
 	session, err := client.NewSession()
 	if err != nil {
 		log.Fatalf("Failed to create session: %v", err)
 	}
 	defer session.Close()
 
-	basics(session, serverLog)
-}
-
-func condition(session *ssh.Session, command, expectedOutput string, serverLog *os.File, serverLogExpected string, withIn int) {
 	output, err := session.Output(command)
 	if err != nil {
-		log.Fatalf("Failed to execute command %q: %v", command, err)
+
+		if exitError, ok := err.(*ssh.ExitError); !ok || (ok && exitCode != exitError.ExitStatus()) {
+			log.Fatalf("Failed to execute command %q: %v", command, err)
+		}
 	}
 
 	wait := make(chan bool)
@@ -132,7 +139,7 @@ func condition(session *ssh.Session, command, expectedOutput string, serverLog *
 
 }
 
-func runServer() (*os.File, func()) {
+func runServer() func() {
 	cmd := exec.Command("./server", "--enable-client-downloads", listenAddr)
 
 	r, w, err := os.Pipe()
@@ -147,10 +154,11 @@ func runServer() (*os.File, func()) {
 	if err != nil {
 		log.Fatal("failed to start server:", err)
 	}
+	serverLog = r
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second)
 
-	return r, func() {
+	return func() {
 		if cmd.Process != nil {
 			cmd.Process.Kill()
 		}
