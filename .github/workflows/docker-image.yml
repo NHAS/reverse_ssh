@@ -32,7 +32,7 @@ jobs:
         run: ./e2e
     
   build:
-    needs: test
+    needs: e2e_tests
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     strategy:
