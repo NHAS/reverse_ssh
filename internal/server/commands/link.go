@@ -50,6 +50,7 @@ func (l *link) ValidArgs() map[string]string {
 		"working-directory": "Set download/working directory for automatic script (i.e doing curl https://<url>.sh)",
 		"raw-download":      "Download over raw TCP, outputs bash downloader rather than http",
 		"use-kerberos":      "Instruct client to try and use kerberos ticket when using a proxy",
+		"log-level":         "Change logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]",
 	}
 
 	// Add duplicate flags for owners
@@ -196,6 +197,11 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	buildConfig.SNI, err = line.GetArgString("sni")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.LogLevel, err = line.GetArgString("log-level")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
