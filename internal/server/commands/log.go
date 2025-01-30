@@ -17,6 +17,7 @@ type logCommand struct {
 func (l *logCommand) ValidArgs() map[string]string {
 	return map[string]string{
 		"c":          "client to collect logging from",
+		"log-level":  "Set client log level, default for generated clients is currently: " + fmt.Sprintf("%q", logger.UrgencyToStr(logger.GetLogLevel())),
 		"to-file":    "direct output to file, takes a path as an argument",
 		"to-console": "directs output to the server console (or current connection), stop with any keypress",
 	}
@@ -37,6 +38,22 @@ func (l *logCommand) Run(user *users.User, tty io.ReadWriter, line terminal.Pars
 	connection, err := user.GetClient(client)
 	if err != nil {
 		return err
+	}
+
+	logLevel, err := line.GetArgString("log-level")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	} else {
+
+		_, err := logger.StrToUrgency(logLevel)
+		if err != nil {
+			return fmt.Errorf("invalid log level %q", logLevel)
+		}
+
+		_, _, err = connection.SendRequest("log-level", false, []byte(logLevel))
+		if err != nil {
+			return fmt.Errorf("failed to send log level request to client (may be outdated): %s", err)
+		}
 	}
 
 	if line.IsSet("to-console") {
@@ -87,8 +104,6 @@ func (l *logCommand) Run(user *users.User, tty io.ReadWriter, line terminal.Pars
 			return fmt.Errorf("failed to send request to client: %s", err)
 		}
 		fmt.Fprintln(tty, "log to file request sent to client!")
-	} else {
-		return fmt.Errorf("no logging direction chosen: --to-file or --to-console")
 	}
 
 	return nil

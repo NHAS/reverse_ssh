@@ -16,6 +16,7 @@ type Download struct {
 
 	CallbackAddress string
 	FilePath        string
+	LogLevel        string
 	Goos            string
 	Goarch          string
 	Goarm           string

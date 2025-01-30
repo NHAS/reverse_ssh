@@ -14,6 +14,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/data"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/trie"
 	"golang.org/x/crypto/ssh"
 )
@@ -34,7 +35,8 @@ type BuildConfig struct {
 
 	ConnectBackAdress, Fingerprint string
 
-	Proxy, SNI      string
+	Proxy, SNI, LogLevel string
+
 	UseKerberosAuth bool
 
 	SharedLibrary bool
@@ -158,7 +160,12 @@ func Build(config BuildConfig) (string, error) {
 		return "", err
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X main.useKerberosStr=%t -X github.com/NHAS/reverse_ssh/internal.Version=%s", config.ConnectBackAdress, config.Fingerprint, config.Proxy, config.SNI, config.UseKerberosAuth, strings.TrimSpace(f.Version)))
+	_, err = logger.StrToUrgency(config.LogLevel)
+	if err != nil {
+		return "", err
+	}
+
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.logLevel=%s -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X main.useKerberosStr=%t -X github.com/NHAS/reverse_ssh/internal.Version=%s", config.LogLevel, config.ConnectBackAdress, config.Fingerprint, config.Proxy, config.SNI, config.UseKerberosAuth, strings.TrimSpace(f.Version)))
 	buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)
@@ -235,6 +242,8 @@ func Build(config BuildConfig) (string, error) {
 	f.FileSize = float64(fi.Size()) / 1024 / 1024
 
 	os.Chmod(f.FilePath, 0600)
+
+	f.LogLevel = config.LogLevel
 
 	err = data.CreateDownload(f)
 	if err != nil {

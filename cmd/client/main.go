@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/NHAS/reverse_ssh/internal/terminal"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
 func fork(path string, sysProcAttr *syscall.SysProcAttr, pretendArgv ...string) error {
@@ -42,6 +43,7 @@ var (
 	useKerberos bool
 	// golang can only embed strings using the compile time linker
 	useKerberosStr string
+	logLevel       string
 )
 
 func printHelp() {
@@ -52,6 +54,7 @@ func printHelp() {
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
+	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
 	if runtime.GOOS == "windows" {
 		fmt.Println("\t\t--use-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
 	}
@@ -124,6 +127,22 @@ func main() {
 		// Basically take a guess at the arguments we have and take the last one
 		destination = line.Arguments[len(line.Arguments)-1].Value()
 	}
+
+	var actualLogLevel logger.Urgency = logger.INFO
+	userSpecifiedLogLevel, err := line.GetArgString("log-level")
+	if err == nil {
+		actualLogLevel, err = logger.StrToUrgency(userSpecifiedLogLevel)
+		if err != nil {
+			log.Fatalf("invalid log level: %s, err: %s", userSpecifiedLogLevel, err)
+		}
+	} else if logLevel != "" {
+		actualLogLevel, err = logger.StrToUrgency(logLevel)
+		if err != nil {
+			log.Fatalf("default log-level was invalid: %s, err %s", logLevel, err)
+		}
+	}
+	log.Println("setting ll: ", actualLogLevel)
+	logger.SetLogLevel(actualLogLevel)
 
 	if fg || child {
 		Run(destination, fingerprint, proxy, customSNI, useKerberos)

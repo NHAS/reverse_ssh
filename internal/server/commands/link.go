@@ -14,6 +14,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 )
 
@@ -50,6 +51,7 @@ func (l *link) ValidArgs() map[string]string {
 		"working-directory": "Set download/working directory for automatic script (i.e doing curl https://<url>.sh)",
 		"raw-download":      "Download over raw TCP, outputs bash downloader rather than http",
 		"use-kerberos":      "Instruct client to try and use kerberos ticket when using a proxy",
+		"log-level":         "Set default output logging levels, [INFO,WARNING,ERROR,FATAL,DISABLED]",
 	}
 
 	// Add duplicate flags for owners
@@ -61,7 +63,7 @@ func (l *link) ValidArgs() map[string]string {
 func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "GOOS", "GOARCH", "Version", "Type", "Hits", "Size")
+		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "Log Level", "GOOS", "GOARCH", "Version", "Type", "Hits", "Size")
 
 		files, err := data.ListDownloads(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
@@ -78,7 +80,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		for _, id := range ids {
 			file := files[id]
 
-			t.AddValues("http://"+path.Join(webserver.DefaultConnectBack, id), file.CallbackAddress, file.Goos, file.Goarch+file.Goarm, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits), fmt.Sprintf("%.2f MB", file.FileSize))
+			t.AddValues("http://"+path.Join(webserver.DefaultConnectBack, id), file.CallbackAddress, file.LogLevel, file.Goos, file.Goarch+file.Goarm, file.Version, file.FileType, fmt.Sprintf("%d", file.Hits), fmt.Sprintf("%.2f MB", file.FileSize))
 		}
 
 		t.Fprint(tty)
@@ -198,6 +200,20 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	buildConfig.SNI, err = line.GetArgString("sni")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
+	}
+
+	buildConfig.LogLevel, err = line.GetArgString("log-level")
+	if err != nil {
+		if err != terminal.ErrFlagNotSet {
+			return err
+		}
+
+		buildConfig.LogLevel = logger.UrgencyToStr(logger.GetLogLevel())
+	} else {
+		_, err := logger.StrToUrgency(buildConfig.LogLevel)
+		if err != nil {
+			return fmt.Errorf("could to turn log-level %q into log urgency (probably an invalid setting)", err)
+		}
 	}
 
 	buildConfig.Owners, err = line.GetArgString("owners")

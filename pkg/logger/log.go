@@ -25,6 +25,10 @@ func SetLogLevel(level Urgency) {
 	globalLevel = level
 }
 
+func GetLogLevel() Urgency {
+	return globalLevel
+}
+
 func (l *Logger) Info(format string, v ...interface{}) {
 	l.Ulogf(2, INFO, format, v...)
 }
@@ -64,9 +68,9 @@ func StrToUrgency(s string) (Urgency, error) {
 	switch s {
 	case "INFO":
 		return INFO, nil
-	case "WARNING":
+	case "WARNING", "WARN":
 		return WARN, nil
-	case "ERROR":
+	case "ERROR", "ERR":
 		return ERROR, nil
 	case "FATAL":
 		return FATAL, nil
@@ -75,6 +79,10 @@ func StrToUrgency(s string) (Urgency, error) {
 	}
 
 	return 0, fmt.Errorf("urgency %q isnt a valid urgency [INFO,WARNING,ERROR,FATAL,DISABLED]", s)
+}
+
+func UrgencyToStr(u Urgency) string {
+	return urgency(u)
 }
 
 func NewLog(id string) Logger {

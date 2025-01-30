@@ -34,7 +34,7 @@ func printHelp() {
 	fmt.Println("\t--timeout\t\tSet rssh client timeout (when a client is considered disconnected) defaults, in seconds, defaults to 5, if set to 0 timeout is disabled")
 	fmt.Println("  Utility")
 	fmt.Println("\t--fingerprint\t\tPrint fingerprint and exit. (Will generate server key if none exists)")
-	fmt.Println("\t--log-level\t\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
+	fmt.Println("\t--log-level\t\tChange logging output levels (will set default log level for generated clients), [INFO,WARNING,ERROR,FATAL,DISABLED]")
 	fmt.Println("\t--console-label\t\tChange console label.  (Default: catcher)")
 
 }
