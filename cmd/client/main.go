@@ -54,7 +54,7 @@ func printHelp() {
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
-	fmt.Println("\t\t--log-level\t\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
+	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
 	if runtime.GOOS == "windows" {
 		fmt.Println("\t\t--use-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
 	}
@@ -128,21 +128,20 @@ func main() {
 		destination = line.Arguments[len(line.Arguments)-1].Value()
 	}
 
-	logLevel, err := logger.StrToUrgency(logLevel)
-	if err != nil {
-		log.Fatal(err)
-	}
-	logger.SetLogLevel(logLevel)
-
+	var actualLogLevel logger.Urgency = logger.INFO
 	userSpecifiedLogLevel, err := line.GetArgString("log-level")
 	if err == nil {
-		logLevel, err := logger.StrToUrgency(userSpecifiedLogLevel)
+		actualLogLevel, err = logger.StrToUrgency(userSpecifiedLogLevel)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("invalid log level: %s, err: %s", userSpecifiedLogLevel, err)
 		}
-		logger.SetLogLevel(logLevel)
-
+	} else {
+		actualLogLevel, err = logger.StrToUrgency(logLevel)
+		if err != nil {
+			log.Fatalf("default log-level was invalid: %s, err %s", logLevel, err)
+		}
 	}
+	logger.SetLogLevel(actualLogLevel)
 
 	if fg || child {
 		Run(destination, fingerprint, proxy, customSNI, useKerberos)
