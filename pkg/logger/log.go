@@ -68,9 +68,9 @@ func StrToUrgency(s string) (Urgency, error) {
 	switch s {
 	case "INFO":
 		return INFO, nil
-	case "WARNING":
+	case "WARNING", "WARN":
 		return WARN, nil
-	case "ERROR":
+	case "ERROR", "ERR":
 		return ERROR, nil
 	case "FATAL":
 		return FATAL, nil

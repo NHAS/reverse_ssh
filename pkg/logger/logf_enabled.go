@@ -13,7 +13,7 @@ import (
 
 func (l *Logger) Ulogf(callerStackDepth int, u Urgency, format string, v ...interface{}) {
 
-	if u > globalLevel {
+	if u < globalLevel {
 		return
 	}
 

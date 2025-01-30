@@ -141,6 +141,7 @@ func main() {
 			log.Fatalf("default log-level was invalid: %s, err %s", logLevel, err)
 		}
 	}
+	log.Println("setting ll: ", actualLogLevel)
 	logger.SetLogLevel(actualLogLevel)
 
 	if fg || child {
