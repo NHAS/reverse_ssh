@@ -203,8 +203,12 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	buildConfig.LogLevel, err = line.GetArgString("log-level")
-	if err != nil && err != terminal.ErrFlagNotSet {
-		return err
+	if err != nil {
+		if err != terminal.ErrFlagNotSet {
+			return err
+		}
+
+		buildConfig.LogLevel = string(logger.GetLogLevel())
 	} else {
 		_, err := logger.StrToUrgency(buildConfig.LogLevel)
 		if err != nil {

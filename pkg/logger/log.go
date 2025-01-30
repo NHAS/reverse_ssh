@@ -25,6 +25,10 @@ func SetLogLevel(level Urgency) {
 	globalLevel = level
 }
 
+func GetLogLevel() Urgency {
+	return globalLevel
+}
+
 func (l *Logger) Info(format string, v ...interface{}) {
 	l.Ulogf(2, INFO, format, v...)
 }
