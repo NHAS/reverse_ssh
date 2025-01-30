@@ -402,6 +402,18 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 
 					realConn.Timeout = time.Duration(timeout*2) * time.Second
 
+				case "log-level":
+					u, err := logger.StrToUrgency(string(req.Payload))
+					if err != nil {
+						log.Printf("server sent invalid log level: %q", string(req.Payload))
+						req.Reply(false, nil)
+						continue
+					}
+
+					logger.SetLogLevel(u)
+
+					req.Reply(true, nil)
+
 				case "log-to-file":
 					req.Reply(true, nil)
 
