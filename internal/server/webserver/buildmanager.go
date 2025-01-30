@@ -243,6 +243,8 @@ func Build(config BuildConfig) (string, error) {
 
 	os.Chmod(f.FilePath, 0600)
 
+	f.LogLevel = config.LogLevel
+
 	err = data.CreateDownload(f)
 	if err != nil {
 		return "", err

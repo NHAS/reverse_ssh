@@ -63,7 +63,7 @@ func (l *link) ValidArgs() map[string]string {
 func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine) error {
 
 	if toList, ok := line.Flags["l"]; ok {
-		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "GOOS", "GOARCH", "Version", "Type", "Hits", "Size")
+		t, _ := table.NewTable("Active Files", "Url", "Client Callback", "Log Level", "GOOS", "GOARCH", "Version", "Type", "Hits", "Size")
 
 		files, err := data.ListDownloads(strings.Join(toList.ArgValues(), " "))
 		if err != nil {
