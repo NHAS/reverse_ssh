@@ -14,6 +14,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/webserver"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/internal/terminal/autocomplete"
+	"github.com/NHAS/reverse_ssh/pkg/logger"
 	"github.com/NHAS/reverse_ssh/pkg/table"
 )
 
@@ -50,7 +51,7 @@ func (l *link) ValidArgs() map[string]string {
 		"working-directory": "Set download/working directory for automatic script (i.e doing curl https://<url>.sh)",
 		"raw-download":      "Download over raw TCP, outputs bash downloader rather than http",
 		"use-kerberos":      "Instruct client to try and use kerberos ticket when using a proxy",
-		"log-level":         "Change logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]",
+		"log-level":         "Set default output logging levels, [INFO,WARNING,ERROR,FATAL,DISABLED]",
 	}
 
 	// Add duplicate flags for owners
@@ -204,6 +205,11 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	buildConfig.LogLevel, err = line.GetArgString("log-level")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
+	} else {
+		_, err := logger.StrToUrgency(buildConfig.LogLevel)
+		if err != nil {
+			return fmt.Errorf("could to turn log-level %q into log urgency (probably an invalid setting)", err)
+		}
 	}
 
 	buildConfig.Owners, err = line.GetArgString("owners")
