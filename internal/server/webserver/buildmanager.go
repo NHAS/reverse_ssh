@@ -159,9 +159,7 @@ func Build(config BuildConfig) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if (config.LogLevel) == "" {
-		config.LogLevel = "info"
-	}
+
 	_, err = logger.StrToUrgency(config.LogLevel)
 	if err != nil {
 		return "", err

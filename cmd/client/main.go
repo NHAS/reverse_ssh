@@ -135,7 +135,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("invalid log level: %s, err: %s", userSpecifiedLogLevel, err)
 		}
-	} else {
+	} else if logLevel != "" {
 		actualLogLevel, err = logger.StrToUrgency(logLevel)
 		if err != nil {
 			log.Fatalf("default log-level was invalid: %s, err %s", logLevel, err)
