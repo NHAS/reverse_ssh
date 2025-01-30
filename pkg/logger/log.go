@@ -81,6 +81,10 @@ func StrToUrgency(s string) (Urgency, error) {
 	return 0, fmt.Errorf("urgency %q isnt a valid urgency [INFO,WARNING,ERROR,FATAL,DISABLED]", s)
 }
 
+func UrgencyToStr(u Urgency) string {
+	return urgency(u)
+}
+
 func NewLog(id string) Logger {
 	var l Logger
 	l.id = id
