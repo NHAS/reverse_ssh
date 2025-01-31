@@ -2,7 +2,7 @@ name: Testing RSSH
 
 on:
   push:
-    branches: [ "main", "unstable" ]
+    branches: [ "unstable" ]
 
 jobs:
   e2e_tests:
