@@ -4,13 +4,38 @@ on:
   push:
     branches: [ "main" ]
     tags: [ 'v*.*.*' ]
-  workflow_run:
-    workflows: ["Testing RSSH"]
-    types: [completed]
-    conclusion: success
 
 jobs:
+  e2e_tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23.1"
+
+      - name: Update repos
+        run: sudo apt update
+
+      - name: Install mingw for windows dll tests
+        run: sudo apt install -y gcc-mingw-w64
+
+      - name: Make integration tests
+        run: yes | make e2e
+
+      - name: Run tests
+        working-directory: e2e
+        run: ./e2e
+
   build:
+    needs: e2e_tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true

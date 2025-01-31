@@ -14,7 +14,7 @@ require (
 	golang.org/x/net v0.34.0
 	golang.org/x/sys v0.29.0
 	gorm.io/gorm v1.25.12
-	gvisor.dev/gvisor v0.0.0-20250130013701-88ba1d0d00fa
+	gvisor.dev/gvisor@go v0.0.0-20250130174428-e0435b9a53ea
 )
 
 require (
