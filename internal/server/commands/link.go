@@ -52,6 +52,7 @@ func (l *link) ValidArgs() map[string]string {
 		"raw-download":      "Download over raw TCP, outputs bash downloader rather than http",
 		"use-kerberos":      "Instruct client to try and use kerberos ticket when using a proxy",
 		"log-level":         "Set default output logging levels, [INFO,WARNING,ERROR,FATAL,DISABLED]",
+		"ntlm-proxy-creds":  "Set NTLM proxy credentials in format DOMAIN\\USER:PASS",
 	}
 
 	// Add duplicate flags for owners
@@ -230,6 +231,11 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	buildConfig.WorkingDirectory, err = line.GetArgString("working-directory")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.NTLMProxyCreds, err = line.GetArgString("ntlm-proxy-creds")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}

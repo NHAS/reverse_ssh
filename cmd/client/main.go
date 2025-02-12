@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/NHAS/reverse_ssh/internal/client"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
@@ -44,6 +45,7 @@ var (
 	// golang can only embed strings using the compile time linker
 	useKerberosStr string
 	logLevel       string
+	ntlmProxyCreds string
 )
 
 func printHelp() {
@@ -52,6 +54,7 @@ func printHelp() {
 	fmt.Println("\t\t--foreground\tCauses the client to run without forking to background")
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
+	fmt.Println("\t\t--ntlm-proxy-creds\tNTLM proxy credentials in format DOMAIN\\USER:PASS")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
 	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
@@ -102,6 +105,11 @@ func main() {
 		customSNI = userSpecifiedSNI
 	}
 
+	userSpecifiedNTLMCreds, err := line.GetArgString("ntlm-proxy-creds")
+	if err == nil {
+		ntlmProxyCreds = userSpecifiedNTLMCreds
+	}
+
 	processArgv, _ := line.GetArgsString("process_name")
 
 	if line.IsSet("winauth") {
@@ -143,6 +151,25 @@ func main() {
 	}
 	log.Println("setting ll: ", actualLogLevel)
 	logger.SetLogLevel(actualLogLevel)
+
+	if len(logLevel) > 0 {
+		u, err := logger.StrToUrgency(logLevel)
+		if err != nil {
+			log.Printf("Invalid log level %q: %s", logLevel, err)
+		} else {
+			logger.SetLogLevel(u)
+		}
+	}
+
+	if len(ntlmProxyCreds) > 0 {
+		client.SetNTLMProxyCreds(ntlmProxyCreds)
+	}
+
+	if len(destination) == 0 {
+		fmt.Println("No destination specified")
+		printHelp()
+		return
+	}
 
 	if fg || child {
 		Run(destination, fingerprint, proxy, customSNI, useKerberos)
