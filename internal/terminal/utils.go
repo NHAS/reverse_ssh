@@ -177,15 +177,13 @@ func parseFlag(line string, startPos int) (f Flag, endPos int) {
 }
 
 func parseSingleArg(line string, startPos int) (arg Argument, endPos int) {
-
 	var (
-		inString        = false
-		stringDelimiter = byte(0)
-		literalNext     = false
+		inSingleQuote = false
+		inDoubleQuote = false
+		escaped       = false
 	)
 
 	arg.start = startPos
-
 	var sb strings.Builder
 
 	defer func() {
@@ -194,40 +192,46 @@ func parseSingleArg(line string, startPos int) (arg Argument, endPos int) {
 
 	for arg.end = startPos; arg.end < len(line); arg.end++ {
 		endPos = arg.end
+		c := line[endPos]
 
-		if !inString && (line[endPos] == '"' || line[endPos] == '\'' || line[endPos] == '`') {
+		// Handle end of argument
+		if !inSingleQuote && !inDoubleQuote && !escaped && c == ' ' {
+			return
+		}
 
-			inString = true
-			stringDelimiter = line[endPos]
-
+		// Handle escaping
+		if !inSingleQuote && !escaped && c == '\\' {
+			escaped = true
 			continue
 		}
 
-		if !literalNext {
-
-			if line[endPos] == '\\' {
-				literalNext = true
+		// Handle quotes
+		if !escaped {
+			if c == '\'' && !inDoubleQuote {
+				inSingleQuote = !inSingleQuote
 				continue
 			}
-
-			if inString && line[endPos] == stringDelimiter {
-				stringDelimiter = byte(0)
-				inString = false
+			if c == '"' && !inSingleQuote {
+				inDoubleQuote = !inDoubleQuote
 				continue
-			}
-
-			if line[endPos] == ' ' && !inString {
-				return
 			}
 		}
 
-		sb.WriteByte(line[endPos])
-
+		// Add character to argument
+		if escaped {
+			// Only escape special characters
+			if c != '\\' && c != '"' && c != '\'' && c != ' ' {
+				sb.WriteByte('\\')
+			}
+			escaped = false
+		}
+		sb.WriteByte(c)
 		arg.end = endPos
+	}
 
-		if literalNext {
-			literalNext = false
-		}
+	// Handle unclosed quotes and escapes at end of input
+	if escaped {
+		sb.WriteByte('\\')
 	}
 
 	return
