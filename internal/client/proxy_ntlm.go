@@ -25,12 +25,13 @@ func parseNTLMCreds(creds string) (domain, user, pass string, err error) {
 	}
 
 	domain = parts[0]
-	userPass := strings.Split(parts[1], ":")
-	if len(userPass) != 2 {
+	// Find the first colon after the domain\user portion
+	userPassParts := strings.SplitN(parts[1], ":", 2)
+	if len(userPassParts) != 2 {
 		return "", "", "", fmt.Errorf("invalid NTLM credentials format. Expected DOMAIN\\USER:PASS, got %s", creds)
 	}
 
-	return domain, userPass[0], userPass[1], nil
+	return domain, userPassParts[0], userPassParts[1], nil
 }
 
 func getNTLMAuthHeader(proxy string, challengeResponse []byte) (string, error) {
