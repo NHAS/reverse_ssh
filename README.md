@@ -206,31 +206,35 @@ catcher$ link -h
 link [OPTIONS]
 Link will compile a client and serve the resulting binary on a link which is returned.
 This requires the web server component has been enabled.
-	--fingerprint	Set RSSH server fingerprint will default to server public key
-	--garble	Use garble to obfuscate the binary (requires garble@master to be installed)
-	--goarch	Set the target build architecture (default runtime GOARCH)
-	--goarm	Set the go arm variable (not set by default)
-	--goos	Set the target build operating system (default runtime GOOS)
-	--http	Use http polling as the underlying transport
-	--https	Use https polling as the underlying transport
-	--name	Set the link download url/filename (default random characters)
-	--no-lib-c	Compile client without glibc
-	--owners	Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
-	--proxy	Set connect proxy address to bake it
-	--raw-download	Download over raw TCP, outputs bash downloader rather than http
-	--shared-object	Generate shared object file
-	--sni	When TLS is in use, set a custom SNI for the client to connect with
-	--stdio	Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored
-	--tls	Use TLS as the underlying transport
-	--upx	Use upx to compress the final binary (requires upx to be installed)
-	--working-directory	Set download/working directory for automatic script (i.e doing curl https://<url>.sh)
-	--ws	Use plain http websockets as the underlying transport
-	--wss	Use TLS websockets as the underlying transport
-	-C	Comment to add as the public key (acts as the name)
-	-l	List currently active download links
-	-o	Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
-	-r	Remove download link
-	-s	Set homeserver address, defaults to server --external_address if set, or server listen address if not
+        --fingerprint   Set RSSH server fingerprint will default to server public key
+        --garble        Use garble to obfuscate the binary (requires garble to be installed)
+        --goarch        Set the target build architecture (default runtime GOARCH)
+        --goarm Set the go arm variable (not set by default)
+        --goos  Set the target build operating system (default runtime GOOS)
+        --http  Use http polling as the underlying transport
+        --https Use https polling as the underlying transport
+        --log-level     Set default output logging levels, [INFO,WARNING,ERROR,FATAL,DISABLED]
+        --lzma  Use lzma compression for smaller binary at the cost of overhead at execution (requires upx flag to be set)
+        --name  Set the link download url/filename (default random characters)
+        --no-lib-c      Compile client without glibc
+        --ntlm-proxy-creds      Set NTLM proxy credentials in format DOMAIN\USER:PASS
+        --owners        Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
+        --proxy Set connect proxy address to bake it
+        --raw-download  Download over raw TCP, outputs bash downloader rather than http
+        --shared-object Generate shared object file
+        --sni   When TLS is in use, set a custom SNI for the client to connect with
+        --stdio Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored
+        --tls   Use TLS as the underlying transport
+        --upx   Use upx to compress the final binary (requires upx to be installed)
+        --use-kerberos  Instruct client to try and use kerberos ticket when using a proxy
+        --working-directory     Set download/working directory for automatic script (i.e doing curl https://<url>.sh)
+        --ws    Use plain http websockets as the underlying transport
+        --wss   Use TLS websockets as the underlying transport
+        -C      Comment to add as the public key (acts as the name)
+        -l      List currently active download links
+        -o      Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
+        -r      Remove download link
+        -s      Set homeserver address, defaults to server --external_address if set, or server listen address if not
 
 # Generate a client and serve it on a named link
 catcher$ link --name test
