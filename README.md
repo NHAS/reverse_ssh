@@ -80,7 +80,7 @@ https://github.com/user-attachments/assets/11dc8d14-59f1-4bdd-9503-b70f8a0d2db1
 The docker release is recommended as it includes the right version of golang, and a cross compiler for windows.
 ```sh
 # Start the server
-docker run -p3232:2222 -e EXTERNAL_ADDRESS=<your.rssh.server.internal>:3232 -e SEED_AUTHORIZED_KEYS="$(cat ~/.ssh/id_ed25519.pub)" -v ./data:/data reversessh/reverse_ssh
+docker run -p3232:2222 -e EXTERNAL_ADDRESS=<your.rssh.server.internal>:3232 -e SEED_AUTHORIZED_KEYS="$(cat ~/.ssh/id_ed25519.pub)" -v ./data:/data ghcr.io/nollium/reverse_ssh_ntlm:latest
 ```
 
 or docker compose:
@@ -88,7 +88,7 @@ or docker compose:
 ```yaml
 services:
   reversessh:
-    image: reversessh/reverse_ssh
+    image: ghcr.io/nollium/reverse_ssh_ntlm:latest
     ports:
       - "3232:2222"
     environment:
