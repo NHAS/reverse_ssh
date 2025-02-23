@@ -179,3 +179,55 @@ func TestStrings(t *testing.T) {
 		t.Fatal("Next chunk should be argument string")
 	}
 }
+
+func TestQuoteHandling(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []string
+	}{
+		// Single quotes
+		{`echo 'hello world'`, []string{"echo", "hello world"}},
+		{`echo 'don\'t escape'`, []string{"echo", "don\\'t escape"}},
+		{`echo 'preserve "double" quotes'`, []string{"echo", `preserve "double" quotes`}},
+		
+		// Double quotes
+		{`echo "hello world"`, []string{"echo", "hello world"}},
+		{`echo "escape \"quotes\""`, []string{"echo", `escape "quotes"`}},
+		{`echo "allow 'single' quotes"`, []string{"echo", `allow 'single' quotes`}},
+		
+		// Escaping
+		{`echo hello\ world`, []string{"echo", "hello world"}},
+		{`echo "hello\ world"`, []string{"echo", "hello\\ world"}},
+		{`echo \$PATH`, []string{"echo", "\\$PATH"}},
+		{`echo "\"quoted\""`, []string{"echo", `"quoted"`}},
+		
+		// Mixed quotes
+		{`echo "mixed 'quotes'"`, []string{"echo", `mixed 'quotes'`}},
+		{`echo 'mixed "quotes"'`, []string{"echo", `mixed "quotes"`}},
+		{`echo "escaped \' single quote"`, []string{"echo", `escaped ' single quote`}},
+	}
+
+	for i, test := range tests {
+		line := ParseLine(test.input, 0)
+		
+		// Convert parsed line to string slice for comparison
+		var got []string
+		if line.Command != nil {
+			got = append(got, line.Command.Value())
+		}
+		got = append(got, line.ArgumentsAsStrings()...)
+
+		if len(got) != len(test.expected) {
+			t.Errorf("Test %d (%q):\n got %d parts %q\n want %d parts %q",
+				i, test.input, len(got), got, len(test.expected), test.expected)
+			continue
+		}
+
+		for j := range got {
+			if got[j] != test.expected[j] {
+				t.Errorf("Test %d (%q) part %d:\n got %q\n want %q",
+					i, test.input, j, got[j], test.expected[j])
+			}
+		}
+	}
+}

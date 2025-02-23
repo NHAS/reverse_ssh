@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -112,13 +113,10 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 				tcpC.SetKeepAlivePeriod(2 * time.Hour)
 			}
 
+			// First attempt without auth
 			req := []string{
 				fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
 				fmt.Sprintf("Host: %s", addr),
-			}
-
-			if winauth {
-				req = additionalHeaders(proxy, req)
 			}
 
 			err = WriteHTTPReq(req, proxyCon)
@@ -137,6 +135,110 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 
 				if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
 					break
+				}
+			}
+
+			// If we get a 407 Proxy Authentication Required
+			if bytes.Contains(bytes.ToLower(responseStatus), []byte("407")) {
+				// Check if NTLM is supported
+				if bytes.Contains(bytes.ToLower(responseStatus), []byte("proxy-authenticate: ntlm")) {
+					// Start NTLM negotiation
+					ntlmHeader, err := getNTLMAuthHeader(proxy, nil)
+					if err != nil {
+						return nil, fmt.Errorf("NTLM negotiation failed: %v", err)
+					}
+
+					// Send Type 1 message
+					req = []string{
+						fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
+						fmt.Sprintf("Host: %s", addr),
+						fmt.Sprintf("Proxy-Authorization: %s", ntlmHeader),
+					}
+
+					err = WriteHTTPReq(req, proxyCon)
+					if err != nil {
+						return nil, fmt.Errorf("unable to send NTLM negotiate message: %v", err)
+					}
+
+					// Read challenge response
+					responseStatus = []byte{}
+					for {
+						b := make([]byte, 1)
+						_, err := proxyCon.Read(b)
+						if err != nil {
+							return conn, fmt.Errorf("reading NTLM challenge failed")
+						}
+						responseStatus = append(responseStatus, b...)
+
+						if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
+							break
+						}
+					}
+
+					// Extract Type 2 message
+					challengeStart := bytes.Index(responseStatus, []byte("NTLM "))
+					if challengeStart == -1 {
+						return nil, fmt.Errorf("no NTLM challenge received")
+					}
+					challengeStr := string(responseStatus[challengeStart+5:])
+					challengeStr = strings.Split(challengeStr, "\r\n")[0]
+					challenge, err := base64.StdEncoding.DecodeString(challengeStr)
+					if err != nil {
+						return nil, fmt.Errorf("invalid NTLM challenge: %v", err)
+					}
+
+					// Generate Type 3 message
+					ntlmHeader, err = getNTLMAuthHeader(proxy, challenge)
+					if err != nil {
+						return nil, fmt.Errorf("NTLM authentication failed: %v", err)
+					}
+
+					// Send Type 3 message
+					req = []string{
+						fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
+						fmt.Sprintf("Host: %s", addr),
+						fmt.Sprintf("Proxy-Authorization: %s", ntlmHeader),
+					}
+
+					err = WriteHTTPReq(req, proxyCon)
+					if err != nil {
+						return nil, fmt.Errorf("unable to send NTLM authenticate message: %v", err)
+					}
+
+					// Read final response
+					responseStatus = []byte{}
+					for {
+						b := make([]byte, 1)
+						_, err := proxyCon.Read(b)
+						if err != nil {
+							return conn, fmt.Errorf("reading final response failed")
+						}
+						responseStatus = append(responseStatus, b...)
+
+						if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
+							break
+						}
+					}
+				} else if winauth {
+					req = additionalHeaders(proxy, req)
+					err = WriteHTTPReq(req, proxyCon)
+					if err != nil {
+						return nil, fmt.Errorf("unable to connect proxy %s", proxy)
+					}
+
+					responseStatus = []byte{}
+					for {
+						b := make([]byte, 1)
+						_, err := proxyCon.Read(b)
+						if err != nil {
+							return conn, fmt.Errorf("reading from proxy failed")
+						}
+						responseStatus = append(responseStatus, b...)
+
+						if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
+							break
+						}
+					}
 				}
 			}
 
