@@ -107,6 +107,10 @@ func main() {
 
 	userSpecifiedNTLMCreds, err := line.GetArgString("ntlm-proxy-creds")
 	if err == nil {
+		if line.IsSet("host-kerberos") {
+			log.Fatal("You cannot use both the host kerberos credentials and static ntlm proxy credentials at once. --host-kerberos and --ntlm-proxy-creds")
+		}
+
 		ntlmProxyCreds = userSpecifiedNTLMCreds
 	} else if len(ntlmProxyCreds) > 0 {
 		client.SetNTLMProxyCreds(ntlmProxyCreds)
