@@ -14,7 +14,7 @@ func SetNTLMProxyCreds(creds string) {
 	ntlmProxyCreds = creds
 }
 
-func parseNTLMCreds(creds string) (domain, user, pass string, err error) {
+func ParseNTLMCreds(creds string) (domain, user, pass string, err error) {
 	if creds == "" {
 		return "", "", "", fmt.Errorf("NTLM credentials not provided. Use --ntlm-proxy-creds in format DOMAIN\\USER:PASS")
 	}
@@ -35,7 +35,7 @@ func parseNTLMCreds(creds string) (domain, user, pass string, err error) {
 }
 
 func getNTLMAuthHeader(proxy string, challengeResponse []byte) (string, error) {
-	domain, user, pass, err := parseNTLMCreds(ntlmProxyCreds)
+	domain, user, pass, err := ParseNTLMCreds(ntlmProxyCreds)
 	if err != nil {
 		return "", err
 	}
