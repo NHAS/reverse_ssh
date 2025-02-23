@@ -157,7 +157,7 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 
 					err = WriteHTTPReq(req, proxyCon)
 					if err != nil {
-						return nil, fmt.Errorf("unable to send NTLM negotiate message: %v", err)
+						return nil, fmt.Errorf("unable to send NTLM negotiate message: %s", err)
 					}
 
 					// Read challenge response
@@ -176,17 +176,12 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 					}
 
 					// Extract Type 2 message
-					challengeStart := bytes.Index(responseStatus, []byte("NTLM "))
-					if challengeStart == -1 {
+					ntlmParts := strings.SplitN(string(responseStatus), NTLM, 2)
+					if len(ntlmParts) != 2 {
 						return nil, fmt.Errorf("no NTLM challenge received")
 					}
 
-					if len(responseStatus) < challengeStart+5 {
-						return nil, fmt.Errorf("malformed NTLM challenge (too small)")
-					}
-
-					challengeStr := string(responseStatus[challengeStart+5:])
-					challengeStr = strings.Split(challengeStr, "\r\n")[0]
+					challengeStr := strings.SplitN(ntlmParts[1], "\r\n", 2)[0]
 					challenge, err := base64.StdEncoding.DecodeString(challengeStr)
 					if err != nil {
 						return nil, fmt.Errorf("invalid NTLM challenge: %v", err)

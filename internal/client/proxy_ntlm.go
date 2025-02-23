@@ -8,6 +8,8 @@ import (
 	"github.com/Azure/go-ntlmssp"
 )
 
+const NTLM = "NTLM "
+
 var ntlmProxyCreds string
 
 func SetNTLMProxyCreds(creds string) {
@@ -21,14 +23,14 @@ func ParseNTLMCreds(creds string) (domain, user, pass string, err error) {
 
 	parts := strings.Split(creds, "\\")
 	if len(parts) != 2 {
-		return "", "", "", fmt.Errorf("invalid NTLM credentials format. Expected DOMAIN\\USER:PASS, got %s", creds)
+		return "", "", "", fmt.Errorf("invalid NTLM credentials format. Expected DOMAIN\\USER:PASS, got %q", creds)
 	}
 
 	domain = parts[0]
 	// Find the first colon after the domain\user portion
 	userPassParts := strings.SplitN(parts[1], ":", 2)
 	if len(userPassParts) != 2 {
-		return "", "", "", fmt.Errorf("invalid NTLM credentials format. Expected DOMAIN\\USER:PASS, got %s", creds)
+		return "", "", "", fmt.Errorf("invalid NTLM credentials format. Expected DOMAIN\\USER:PASS, got %q", creds)
 	}
 
 	return domain, userPassParts[0], userPassParts[1], nil
@@ -46,7 +48,7 @@ func getNTLMAuthHeader(_ string, challengeResponse []byte) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to create NTLM negotiate message: %v", err)
 		}
-		return "NTLM " + base64.StdEncoding.EncodeToString(negotiateMessage), nil
+		return NTLM + base64.StdEncoding.EncodeToString(negotiateMessage), nil
 	}
 
 	// Type 3 message - Authentication
@@ -54,5 +56,5 @@ func getNTLMAuthHeader(_ string, challengeResponse []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to process NTLM challenge: %v", err)
 	}
-	return "NTLM " + base64.StdEncoding.EncodeToString(authenticateMessage), nil
+	return NTLM + base64.StdEncoding.EncodeToString(authenticateMessage), nil
 }
