@@ -100,9 +100,6 @@ func setupTestServer(t *testing.T) *httptest.Server {
 
 func TestNTLMProxyAuth(t *testing.T) {
 	const (
-		testDomain = "TESTDOMAIN"
-		testUser   = "testuser"
-		testPass   = "testpass"
 		testCreds  = "TESTDOMAIN\\testuser:testpass"
 	)
 
@@ -223,17 +220,7 @@ func TestNTLMProxyAuth(t *testing.T) {
 					t.Logf("Parsed credentials: domain=%s, user=%s, pass=%s", domain, user, pass)
 
 					if tt.name == "Valid NTLM credentials" {
-						hijacker, ok := w.(http.Hijacker)
-						if !ok {
-							t.Error("Hijacking not supported")
-							return
-						}
-						clientConn, _, err := hijacker.Hijack()
-						if err != nil {
-							t.Errorf("Hijacking failed: %v", err)
-							return
-						}
-						clientConn.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
+						w.WriteHeader(http.StatusOK)
 						return
 					}
 					w.WriteHeader(http.StatusUnauthorized)
