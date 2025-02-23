@@ -2,7 +2,7 @@
 
 package client
 
-func additionalHeaders(proxy string, req []string) []string {
+func additionalHeaders(_ string, req []string) []string {
 	// linux doesnt support using win auth just yet
 	return req
 }

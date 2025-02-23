@@ -180,6 +180,11 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 					if challengeStart == -1 {
 						return nil, fmt.Errorf("no NTLM challenge received")
 					}
+
+					if len(responseStatus) < challengeStart+5 {
+						return nil, fmt.Errorf("malformed NTLM challenge (too small)")
+					}
+
 					challengeStr := string(responseStatus[challengeStart+5:])
 					challengeStr = strings.Split(challengeStr, "\r\n")[0]
 					challenge, err := base64.StdEncoding.DecodeString(challengeStr)

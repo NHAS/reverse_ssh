@@ -34,7 +34,7 @@ func ParseNTLMCreds(creds string) (domain, user, pass string, err error) {
 	return domain, userPassParts[0], userPassParts[1], nil
 }
 
-func getNTLMAuthHeader(proxy string, challengeResponse []byte) (string, error) {
+func getNTLMAuthHeader(_ string, challengeResponse []byte) (string, error) {
 	domain, user, pass, err := ParseNTLMCreds(ntlmProxyCreds)
 	if err != nil {
 		return "", err
