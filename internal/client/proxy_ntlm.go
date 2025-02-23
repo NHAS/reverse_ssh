@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/NHAS/reverse_ssh/internal/client/ntlmssp"
+	"github.com/Azure/go-ntlmssp"
 )
 
 var ntlmProxyCreds string

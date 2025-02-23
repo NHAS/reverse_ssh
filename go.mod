@@ -15,6 +15,7 @@ require (
 	golang.org/x/sys v0.29.0
 	gorm.io/gorm v1.25.12
 	gvisor.dev/gvisor v0.0.0-20250130013701-88ba1d0d00fa
+	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
 )
 
 require (
