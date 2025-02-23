@@ -141,25 +141,16 @@ func main() {
 	if err == nil {
 		actualLogLevel, err = logger.StrToUrgency(userSpecifiedLogLevel)
 		if err != nil {
-			log.Fatalf("invalid log level: %s, err: %s", userSpecifiedLogLevel, err)
+			log.Fatalf("Invalid log level: %q, err: %s", userSpecifiedLogLevel, err)
 		}
 	} else if logLevel != "" {
 		actualLogLevel, err = logger.StrToUrgency(logLevel)
 		if err != nil {
-			log.Fatalf("default log-level was invalid: %s, err %s", logLevel, err)
+			actualLogLevel = logger.INFO
+			log.Println("Default log level as invalid, setting to INFO: ", err)
 		}
 	}
-	log.Println("setting ll: ", actualLogLevel)
 	logger.SetLogLevel(actualLogLevel)
-
-	if len(logLevel) > 0 {
-		u, err := logger.StrToUrgency(logLevel)
-		if err != nil {
-			log.Printf("Invalid log level %q: %s", logLevel, err)
-		} else {
-			logger.SetLogLevel(u)
-		}
-	}
 
 	if len(ntlmProxyCreds) > 0 {
 		client.SetNTLMProxyCreds(ntlmProxyCreds)
