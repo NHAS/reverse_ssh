@@ -59,7 +59,7 @@ func printHelp() {
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
 	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
 	if runtime.GOOS == "windows" {
-		fmt.Println("\t\t--use-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
+		fmt.Println("\t\t--host-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
 	}
 }
 
@@ -108,11 +108,13 @@ func main() {
 	userSpecifiedNTLMCreds, err := line.GetArgString("ntlm-proxy-creds")
 	if err == nil {
 		ntlmProxyCreds = userSpecifiedNTLMCreds
+	} else if len(ntlmProxyCreds) > 0 {
+		client.SetNTLMProxyCreds(ntlmProxyCreds)
 	}
 
 	processArgv, _ := line.GetArgsString("process_name")
 
-	if line.IsSet("winauth") {
+	if line.IsSet("host-kerberos") {
 		useKerberos = true
 	}
 
@@ -151,10 +153,6 @@ func main() {
 		}
 	}
 	logger.SetLogLevel(actualLogLevel)
-
-	if len(ntlmProxyCreds) > 0 {
-		client.SetNTLMProxyCreds(ntlmProxyCreds)
-	}
 
 	if len(destination) == 0 {
 		fmt.Println("No destination specified")
