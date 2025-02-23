@@ -141,7 +141,7 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 			// If we get a 407 Proxy Authentication Required
 			if bytes.Contains(bytes.ToLower(responseStatus), []byte("407")) {
 				// Check if NTLM is supported
-				if bytes.Contains(bytes.ToLower(responseStatus), []byte("proxy-authenticate: ntlm")) {
+				if bytes.Contains(bytes.ToLower(responseStatus), []byte("proxy-authenticate: ntlm")) && ntlmProxyCreds != "" {
 					// Start NTLM negotiation
 					ntlmHeader, err := getNTLMAuthHeader(proxy, nil)
 					if err != nil {
