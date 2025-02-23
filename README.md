@@ -217,7 +217,7 @@ This requires the web server component has been enabled.
         --lzma  Use lzma compression for smaller binary at the cost of overhead at execution (requires upx flag to be set)
         --name  Set the link download url/filename (default random characters)
         --no-lib-c      Compile client without glibc
-        --ntlm-proxy-creds      Set NTLM proxy credentials in format DOMAIN\USER:PASS
+        --ntlm-proxy-creds      Set NTLM proxy credentials in format DOMAIN\\USER:PASS
         --owners        Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
         --proxy Set connect proxy address to bake it
         --raw-download  Download over raw TCP, outputs bash downloader rather than http
