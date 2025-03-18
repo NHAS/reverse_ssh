@@ -101,7 +101,7 @@ func ServerPortForward(clientId string) func(_ string, _ *users.User, newChannel
 
 		currentRemoteForwardsLck.Lock()
 		remoteForwards[clientId] = connection
-		currentRemoteForwards[clientId] = fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport)
+		currentRemoteForwards[clientId] = net.JoinHostPort(drtMsg.Raddr, fmt.Sprintf("%d", drtMsg.Rport))
 		currentRemoteForwardsLck.Unlock()
 
 		multiplexer.ServerMultiplexer.QueueConn(channelToConn(connection, drtMsg))

@@ -67,7 +67,7 @@ func (l *listen) client(user *users.User, tty io.ReadWriter, line terminal.Parse
 	auto := line.IsSet("auto")
 	if line.IsSet("l") && auto {
 		for k, v := range autoStartServerPort {
-			fmt.Fprintf(tty, "%s %s:%d\n", v.Criteria, k.BindAddr, k.BindPort)
+			fmt.Fprintf(tty, "%s %s\n", v.Criteria, net.JoinHostPort(k.BindAddr, fmt.Sprintf("%d", k.BindPort)))
 		}
 		return nil
 	}
@@ -157,7 +157,7 @@ func (l *listen) client(user *users.User, tty io.ReadWriter, line terminal.Parse
 			}
 		}
 
-		fmt.Fprintf(tty, "started %s:%d on %d clients (total %d)\n", r.BindAddr, r.BindPort, applied, len(foundClients))
+		fmt.Fprintf(tty, "started %s on %d clients (total %d)\n", net.JoinHostPort(r.BindAddr, fmt.Sprintf("%d", r.BindPort)), applied, len(foundClients))
 
 		if auto {
 			var entry autostartEntry
@@ -231,7 +231,7 @@ func (l *listen) client(user *users.User, tty io.ReadWriter, line terminal.Parse
 			}
 		}
 
-		fmt.Fprintf(tty, "stopped %s:%d on %d clients\n", r.BindAddr, r.BindPort, applied)
+		fmt.Fprintf(tty, "stopped %s on %d clients\n", net.JoinHostPort(r.BindAddr, fmt.Sprintf("%d", r.BindPort)), applied)
 
 		if auto {
 			if _, ok := autoStartServerPort[r]; ok {

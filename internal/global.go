@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"net"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -30,7 +31,7 @@ type RemoteForwardRequest struct {
 }
 
 func (r *RemoteForwardRequest) String() string {
-	return fmt.Sprintf("%s:%d", r.BindAddr, r.BindPort)
+	return net.JoinHostPort(r.BindAddr, fmt.Sprintf("%d", r.BindPort))
 }
 
 // https://tools.ietf.org/html/rfc4254
