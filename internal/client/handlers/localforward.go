@@ -23,7 +23,8 @@ func LocalForward(newChannel ssh.NewChannel, l logger.Logger) {
 	}
 
 	d := net.Dialer{Timeout: 5 * time.Second}
-	dest := fmt.Sprintf("%s:%d", drtMsg.Raddr, drtMsg.Rport)
+
+	dest := net.JoinHostPort(drtMsg.Raddr, fmt.Sprintf("%d", drtMsg.Rport))
 	tcpConn, err := d.Dial("tcp", dest)
 	if err != nil {
 		l.Warning("Unable to dial destination: %s", err)
