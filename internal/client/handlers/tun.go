@@ -272,7 +272,8 @@ func forwardUDP(tunstats *stat) func(request *udp.ForwarderRequest) {
 		}
 
 		p, _ := NewUDPProxy(&autoStoppingListener{underlying: gonet.NewUDPConn(&wq, ep)}, func() (net.Conn, error) {
-			return net.Dial("udp", fmt.Sprintf("%s:%d", id.LocalAddress, id.LocalPort))
+
+			return net.Dial("udp", net.JoinHostPort(id.LocalAddress.String(), fmt.Sprintf("%d", id.LocalPort)))
 		})
 		go func() {
 
