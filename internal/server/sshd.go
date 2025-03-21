@@ -272,7 +272,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 			if err != ErrKeyNotInList {
 				err = fmt.Errorf("admin with supplied username (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
 				if isUntrustWorthy {
-					err = fmt.Errorf("admin (%s) denied login: %s: cannot connect admins via pivoted server port (may result in allow list bypass)", strconv.QuoteToGraphic(conn.User()), err)
+					err = fmt.Errorf("admin (%s) denied login: cannot connect admins via pivoted server port (may result in allow list bypass)", strconv.QuoteToGraphic(conn.User()))
 				}
 				return nil, err
 			}
@@ -290,7 +290,7 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 			if err != ErrKeyNotInList {
 				err = fmt.Errorf("user (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
 				if isUntrustWorthy {
-					err = fmt.Errorf("user (%s) denied login: %s: cannot connect users via pivoted server port (may result in allow list bypass)", strconv.QuoteToGraphic(conn.User()), err)
+					err = fmt.Errorf("user (%s) denied login: cannot connect users via pivoted server port (may result in allow list bypass)", strconv.QuoteToGraphic(conn.User()))
 				}
 
 				return nil, err

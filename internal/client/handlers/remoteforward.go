@@ -36,6 +36,17 @@ func GetServerRemoteForwards() (out []string) {
 	return out
 }
 
+func StopAllRemoteForwards() {
+	currentRemoteForwardsLck.Lock()
+	defer currentRemoteForwardsLck.Unlock()
+
+	for _, forward := range currentRemoteForwards {
+		go forward.Listener.Close()
+	}
+
+	clear(currentRemoteForwards)
+}
+
 func StopRemoteForward(rf internal.RemoteForwardRequest) error {
 	currentRemoteForwardsLck.Lock()
 	defer currentRemoteForwardsLck.Unlock()
@@ -132,27 +143,27 @@ func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh
 
 	b := ssh.Marshal(&drtMsg)
 
-	destination, reqs, err := sshConn.OpenChannel("forwarded-tcpip", b)
+	source, reqs, err := sshConn.OpenChannel("forwarded-tcpip", b)
 	if err != nil {
 		log.Println("Opening forwarded-tcpip channel to server failed: ", err)
 
 		return err
 	}
-	defer destination.Close()
+	defer source.Close()
 
 	go ssh.DiscardRequests(reqs)
 
 	log.Println("Forwarded-tcpip channel request sent and accepted")
 
 	go func() {
-		defer destination.Close()
+		defer source.Close()
 		defer proxyCon.Close()
-		io.Copy(destination, proxyCon)
+		io.Copy(source, proxyCon)
 
 	}()
 
 	defer proxyCon.Close()
-	_, err = io.Copy(proxyCon, destination)
+	_, err = io.Copy(proxyCon, source)
 
 	return err
 }

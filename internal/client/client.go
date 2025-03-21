@@ -580,6 +580,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 		})
 
 		sshConn.Close()
+		handlers.StopAllRemoteForwards()
 
 		if err != nil {
 			log.Printf("Server disconnected unexpectedly: %s\n", err)
