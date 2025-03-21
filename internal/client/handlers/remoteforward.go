@@ -121,11 +121,11 @@ func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh
 
 	drtMsg := internal.ChannelOpenDirectMsg{
 
-		Raddr: rf.BindAddr,
-		Rport: rf.BindPort,
+		Raddr: originatorAddress,
+		Rport: uint32(originatorPortInt),
 
-		Laddr: originatorAddress,
-		Lport: uint32(originatorPortInt),
+		Laddr: rf.BindAddr,
+		Lport: rf.BindPort,
 	}
 
 	log.Printf("formed drtMsg: %+v", drtMsg)

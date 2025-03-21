@@ -45,6 +45,7 @@ type BuildConfig struct {
 	Garble        bool
 	DisableLibC   bool
 	RawDownload   bool
+	UseHostHeader bool
 
 	WorkingDirectory string
 
@@ -87,6 +88,7 @@ func Build(config BuildConfig) (string, error) {
 	var f data.Download
 	f.WorkingDirectory = config.WorkingDirectory
 	f.CallbackAddress = config.ConnectBackAdress
+	f.UseHostHeader = config.UseHostHeader
 
 	filename, err := internal.RandomString(16)
 	if err != nil {

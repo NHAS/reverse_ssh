@@ -43,7 +43,8 @@ func (c *connect) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedL
 	}
 
 	if len(line.Arguments) < 1 {
-		return fmt.Errorf(c.Help(false))
+
+		return fmt.Errorf("%s", c.Help(false))
 	}
 
 	shell, _ := line.GetArgString("shell")

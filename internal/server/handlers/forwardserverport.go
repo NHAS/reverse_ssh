@@ -20,9 +20,23 @@ var (
 	remoteForwards           = map[string]ssh.Channel{}
 )
 
+type chanAddress struct {
+	Port uint32
+	IP   string
+}
+
+func (c *chanAddress) Network() string {
+	return "remote_forward_tcp"
+}
+
+func (c *chanAddress) String() string {
+	return net.JoinHostPort(c.IP, fmt.Sprintf("%d", c.Port))
+}
+
 type chanConn struct {
-	channel ssh.Channel
-	drtMsg  internal.ChannelOpenDirectMsg
+	channel    ssh.Channel
+	localAddr  chanAddress
+	remoteAddr chanAddress
 }
 
 func (c *chanConn) Read(b []byte) (n int, err error) {
@@ -38,17 +52,11 @@ func (c *chanConn) Close() error {
 }
 
 func (c *chanConn) LocalAddr() net.Addr {
-	return &net.TCPAddr{
-		IP:   net.ParseIP(c.drtMsg.Laddr),
-		Port: int(c.drtMsg.Lport),
-	}
+	return &c.localAddr
 }
 
 func (c *chanConn) RemoteAddr() net.Addr {
-	return &net.TCPAddr{
-		IP:   net.ParseIP(c.drtMsg.Raddr),
-		Port: int(c.drtMsg.Rport),
-	}
+	return &c.remoteAddr
 }
 
 func (c *chanConn) SetDeadline(t time.Time) error {
@@ -67,7 +75,17 @@ func (c *chanConn) SetWriteDeadline(t time.Time) error {
 
 func channelToConn(channel ssh.Channel, drtMsg internal.ChannelOpenDirectMsg) net.Conn {
 
-	return &chanConn{channel, drtMsg}
+	return &chanConn{
+		channel: channel,
+		localAddr: chanAddress{
+			Port: drtMsg.Lport,
+			IP:   drtMsg.Raddr,
+		},
+		remoteAddr: chanAddress{
+			Port: drtMsg.Rport,
+			IP:   drtMsg.Raddr,
+		},
+	}
 }
 
 func ServerPortForward(clientId string) func(_ string, _ *users.User, newChannel ssh.NewChannel, log logger.Logger) {

@@ -25,6 +25,9 @@ type Download struct {
 	Version         string
 	FileSize        float64
 
+	// when generating the template use the host header
+	UseHostHeader bool
+
 	// Where to download the file to
 	WorkingDirectory string
 }

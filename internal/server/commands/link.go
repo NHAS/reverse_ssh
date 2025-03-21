@@ -41,6 +41,7 @@ func (l *link) ValidArgs() map[string]string {
 		"stdio":             "Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
 		"http":              "Use http polling as the underlying transport",
 		"https":             "Use https polling as the underlying transport",
+		"use-host-header":   "Use the client supplied host header as the callback address",
 		"shared-object":     "Generate shared object file",
 		"fingerprint":       "Set RSSH server fingerprint will default to server public key",
 		"garble":            "Use garble to obfuscate the binary (requires garble to be installed)",
@@ -153,6 +154,8 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	if buildConfig.ConnectBackAdress == "" {
 		buildConfig.ConnectBackAdress = webserver.DefaultConnectBack
 	}
+
+	buildConfig.UseHostHeader = line.IsSet("use-host-header")
 
 	tt := map[string]bool{
 		"tls":   line.IsSet("tls"),

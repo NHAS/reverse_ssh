@@ -253,6 +253,9 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 
 			remoteIp := getIP(conn.RemoteAddr().String())
+			// from forwradserverport.go, effectively when pivoting and exposing the server port we have to just trust whatever structure the client gives us for our remote/local addresses,
+			// we dont want someone being able to bypass ip allow lists, so mark it as untrusted
+			isUntrustWorthy := conn.RemoteAddr().Network() == "remote_forward_tcp"
 
 			if remoteIp == nil {
 				return nil, fmt.Errorf("not authorized %q, could not parse IP address %s", conn.User(), conn.RemoteAddr())
@@ -260,20 +263,24 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 
 			// Check administrator keys first, they can impersonate users
 			perm, err := CheckAuth(adminAuthorizedKeysPath, key, remoteIp, false)
-			if err == nil {
+			if err == nil && !isUntrustWorthy {
 				perm.Extensions["type"] = "user"
 				perm.Extensions["privilege"] = "5"
 
 				return perm, err
 			}
 			if err != ErrKeyNotInList {
-				return nil, fmt.Errorf("admin with supplied username (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
+				err = fmt.Errorf("admin with supplied username (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
+				if isUntrustWorthy {
+					err = fmt.Errorf("admin (%s) denied login: %s: cannot connect admins via pivoted server port (may result in allow list bypass)", strconv.QuoteToGraphic(conn.User()), err)
+				}
+				return nil, err
 			}
 
 			// Stop path traversal
 			authorisedKeysPath := filepath.Join(usersKeysDir, filepath.Join("/", filepath.Clean(conn.User())))
 			perm, err = CheckAuth(authorisedKeysPath, key, remoteIp, false)
-			if err == nil {
+			if err == nil && !isUntrustWorthy {
 				perm.Extensions["type"] = "user"
 				perm.Extensions["privilege"] = "0"
 
@@ -281,8 +288,15 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 			}
 
 			if err != ErrKeyNotInList {
-				return nil, fmt.Errorf("user (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
+				err = fmt.Errorf("user (%s) denied login: %s", strconv.QuoteToGraphic(conn.User()), err)
+				if isUntrustWorthy {
+					err = fmt.Errorf("user (%s) denied login: %s: cannot connect users via pivoted server port (may result in allow list bypass)", strconv.QuoteToGraphic(conn.User()), err)
+				}
+
+				return nil, err
 			}
+
+			// not going to check isUntrustWorthy down here as these are often the reason we're pivoting into a place anyway
 
 			//If insecure mode, then any unknown client will be connected as a controllable client.
 			//The server effectively ignores channel requests from controllable clients.
