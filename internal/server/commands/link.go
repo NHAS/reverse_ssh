@@ -41,7 +41,7 @@ func (l *link) ValidArgs() map[string]string {
 		"stdio":             "Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
 		"http":              "Use http polling as the underlying transport",
 		"https":             "Use https polling as the underlying transport",
-		"use-host-header":   "Use the client supplied host header as the callback address",
+		"use-host-header":   "Use HTTP Host header as callback address when generating download template (add .sh to your download urls and find out)",
 		"shared-object":     "Generate shared object file",
 		"fingerprint":       "Set RSSH server fingerprint will default to server public key",
 		"garble":            "Use garble to obfuscate the binary (requires garble to be installed)",
