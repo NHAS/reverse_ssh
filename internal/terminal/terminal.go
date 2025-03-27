@@ -53,7 +53,7 @@ var vt100EscapeCodes = EscapeCodes{
 }
 
 type DataAndErr struct {
-	data []byte
+	data byte
 	err  error
 }
 
@@ -69,15 +69,18 @@ func NewReadWriterWithOverflowFeeding(c io.ReadWriter) ReadWriterWithOverflowFee
 	}
 
 	go func() {
-		data := make([]byte, 4096)
+		data := []byte{0}
 		for {
 			n, err := c.Read(data)
 			if err != nil {
-				rw.dataAvailable <- DataAndErr{data: nil, err: err}
+				rw.dataAvailable <- DataAndErr{data: 0, err: err}
 				break
 			}
+			if n == 0 {
+				continue
+			}
 
-			rw.dataAvailable <- DataAndErr{data: data[:n], err: nil}
+			rw.dataAvailable <- DataAndErr{data: data[0], err: nil}
 		}
 	}()
 
@@ -85,7 +88,9 @@ func NewReadWriterWithOverflowFeeding(c io.ReadWriter) ReadWriterWithOverflowFee
 }
 
 func (rw ReadWriterWithOverflowFeeding) Feed(d []byte) {
-	rw.dataAvailable <- DataAndErr{data: d, err: nil}
+	for _, b := range d {
+		rw.dataAvailable <- DataAndErr{data: b, err: nil}
+	}
 }
 
 func (rw ReadWriterWithOverflowFeeding) Read(p []byte) (int, error) {
@@ -94,7 +99,8 @@ func (rw ReadWriterWithOverflowFeeding) Read(p []byte) (int, error) {
 		return 0, dAndE.err
 	}
 
-	return copy(p, dAndE.data), nil
+	p[0] = dAndE.data
+	return 1, nil
 }
 
 func (rw ReadWriterWithOverflowFeeding) Write(p []byte) (int, error) {
