@@ -52,6 +52,56 @@ var vt100EscapeCodes = EscapeCodes{
 	Reset: []byte{keyEscape, '[', '0', 'm'},
 }
 
+type DataAndErr struct {
+	data []byte
+	err  error
+}
+
+type ReadWriterWithOverflowFeeding struct {
+	c             io.ReadWriter
+	dataAvailable chan DataAndErr
+}
+
+func NewReadWriterWithOverflowFeeding(c io.ReadWriter) ReadWriterWithOverflowFeeding {
+	rw := ReadWriterWithOverflowFeeding{
+		c:             c,
+		dataAvailable: make(chan DataAndErr),
+	}
+
+	go func() {
+		data := make([]byte, 4096)
+		for {
+			n, err := c.Read(data)
+			if err != nil {
+				rw.dataAvailable <- DataAndErr{data: nil, err: err}
+				break
+			}
+
+			rw.dataAvailable <- DataAndErr{data: data[:n], err: nil}
+		}
+	}()
+
+	return rw
+}
+
+func (rw ReadWriterWithOverflowFeeding) Feed(d []byte) {
+	rw.dataAvailable <- DataAndErr{data: d, err: nil}
+}
+
+func (rw ReadWriterWithOverflowFeeding) Read(p []byte) (int, error) {
+	dAndE := <-rw.dataAvailable
+	if dAndE.err != nil {
+		return 0, dAndE.err
+	}
+
+	return copy(p, dAndE.data), nil
+}
+
+func (rw ReadWriterWithOverflowFeeding) Write(p []byte) (int, error) {
+	n, e := rw.c.Write(p)
+	return n, e
+}
+
 // Terminal contains the state for running a VT100 terminal that is capable of
 // reading lines of input.
 type Terminal struct {
@@ -75,7 +125,7 @@ type Terminal struct {
 	// concurrent processing of a key press and a Write() call.
 	lock sync.Mutex
 
-	c      io.ReadWriter
+	c      ReadWriterWithOverflowFeeding
 	prompt []rune
 
 	// line is the current line being entered.
@@ -154,7 +204,7 @@ func (t *Terminal) DisableRaw() {
 func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 	return &Terminal{
 		Escape:       &vt100EscapeCodes,
-		c:            c,
+		c:            NewReadWriterWithOverflowFeeding(c),
 		prompt:       []rune(prompt),
 		termWidth:    80,
 		termHeight:   24,
@@ -169,7 +219,7 @@ func NewAdvancedTerminal(c io.ReadWriter, user *users.User, session *users.Conne
 		user:                  user,
 		cancel:                make(chan bool),
 		Escape:                &vt100EscapeCodes,
-		c:                     c,
+		c:                     NewReadWriterWithOverflowFeeding(c),
 		prompt:                []rune(prompt),
 		termWidth:             80,
 		termHeight:            24,
@@ -652,7 +702,11 @@ func (t *Terminal) Read(b []byte) (n int, err error) {
 		n, err := t.c.Read(b)
 		if !t.raw {
 			//This is a patch due to blocking reads
-			t.addCharacterToInput(b)
+			//If we entered this block, it means that the child session has already exited (but the stdin reader was still waiting for the next read)
+			//i.e. this data should instead be sent to the parent session
+			//so feed it back into the reader
+			t.c.Feed(b[:n])
+			return 0, io.EOF
 		}
 
 		return n, err
@@ -679,16 +733,6 @@ func (t *Terminal) setLine(newLine []rune, newPos int) {
 	}
 	t.line = newLine
 	t.pos = newPos
-}
-
-func (t *Terminal) addCharacterToInput(characters []byte) {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-
-	r, _ := bytesToKey(characters, false)
-	t.handleKey(r)
-	t.c.Write(t.outBuf)
-	t.outBuf = t.outBuf[:0]
 }
 
 func (t *Terminal) advanceCursor(places int) {
