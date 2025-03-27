@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -230,6 +231,20 @@ func registerChannelCallbacks(connectionDetails string, user *users.User, chans 
 	return fmt.Errorf("connection terminated")
 }
 
+func isDirEmpty(name string) bool {
+	f, err := os.Open(name)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true
+	}
+	return false
+}
+
 func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, openproxy bool, dataDir string, timeout int) {
 	//Taken from the server example, authorized keys are required for controllers
 	adminAuthorizedKeysPath := filepath.Join(dataDir, "authorized_keys")
@@ -246,6 +261,10 @@ func StartSSHServer(sshListener net.Listener, privateKey ssh.Signer, insecure, o
 	if _, err := os.Stat(usersKeysDir); err != nil && os.IsNotExist(err) {
 		os.Mkdir(usersKeysDir, 0700)
 		log.Println("Created user keys directory (", usersKeysDir, ")")
+	}
+
+	if _, err := os.Stat(adminAuthorizedKeysPath); err != nil && os.IsNotExist(err) && isDirEmpty(usersKeysDir) {
+		log.Println("WARNING: authorized_keys file does not exist in server directory, and no user keys are registered. You will not be able to log in to this server!")
 	}
 
 	config := &ssh.ServerConfig{
