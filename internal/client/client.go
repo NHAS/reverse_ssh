@@ -144,7 +144,7 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 				if bytes.Contains(bytes.ToLower(responseStatus), []byte("proxy-authenticate: ntlm")) {
 					if ntlmProxyCreds != "" {
 						// Start NTLM negotiation
-						ntlmHeader, err := getNTLMAuthHeader(proxy, nil)
+						ntlmHeader, err := getNTLMAuthHeader(nil)
 						if err != nil {
 							return nil, fmt.Errorf("NTLM negotiation failed: %v", err)
 						}
@@ -189,7 +189,7 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 						}
 
 						// Generate Type 3 message
-						ntlmHeader, err = getNTLMAuthHeader(proxy, challenge)
+						ntlmHeader, err = getNTLMAuthHeader(challenge)
 						if err != nil {
 							return nil, fmt.Errorf("NTLM authentication failed: %v", err)
 						}

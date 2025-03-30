@@ -4,7 +4,6 @@ go 1.23.1
 
 require (
 	github.com/ActiveState/termtest/conpty v0.5.0
-	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
 	github.com/creack/pty v1.1.24
 	github.com/fatih/color v1.18.0
 	github.com/glebarez/sqlite v1.11.0
@@ -20,6 +19,8 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/bodgit/ntlmssp v0.0.0-20240506230425-31973bb52d9b // indirect
+	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/glebarez/go-sqlite v1.22.0 // indirect
 	github.com/google/btree v1.1.3 // indirect

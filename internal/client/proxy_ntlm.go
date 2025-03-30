@@ -5,15 +5,27 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/go-ntlmssp"
+	"github.com/bodgit/ntlmssp"
 )
 
 const NTLM = "NTLM "
 
+var ntlm *ntlmssp.Client
 var ntlmProxyCreds string
 
-func SetNTLMProxyCreds(creds string) {
+func SetNTLMProxyCreds(creds string) error {
+	domain, user, pass, err := ParseNTLMCreds(creds)
+	if err != nil {
+		return err
+	}
+
 	ntlmProxyCreds = creds
+	ntlm, err = ntlmssp.NewClient(
+		ntlmssp.SetDomain(domain),
+		ntlmssp.SetUserInfo(user, pass),
+		ntlmssp.SetWorkstation("HOST"),
+	)
+	return err
 }
 
 func ParseNTLMCreds(creds string) (domain, user, pass string, err error) {
@@ -36,15 +48,11 @@ func ParseNTLMCreds(creds string) (domain, user, pass string, err error) {
 	return domain, userPassParts[0], userPassParts[1], nil
 }
 
-func getNTLMAuthHeader(_ string, challengeResponse []byte) (string, error) {
-	domain, user, pass, err := ParseNTLMCreds(ntlmProxyCreds)
-	if err != nil {
-		return "", err
-	}
+func getNTLMAuthHeader(challengeResponse []byte) (string, error) {
 
 	if len(challengeResponse) == 0 {
 		// Type 1 message - Initial Negotiate
-		negotiateMessage, err := ntlmssp.NewNegotiateMessage(domain, "")
+		negotiateMessage, err := ntlm.Authenticate(nil, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to create NTLM negotiate message: %v", err)
 		}
@@ -52,7 +60,7 @@ func getNTLMAuthHeader(_ string, challengeResponse []byte) (string, error) {
 	}
 
 	// Type 3 message - Authentication
-	authenticateMessage, err := ntlmssp.ProcessChallenge(challengeResponse, user, pass, true)
+	authenticateMessage, err := ntlm.Authenticate(challengeResponse, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to process NTLM challenge: %v", err)
 	}
