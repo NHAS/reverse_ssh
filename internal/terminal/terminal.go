@@ -23,7 +23,6 @@ import (
 )
 
 var (
-	ErrCtrlC = errors.New("ctrl + C")
 	ErrCtrlD = errors.New("ctrl + D")
 )
 
@@ -497,9 +496,6 @@ func (t *Terminal) Run() error {
 		//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
 		line, err := t.ReadLine()
 		if err != nil {
-			if err == ErrCtrlC {
-				continue
-			}
 			return err
 		}
 
@@ -926,6 +922,12 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 		t.cursorX, t.cursorY = 0, 0
 		t.advanceCursor(visualLength(t.prompt))
 		t.setLine(t.line, t.pos)
+	case keyCtrlC:
+		t.queue([]rune("^C\r\n"))
+		t.queue(t.prompt)
+		t.cursorX = 0
+		t.advanceCursor(visualLength(t.prompt))
+		t.setLine([]rune{}, 0)
 	default:
 		if t.AutoCompleteCallback != nil {
 			prefix := string(t.line[:t.pos])
@@ -1124,10 +1126,6 @@ func (t *Terminal) readLine() (line string, err error) {
 					if len(t.line) == 0 {
 						return "", ErrCtrlD
 					}
-				}
-				if key == keyCtrlC {
-					t.remainder = nil
-					return "", ErrCtrlC
 				}
 				if key == keyPasteStart {
 					t.pasteActive = true
