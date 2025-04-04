@@ -124,6 +124,8 @@ type Terminal struct {
 	autoCompleteValues map[string][]*trie.Trie
 
 	raw bool
+
+	rawOverflow chan []byte
 }
 
 func (t *Terminal) EnableRaw() {
@@ -141,7 +143,10 @@ func (t *Terminal) DisableRaw() {
 	defer t.lock.Unlock()
 
 	if t.raw {
+		t.rawOverflow = make(chan []byte, 1)
+
 		t.raw = false
+
 		t.handleWindowSize()
 	}
 }
@@ -493,7 +498,6 @@ func (t *Terminal) removeDuplicates(stringsSlice []string) []string {
 
 func (t *Terminal) Run() error {
 	for {
-		//This will break if the user does CTRL+D apparently we need to reset the whole terminal if a user does this.... so just exit instead
 		line, err := t.ReadLine()
 		if err != nil {
 			return err
@@ -646,9 +650,12 @@ func (t *Terminal) Read(b []byte) (n int, err error) {
 
 	if t.raw {
 		n, err := t.c.Read(b)
-		if !t.raw {
-			//This is a patch due to blocking reads
-			t.addCharacterToInput(b)
+		//This is a patch due to blocking reads
+		if !t.raw && t.rawOverflow != nil {
+
+			c := make([]byte, n)
+			copy(c, b[:n])
+			t.rawOverflow <- c
 		}
 
 		return n, err
@@ -681,10 +688,10 @@ func (t *Terminal) addCharacterToInput(characters []byte) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	r, _ := bytesToKey(characters, false)
-	t.handleKey(r)
-	t.c.Write(t.outBuf)
-	t.outBuf = t.outBuf[:0]
+	log.Println("adding: ", characters)
+
+	n := copy(t.inBuf[:], characters[:min(len(characters)-1):256])
+	t.remainder = t.inBuf[:n]
 }
 
 func (t *Terminal) advanceCursor(places int) {
@@ -1111,16 +1118,29 @@ func (t *Terminal) readLine() (line string, err error) {
 	}
 
 	lineIsPasted := t.pasteActive
+	if t.rawOverflow != nil {
+		data, ok := <-t.rawOverflow
+		if ok {
+			n := copy(t.inBuf[:], data)
+			t.remainder = t.inBuf[:n]
+			close(t.rawOverflow)
+		}
+		t.rawOverflow = nil
+	}
 
 	for {
+
 		rest := t.remainder
 		lineOk := false
 		for !lineOk {
+
 			var key rune
 			key, rest = bytesToKey(rest, t.pasteActive)
+
 			if key == utf8.RuneError {
 				break
 			}
+
 			if !t.pasteActive {
 				if key == keyCtrlD {
 					if len(t.line) == 0 {
@@ -1152,6 +1172,7 @@ func (t *Terminal) readLine() (line string, err error) {
 		}
 
 		t.c.Write(t.outBuf)
+
 		t.outBuf = t.outBuf[:0]
 		if lineOk {
 			if t.echo {
@@ -1173,7 +1194,9 @@ func (t *Terminal) readLine() (line string, err error) {
 		var n int
 
 		t.lock.Unlock()
+
 		n, err = t.c.Read(readBuf)
+
 		t.lock.Lock()
 
 		if err != nil {

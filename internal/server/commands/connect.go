@@ -158,7 +158,7 @@ func attachSession(newSession ssh.Channel, currentClientSession io.ReadWriter, c
 
 	close := func() {
 		newSession.Close()
-		finished <- true // Stop the request passer on IO error
+		close(finished) // Stop the request passer on IO error
 	}
 
 	//Setup the pipes for stdin/stdout over the connections
