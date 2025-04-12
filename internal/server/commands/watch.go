@@ -154,7 +154,7 @@ func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLin
 	}
 
 	if isTerm {
-		term.DisableRaw()
+		term.DisableRaw(false)
 	}
 
 	return nil

@@ -89,7 +89,7 @@ func (l *logCommand) Run(user *users.User, tty io.ReadWriter, line terminal.Pars
 		}
 
 		if isTerm {
-			term.DisableRaw()
+			term.DisableRaw(false)
 		}
 
 	} else if line.IsSet("to-file") {

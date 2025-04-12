@@ -73,7 +73,7 @@ func (c *connect) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedL
 
 	defer func() {
 		c.log.Info("Disconnected from remote host %s (%s)", target.RemoteAddr(), target.ClientVersion())
-		term.DisableRaw()
+		term.DisableRaw(true)
 	}()
 
 	//Attempt to connect to remote host and send inital pty request and screen size

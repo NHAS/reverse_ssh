@@ -73,12 +73,12 @@ func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLi
 		_, err := tty.Read(b)
 		if err != nil {
 			if term, ok := tty.(*terminal.Terminal); ok {
-				term.DisableRaw()
+				term.DisableRaw(false)
 			}
 			return err
 		}
 		if term, ok := tty.(*terminal.Terminal); ok {
-			term.DisableRaw()
+			term.DisableRaw(false)
 		}
 
 		if !(b[0] == 'y' || b[0] == 'Y') {
@@ -96,7 +96,7 @@ func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLi
 		changes++
 	}
 
-	return fmt.Errorf("%d client owners modified", changes)
+	return fmt.Errorf("\n%d client owners modified", changes)
 }
 
 func (s *access) ValidArgs() map[string]string {
