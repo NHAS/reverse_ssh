@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"runtime/debug"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/commands"
@@ -46,6 +47,13 @@ func Session(datadir string) ChannelHandler {
 			return
 		}
 		defer connection.Close()
+
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered a panic:", r)
+				debug.PrintStack()
+			}
+		}()
 
 		sess.ShellRequests = requests
 

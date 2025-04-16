@@ -184,7 +184,12 @@ func attachSession(newSession ssh.Channel, currentClientSession io.ReadWriter, c
 RequestsProxyPasser:
 	for {
 		select {
-		case r := <-currentClientRequests:
+		case r, ok := <-currentClientRequests:
+			if !ok || r == nil {
+				// user has disconnected
+				return nil
+			}
+
 			response, err := internal.SendRequest(*r, newSession)
 			if err != nil {
 				break RequestsProxyPasser

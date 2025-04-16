@@ -203,6 +203,7 @@ func (t *Terminal) handleWindowSize() {
 				return
 			case req := <-t.session.ShellRequests:
 				if req == nil { // Channel has closed, so therefore end this default handler
+
 					return
 				}
 
