@@ -132,14 +132,12 @@ func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh
 
 	drtMsg := internal.ChannelOpenDirectMsg{
 
-		Raddr: originatorAddress,
-		Rport: uint32(originatorPortInt),
+		Raddr: rf.BindAddr,
+		Rport: rf.BindPort,
 
-		Laddr: rf.BindAddr,
-		Lport: rf.BindPort,
+		Laddr: originatorAddress,
+		Lport: uint32(originatorPortInt),
 	}
-
-	log.Printf("formed drtMsg: %+v", drtMsg)
 
 	b := ssh.Marshal(&drtMsg)
 
@@ -147,7 +145,6 @@ func handleData(rf internal.RemoteForwardRequest, proxyCon net.Conn, sshConn ssh
 	if err != nil {
 		log.Println("Opening forwarded-tcpip channel to server failed: ", err)
 
-		return err
 	}
 	defer source.Close()
 

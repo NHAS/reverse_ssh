@@ -96,11 +96,16 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 					}
 				}
 
+				argv := ""
+				if u != nil {
+					argv = u.Query().Get("argv")
+				}
+
 				if session.Pty != nil {
-					runCommandWithPty(u.Query().Get("argv"), command, line.Chunks[1:], session.Pty, requests, log, connection)
+					runCommandWithPty(argv, command, line.Chunks[1:], session.Pty, requests, log, connection)
 					return
 				}
-				runCommand(u.Query().Get("argv"), command, line.Chunks[1:], connection)
+				runCommand(argv, command, line.Chunks[1:], connection)
 
 				return
 			case "shell":
@@ -128,7 +133,12 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 						}
 					}
 
-					runCommandWithPty(u.Query().Get("argv"), command, parts[1:], session.Pty, requests, log, connection)
+					argv := ""
+					if u != nil {
+						argv = u.Query().Get("argv")
+					}
+
+					runCommandWithPty(argv, command, parts[1:], session.Pty, requests, log, connection)
 				}
 				return
 				//Yes, this is here for a reason future me. Despite the RFC saying "Only one of shell,subsystem, exec can occur per channel" pty-req actually proceeds all of them
@@ -198,7 +208,7 @@ func runCommand(argv string, command string, args []string, connection ssh.Chann
 func isUrl(data string) (*url.URL, bool) {
 	u, err := url.Parse(data)
 	if err != nil {
-		return u, false
+		return nil, false
 	}
 
 	switch u.Scheme {
