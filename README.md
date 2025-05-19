@@ -400,18 +400,12 @@ As an additional note, please use the `/slack` endpoint if connecting this to di
 
 RSSH and SSH support creating tuntap interfaces that allow you to route traffic and create pseudo-VPN. It does take a bit more setup than just a local or remote forward (`-L`, `-R`), but in this mode you can send UDP and ICMP.
 
-First set up a tun (layer 3) device on your local machine.
-```sh
-sudo ip tuntap add dev tun0 mode tun
-sudo ip link set dev tun0 up
-
-# This will defaultly route all non-local network traffic through the tunnel
-sudo ip route add 0.0.0.0/0 dev tun0
-```
-
 Install a client on a remote machine, this will not work if you have your RSSH client on the same host as your tun device.
 ```sh
 sudo ssh -J your.rssh.server.internal:3232 user.wombo -w 0:any
+
+sudo ip link set dev tun0 up
+sudo ip route add 0.0.0.0/0 dev tun0
 ```
 
 This has some limitations, it is only able to send `UDP`/`TCP`/`ICMP`, and not arbitrary layer 3 protocols. `ICMP` is best effort and may use the remote hosts `ping` tool, as ICMP sockets are privileged on most machines. This also does not support `tap` devices, e.g layer 2 VPN, as this would require administrative access.
