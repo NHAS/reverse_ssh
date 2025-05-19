@@ -411,7 +411,7 @@ sudo ip route add 0.0.0.0/0 dev tun0
 
 Install a client on a remote machine, this will not work if you have your RSSH client on the same host as your tun device.
 ```sh
-ssh -J your.rssh.server.internal:3232 user.wombo -w 0:any
+sudo ssh -J your.rssh.server.internal:3232 user.wombo -w 0:any
 ```
 
 This has some limitations, it is only able to send `UDP`/`TCP`/`ICMP`, and not arbitrary layer 3 protocols. `ICMP` is best effort and may use the remote hosts `ping` tool, as ICMP sockets are privileged on most machines. This also does not support `tap` devices, e.g layer 2 VPN, as this would require administrative access.
