@@ -55,7 +55,6 @@ func printHelp() {
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--ntlm-proxy-creds\tNTLM proxy credentials in format DOMAIN\\USER:PASS")
-	fmt.Println("\t\t--host-kerberos\tAttempt to use the host kerberos to authenticate with proxy")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
 	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
@@ -64,8 +63,7 @@ func printHelp() {
 	}
 }
 
-func main() {
-
+func makeInitialSettings() (*client.Settings, error) {
 	settings := &client.Settings{
 		Fingerprint:          fingerprint,
 		ProxyAddr:            proxy,
@@ -76,8 +74,18 @@ func main() {
 
 	if ntlmProxyCreds != "" {
 		if err := settings.SetNTLMProxyCreds(ntlmProxyCreds); err != nil {
-			log.Fatalf("Embedded ntlm proxy credentials are invalid: %q: %v", ntlmProxyCreds, err)
+			return nil, fmt.Errorf("embedded ntlm proxy credentials are invalid: %q: %w", ntlmProxyCreds, err)
 		}
+	}
+
+	return settings, nil
+}
+
+func main() {
+
+	settings, err := makeInitialSettings()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	if len(os.Args) == 0 || ignoreInput == "true" {

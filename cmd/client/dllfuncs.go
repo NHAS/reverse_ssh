@@ -6,11 +6,13 @@ import "C"
 
 //export VoidFunc
 func VoidFunc() {
-	Run(destination, fingerprint, proxy, customSNI, useKerberos)
+	settings, _ := makeInitialSettings()
+
+	Run(settings)
 }
 
 //export OnProcessAttach
 func OnProcessAttach() {
-
-	Run(destination, fingerprint, proxy, customSNI, useKerberos)
+	settings, _ := makeInitialSettings()
+	Run(settings)
 }

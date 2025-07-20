@@ -16,5 +16,7 @@ func init() {
 	//If we're loading as a shared lib, stop our children from being polluted
 	os.Setenv("LD_PRELOAD", "")
 
-	client.Run(destination, fingerprint, proxy, customSNI, false)
+	settings, _ := makeInitialSettings()
+
+	client.Run(settings)
 }
