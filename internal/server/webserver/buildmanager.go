@@ -50,6 +50,8 @@ type BuildConfig struct {
 	WorkingDirectory string
 
 	NTLMProxyCreds string
+
+	VersionString string
 }
 
 func Build(config BuildConfig) (string, error) {
@@ -169,7 +171,7 @@ func Build(config BuildConfig) (string, error) {
 		return "", err
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.logLevel=%s -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X main.useHostKerberos=%t -X main.ntlmProxyCreds=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", config.LogLevel, config.ConnectBackAdress, config.Fingerprint, config.Proxy, config.SNI, config.UseKerberosAuth, config.NTLMProxyCreds, strings.TrimSpace(f.Version)))
+	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.logLevel=%s -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X main.useHostKerberos=%t -X main.ntlmProxyCreds=%s -X main.versionString=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", config.LogLevel, config.ConnectBackAdress, config.Fingerprint, config.Proxy, config.SNI, config.UseKerberosAuth, config.NTLMProxyCreds, strings.TrimSpace(config.VersionString), strings.TrimSpace(f.Version)))
 	buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)

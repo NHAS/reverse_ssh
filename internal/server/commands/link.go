@@ -54,6 +54,7 @@ func (l *link) ValidArgs() map[string]string {
 		"use-kerberos":      "Instruct client to try and use kerberos ticket when using a proxy",
 		"log-level":         "Set default output logging levels, [INFO,WARNING,ERROR,FATAL,DISABLED]",
 		"ntlm-proxy-creds":  "Set NTLM proxy credentials in format DOMAIN\\USER:PASS",
+		"version-string":    "Set the SSH version string the client uses, will always be prefixed with SSH-",
 	}
 
 	// Add duplicate flags for owners
@@ -182,6 +183,11 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	buildConfig.ConnectBackAdress = scheme + buildConfig.ConnectBackAdress
 
 	buildConfig.Name, err = line.GetArgString("name")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.VersionString, err = line.GetArgString("version-string")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}

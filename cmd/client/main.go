@@ -46,6 +46,8 @@ var (
 	logLevel        string
 
 	ntlmProxyCreds string
+
+	versionString string
 )
 
 func printHelp() {
@@ -58,18 +60,21 @@ func printHelp() {
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
 	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
+	fmt.Println("\t\t--version-string\tSSH version string to use, i.e SSH-VERSION, defaults to internal.Version-runtime.GOOS_runtime.GOARCH")
 	if runtime.GOOS == "windows" {
 		fmt.Println("\t\t--host-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
 	}
 }
 
 func makeInitialSettings() (*client.Settings, error) {
+	// set the initial settings from the embedded values first
 	settings := &client.Settings{
 		Fingerprint:          fingerprint,
 		ProxyAddr:            proxy,
 		Addr:                 destination,
 		ProxyUseHostKerberos: useHostKerberos == "true",
 		SNI:                  customSNI,
+		VersionString:        versionString,
 	}
 
 	if ntlmProxyCreds != "" {
@@ -141,6 +146,11 @@ func main() {
 
 	if line.IsSet("host-kerberos") {
 		settings.ProxyUseHostKerberos = true
+	}
+
+	versionString, err := line.GetArgString("version-string")
+	if err == nil {
+		settings.VersionString = versionString
 	}
 
 	tempDestination, err := line.GetArgString("d")

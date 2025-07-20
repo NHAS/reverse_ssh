@@ -308,6 +308,8 @@ type Settings struct {
 
 	ProxyUseHostKerberos bool
 
+	VersionString string
+
 	ntlm *ntlmssp.Client
 }
 
@@ -378,6 +380,10 @@ func Run(settings *Settings) {
 			return nil
 		},
 		ClientVersion: "SSH-" + internal.Version + "-" + runtime.GOOS + "_" + runtime.GOARCH,
+	}
+
+	if settings.VersionString != "" {
+		config.ClientVersion = "SSH-" + settings.VersionString
 	}
 
 	realAddr, scheme := determineConnectionType(settings.Addr)
