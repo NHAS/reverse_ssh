@@ -143,24 +143,18 @@ func main() {
 		settings.ProxyUseHostKerberos = true
 	}
 
-	if !(line.IsSet("d") || line.IsSet("destination")) && len(settings.Addr) == 0 && len(line.Arguments) < 1 {
-		fmt.Println("No destination specified")
-		printHelp()
-		return
-	}
-
 	tempDestination, err := line.GetArgString("d")
 	if err != nil {
 		tempDestination, _ = line.GetArgString("destination")
 	}
 
 	if len(tempDestination) > 0 {
-		destination = tempDestination
+		settings.Addr = tempDestination
 	}
 
-	if len(destination) == 0 && len(line.Arguments) > 1 {
+	if len(settings.Addr) == 0 && len(line.Arguments) > 1 {
 		// Basically take a guess at the arguments we have and take the last one
-		destination = line.Arguments[len(line.Arguments)-1].Value()
+		settings.Addr = line.Arguments[len(line.Arguments)-1].Value()
 	}
 
 	var actualLogLevel logger.Urgency = logger.INFO
@@ -179,7 +173,7 @@ func main() {
 	}
 	logger.SetLogLevel(actualLogLevel)
 
-	if len(destination) == 0 {
+	if len(settings.Addr) == 0 {
 		fmt.Println("No destination specified")
 		printHelp()
 		return
