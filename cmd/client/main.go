@@ -74,8 +74,10 @@ func main() {
 		SNI:                  customSNI,
 	}
 
-	if err := settings.SetNTLMProxyCreds(ntlmProxyCreds); err != nil {
-		log.Fatalf("Embedded ntlm proxy credentials are invalid: %q: %v", ntlmProxyCreds, err)
+	if ntlmProxyCreds != "" {
+		if err := settings.SetNTLMProxyCreds(ntlmProxyCreds); err != nil {
+			log.Fatalf("Embedded ntlm proxy credentials are invalid: %q: %v", ntlmProxyCreds, err)
+		}
 	}
 
 	if len(os.Args) == 0 || ignoreInput == "true" {
