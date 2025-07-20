@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"encoding/base64"
@@ -22,6 +23,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client/handlers"
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/bodgit/ntlmssp"
 	"golang.org/x/crypto/ssh"
 	socks "golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
@@ -83,7 +85,23 @@ func GetProxyDetails(proxy string) (string, error) {
 	return proxyURL.Scheme + "://" + proxyURL.Host, nil
 }
 
-func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.Conn, err error) {
+func ScanRequest(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.Index(data, []byte("\r\n\r\n")); i >= 0 {
+		// We have a full request
+		return i + 4, data[0:i], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
+}
+
+func Connect(addr, proxy string, timeout time.Duration, hostKerberos bool, staticNTLMCreds *ntlmssp.Client) (conn net.Conn, err error) {
 
 	if len(proxy) != 0 {
 		log.Println("Setting HTTP proxy address as: ", proxy)
@@ -124,27 +142,26 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 				return nil, fmt.Errorf("unable to connect proxy %s", proxy)
 			}
 
-			var responseStatus []byte
-			for {
-				b := make([]byte, 1)
-				_, err := proxyCon.Read(b)
-				if err != nil {
-					return conn, fmt.Errorf("reading from proxy failed")
-				}
-				responseStatus = append(responseStatus, b...)
+			scanner := bufio.NewScanner(proxyCon)
+			scanner.Split(ScanRequest)
 
-				if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
-					break
-				}
+			firstRequest := scanner.Scan()
+			if !firstRequest {
+				return conn, fmt.Errorf("reading from proxy failed")
 			}
+
+			responseStatus := scanner.Bytes()
 
 			// If we get a 407 Proxy Authentication Required
 			if bytes.Contains(bytes.ToLower(responseStatus), []byte("407")) {
 				// Check if NTLM is supported
-				if bytes.Contains(bytes.ToLower(responseStatus), []byte("proxy-authenticate: ntlm")) {
-					if ntlmProxyCreds != "" {
+				if bytes.Contains(bytes.ToLower(responseStatus), []byte(AskingForNTLMProxy)) {
+					//if we have specific credentials supplied by our user, attempt to use those for our NTLM negotiation with the proxy
+
+					if staticNTLMCreds != nil {
+
 						// Start NTLM negotiation
-						ntlmHeader, err := getNTLMAuthHeader(nil)
+						ntlmHeader, err := getNTLMAuthHeader(staticNTLMCreds, nil)
 						if err != nil {
 							return nil, fmt.Errorf("NTLM negotiation failed: %v", err)
 						}
@@ -162,22 +179,16 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 						}
 
 						// Read challenge response
-						responseStatus = []byte{}
-						for {
-							b := make([]byte, 1)
-							_, err := proxyCon.Read(b)
-							if err != nil {
-								return conn, fmt.Errorf("reading NTLM challenge failed")
-							}
-							responseStatus = append(responseStatus, b...)
 
-							if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
-								break
-							}
+						challengeResponseOk := scanner.Scan()
+						if !challengeResponseOk {
+							return conn, fmt.Errorf("reading NTLM challenge failed")
 						}
 
+						challengeResponse := scanner.Text()
+
 						// Extract Type 2 message
-						ntlmParts := strings.SplitN(string(responseStatus), NTLM, 2)
+						ntlmParts := strings.SplitN(challengeResponse, NTLM, 2)
 						if len(ntlmParts) != 2 {
 							return nil, fmt.Errorf("no NTLM challenge received")
 						}
@@ -189,7 +200,7 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 						}
 
 						// Generate Type 3 message
-						ntlmHeader, err = getNTLMAuthHeader(challenge)
+						ntlmHeader, err = getNTLMAuthHeader(staticNTLMCreds, challenge)
 						if err != nil {
 							return nil, fmt.Errorf("NTLM authentication failed: %v", err)
 						}
@@ -207,45 +218,33 @@ func Connect(addr, proxy string, timeout time.Duration, winauth bool) (conn net.
 						}
 
 						// Read final response
-						responseStatus = []byte{}
-						for {
-							b := make([]byte, 1)
-							_, err := proxyCon.Read(b)
-							if err != nil {
-								return conn, fmt.Errorf("reading final response failed")
-							}
-							responseStatus = append(responseStatus, b...)
-
-							if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
-								break
-							}
+						finalResponseOk := scanner.Scan()
+						if !finalResponseOk {
+							return conn, fmt.Errorf("failed to read final NTLM response")
 						}
-					} else if winauth {
-						req = additionalHeaders(proxy, req)
+
+						responseStatus = scanner.Bytes()
+
+					} else if hostKerberos {
+						// otherwise, (if the user has allowed us to) use the host/user kerberos to auth with the proxy
+						req = addHostKerberosHeaders(proxy, req)
 						err = WriteHTTPReq(req, proxyCon)
 						if err != nil {
 							return nil, fmt.Errorf("unable to connect proxy %s", proxy)
 						}
 
-						responseStatus = []byte{}
-						for {
-							b := make([]byte, 1)
-							_, err := proxyCon.Read(b)
-							if err != nil {
-								return conn, fmt.Errorf("reading from proxy failed")
-							}
-							responseStatus = append(responseStatus, b...)
-
-							if len(responseStatus) > 4 && bytes.Equal(responseStatus[len(responseStatus)-4:], []byte("\r\n\r\n")) {
-								break
-							}
+						proxyResponseOK := scanner.Scan()
+						if !proxyResponseOK {
+							return conn, fmt.Errorf("failed reading proxy after offering it host kerberos")
 						}
+
+						responseStatus = scanner.Bytes()
 					}
 				}
 			}
 
-			if !(bytes.Contains(bytes.ToLower(responseStatus), []byte("200"))) {
-				parts := bytes.Split(responseStatus, []byte("\r\n"))
+			if !bytes.Contains(bytes.ToLower(responseStatus), []byte("200")) {
+				parts := bytes.SplitN(responseStatus, []byte("\r\n"), 2)
 				if len(parts) > 1 {
 					return nil, fmt.Errorf("failed to proxy: %q", parts[0])
 				}
@@ -301,7 +300,37 @@ func getCaseInsensitiveEnv(envs ...string) (ret []string) {
 	return ret
 }
 
-func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
+type Settings struct {
+	Addr        string
+	Fingerprint string
+	ProxyAddr   string
+	SNI         string
+
+	ProxyUseHostKerberos bool
+
+	ntlm *ntlmssp.Client
+}
+
+func (s *Settings) SetNTLMProxyCreds(creds string) error {
+	domain, user, pass, err := parseNTLMCreds(creds)
+	if err != nil {
+		return err
+	}
+
+	s.ntlm, err = ntlmssp.NewClient(
+		ntlmssp.SetDomain(domain),
+		ntlmssp.SetUserInfo(user, pass),
+		ntlmssp.SetWorkstation("HOST"),
+	)
+
+	if err != nil {
+		s.ntlm = nil
+	}
+
+	return err
+}
+
+func Run(settings *Settings) {
 
 	sshPriv, sysinfoError := keys.GetPrivateKey()
 	if sysinfoError != nil {
@@ -311,9 +340,9 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 	l := logger.NewLog("client")
 
 	var err error
-	proxyAddr, err = GetProxyDetails(proxyAddr)
+	settings.ProxyAddr, err = GetProxyDetails(settings.ProxyAddr)
 	if err != nil {
-		log.Fatal("Invalid proxy details", proxyAddr, ":", err)
+		log.Fatal("Invalid proxy details", settings.ProxyAddr, ":", err)
 	}
 
 	var username string
@@ -337,13 +366,13 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 			ssh.PublicKeys(sshPriv),
 		},
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			if fingerprint == "" { // If a server key isnt supplied, fail open. Potentially should change this for more paranoid people
-				l.Warning("No server key specified, allowing connection to %s", addr)
+			if settings.Fingerprint == "" { // If a server key isnt supplied, fail open. Potentially should change this for more paranoid people
+				l.Warning("No server key specified, allowing connection to %s", settings.Addr)
 				return nil
 			}
 
-			if internal.FingerprintSHA256Hex(key) != fingerprint {
-				return fmt.Errorf("server public key invalid, expected: %s, got: %s", fingerprint, internal.FingerprintSHA256Hex(key))
+			if internal.FingerprintSHA256Hex(key) != settings.Fingerprint {
+				return fmt.Errorf("server public key invalid, expected: %s, got: %s", settings.Fingerprint, internal.FingerprintSHA256Hex(key))
 			}
 
 			return nil
@@ -351,22 +380,22 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 		ClientVersion: "SSH-" + internal.Version + "-" + runtime.GOOS + "_" + runtime.GOARCH,
 	}
 
-	realAddr, scheme := determineConnectionType(addr)
+	realAddr, scheme := determineConnectionType(settings.Addr)
 
 	// fetch the environment variables, but the first proxy is done from the supplied proxyAddr arg
 	potentialProxies := getCaseInsensitiveEnv("http_proxy", "https_proxy")
 	triedProxyIndex := 0
-	initialProxyAddr := proxyAddr
+	initialProxyAddr := settings.ProxyAddr
 	for {
 		var conn net.Conn
 		if scheme != "stdio" {
-			log.Println("Connecting to", addr)
+			log.Println("Connecting to", settings.Addr)
 			// First create raw TCP connection
-			conn, err = Connect(realAddr, proxyAddr, config.Timeout, winauth)
+			conn, err = Connect(realAddr, settings.ProxyAddr, config.Timeout, settings.ProxyUseHostKerberos, settings.ntlm)
 			if err != nil {
 
 				if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
-					log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", addr, errMsg)
+					log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", settings.Addr, errMsg)
 				}
 
 				log.Printf("Unable to connect directly TCP: %s\n", err)
@@ -375,7 +404,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 					if len(potentialProxies) <= triedProxyIndex {
 						log.Printf("Unable to connect via proxies (from env), retrying with proxy as %q: %v", potentialProxies, initialProxyAddr)
 						triedProxyIndex = 0
-						proxyAddr = initialProxyAddr
+						settings.ProxyAddr = initialProxyAddr
 						continue
 					}
 					proxy := potentialProxies[triedProxyIndex]
@@ -383,7 +412,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 
 					log.Println("Trying to proxy via env variable (", proxy, ")")
 
-					proxyAddr, err = GetProxyDetails(proxy)
+					settings.ProxyAddr, err = GetProxyDetails(proxy)
 					if err != nil {
 						log.Println("Could not parse the env proxy value: ", proxy)
 					}
@@ -398,8 +427,8 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 			// Add on transports as we go
 			if scheme == "tls" || scheme == "wss" || scheme == "https" {
 
-				sniServerName := sni
-				if len(sni) == 0 {
+				sniServerName := settings.SNI
+				if len(settings.SNI) == 0 {
 					sniServerName = realAddr
 					parts := strings.Split(realAddr, ":")
 					if len(parts) == 2 {
@@ -445,7 +474,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 			case "http", "https":
 
 				conn, err = NewHTTPConn(scheme+"://"+realAddr, func() (net.Conn, error) {
-					return Connect(realAddr, proxyAddr, config.Timeout, winauth)
+					return Connect(realAddr, settings.ProxyAddr, config.Timeout, settings.ProxyUseHostKerberos, settings.ntlm)
 				})
 
 				if err != nil {
@@ -464,7 +493,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 		// After this the timeout gets updated by the server
 		realConn := &internal.TimeoutConn{Conn: conn, Timeout: 4 * time.Minute}
 
-		sshConn, chans, reqs, err := ssh.NewClientConn(realConn, addr, config)
+		sshConn, chans, reqs, err := ssh.NewClientConn(realConn, settings.Addr, config)
 		if err != nil {
 			realConn.Close()
 
@@ -484,7 +513,7 @@ func Run(addr, fingerprint, proxyAddr, sni string, winauth bool) {
 			triedProxyIndex = 0
 		}
 
-		log.Println("Successfully connnected", addr)
+		log.Println("Successfully connnected", settings.Addr)
 
 		go func() {
 

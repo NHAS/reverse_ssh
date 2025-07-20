@@ -8,27 +8,12 @@ import (
 	"github.com/bodgit/ntlmssp"
 )
 
-const NTLM = "NTLM "
+const (
+	NTLM               = "NTLM "
+	AskingForNTLMProxy = "proxy-authenticate: ntlm"
+)
 
-var ntlm *ntlmssp.Client
-var ntlmProxyCreds string
-
-func SetNTLMProxyCreds(creds string) error {
-	domain, user, pass, err := ParseNTLMCreds(creds)
-	if err != nil {
-		return err
-	}
-
-	ntlmProxyCreds = creds
-	ntlm, err = ntlmssp.NewClient(
-		ntlmssp.SetDomain(domain),
-		ntlmssp.SetUserInfo(user, pass),
-		ntlmssp.SetWorkstation("HOST"),
-	)
-	return err
-}
-
-func ParseNTLMCreds(creds string) (domain, user, pass string, err error) {
+func parseNTLMCreds(creds string) (domain, user, pass string, err error) {
 	if creds == "" {
 		return "", "", "", fmt.Errorf("NTLM credentials not provided. Use --ntlm-proxy-creds in format DOMAIN\\USER:PASS")
 	}
@@ -48,7 +33,7 @@ func ParseNTLMCreds(creds string) (domain, user, pass string, err error) {
 	return domain, userPassParts[0], userPassParts[1], nil
 }
 
-func getNTLMAuthHeader(challengeResponse []byte) (string, error) {
+func getNTLMAuthHeader(ntlm *ntlmssp.Client, challengeResponse []byte) (string, error) {
 
 	if len(challengeResponse) == 0 {
 		// Type 1 message - Initial Negotiate

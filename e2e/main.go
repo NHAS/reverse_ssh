@@ -20,7 +20,7 @@ func fileExists(path string) bool {
 
 var (
 	Version   string
-	client    *ssh.Client
+	sshClient *ssh.Client
 	serverLog *os.File
 )
 
@@ -78,11 +78,11 @@ func main() {
 	}
 
 	// Connect as administrator
-	client, err = ssh.Dial("tcp", listenAddr, config)
+	sshClient, err = ssh.Dial("tcp", listenAddr, config)
 	if err != nil {
 		log.Fatalf("Failed to dial: %v", err)
 	}
-	defer client.Close()
+	defer sshClient.Close()
 
 	// integration tests
 	basics()
@@ -93,7 +93,7 @@ func main() {
 }
 
 func conditionExec(command, expectedOutput string, exitCode int, serverLogExpected string, withIn int) {
-	session, err := client.NewSession()
+	session, err := sshClient.NewSession()
 	if err != nil {
 		log.Fatalf("Failed to create session: %v", err)
 	}

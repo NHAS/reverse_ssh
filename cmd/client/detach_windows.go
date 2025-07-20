@@ -18,7 +18,7 @@ import (
 
 var elog debug.Log
 
-func Fork(destination, fingerprint, proxyaddress, sni string, winauth bool, pretendArgv ...string) error {
+func Fork(settings *client.Settings, pretendArgv ...string) error {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {
@@ -45,17 +45,16 @@ func Fork(destination, fingerprint, proxyaddress, sni string, winauth bool, pret
 		}, pretendArgv...)
 	}
 
-	runService("rssh", destination, fingerprint, proxyaddress, sni)
+	runService("rssh", settings)
 
 	return nil
 }
 
 type rsshService struct {
-	Dest, Fingerprint, Proxy, SNI string
-	Winauth                       bool
+	*client.Settings
 }
 
-func runService(name, destination, fingerprint, proxyaddress, sni string) {
+func runService(name string, settings *client.Settings) {
 	var err error
 
 	elog, err := eventlog.Open(name)
@@ -67,11 +66,7 @@ func runService(name, destination, fingerprint, proxyaddress, sni string) {
 
 	elog.Info(1, fmt.Sprintf("starting %s service", name))
 	err = svc.Run(name, &rsshService{
-		destination,
-		fingerprint,
-		proxyaddress,
-		sni,
-		useKerberos,
+		Settings: settings,
 	})
 	if err != nil {
 		elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
@@ -84,7 +79,7 @@ func (m *rsshService) Execute(args []string, r <-chan svc.ChangeRequest, changes
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
 
-	go client.Run(m.Dest, m.Fingerprint, m.Proxy, m.SNI, m.Winauth)
+	go client.Run(m.Settings)
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
 Outer:
@@ -109,20 +104,20 @@ Outer:
 	return
 }
 
-func Run(destination, fingerprint, proxyaddress, sni string, winauth bool) {
+func Run(settings *client.Settings) {
 
 	inService, err := svc.IsWindowsService()
 	if err != nil {
 		log.Printf("failed to determine if we are running in service: %v", err)
-		client.Run(destination, fingerprint, proxyaddress, sni, winauth)
+		client.Run(settings)
 	}
 
 	if !inService {
 
-		client.Run(destination, fingerprint, proxyaddress, sni, winauth)
+		client.Run(settings)
 		return
 	}
 
-	runService("rssh", destination, fingerprint, proxyaddress, sni)
+	runService("rssh", settings)
 
 }

@@ -2,7 +2,7 @@
 
 package client
 
-func additionalHeaders(_ string, req []string) []string {
-	// linux doesnt support using win auth just yet
+func addHostKerberosHeaders(_ string, req []string) []string {
+	// linux doesnt support using kerberos host auth just yet
 	return req
 }

