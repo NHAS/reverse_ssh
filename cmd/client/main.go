@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -53,8 +54,10 @@ var (
 func printHelp() {
 	fmt.Println("usage: ", filepath.Base(os.Args[0]), "--[foreground|fingerprint|proxy|process_name] -d|--destination <server_address>")
 	fmt.Println("\t\t-d or --destination\tServer connect back address (can be baked in)")
+	fmt.Println("\t\t--destination-file\tRead server connect back address as file")
 	fmt.Println("\t\t--foreground\tCauses the client to run without forking to background")
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
+	fmt.Println("\t\t--fingerprint-file\tRead server public key SHA256 hex fingerprint from file path")
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
 	fmt.Println("\t\t--ntlm-proxy-creds\tNTLM proxy credentials in format DOMAIN\\USER:PASS")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
@@ -125,6 +128,22 @@ func main() {
 	userSpecifiedFingerprint, err := line.GetArgString("fingerprint")
 	if err == nil {
 		settings.Fingerprint = userSpecifiedFingerprint
+	} else {
+		userSpecifiedFingerprintPath, err := line.GetArgString("fingerprint-file")
+		if err == nil {
+			fingerPrint, err := os.ReadFile(userSpecifiedFingerprintPath)
+			if err != nil {
+				log.Fatalf("--fingerprint-file %q was invalid: %v", userSpecifiedFingerprintPath, err)
+			}
+
+			fingerPrint = bytes.TrimSpace(fingerPrint)
+
+			if len(fingerPrint) != 64 {
+				log.Fatalf("The fingerprint read from file %q was not the size of a hex sha256 hash (64 bytes), was: %d", userSpecifiedFingerprintPath, len(fingerPrint))
+			}
+
+			settings.Fingerprint = string(fingerPrint)
+		}
 	}
 
 	userSpecifiedSNI, err := line.GetArgString("sni")
@@ -155,7 +174,18 @@ func main() {
 
 	tempDestination, err := line.GetArgString("d")
 	if err != nil {
-		tempDestination, _ = line.GetArgString("destination")
+		tempDestination, err = line.GetArgString("destination")
+		if err != nil {
+			destinationFile, err := line.GetArgString("destination-file")
+			if err == nil {
+				destinationFileBytes, err := os.ReadFile(destinationFile)
+				if err != nil {
+					log.Fatalf("--destinationFile-file %q was invalid: %v", destinationFile, err)
+				}
+
+				tempDestination = string(bytes.TrimSpace(destinationFileBytes))
+			}
+		}
 	}
 
 	if len(tempDestination) > 0 {
