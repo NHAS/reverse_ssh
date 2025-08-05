@@ -138,12 +138,14 @@ func (t *Terminal) EnableRaw() {
 	}
 }
 
-func (t *Terminal) DisableRaw() {
+func (t *Terminal) DisableRaw(captureOverflow bool) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
 	if t.raw {
-		t.rawOverflow = make(chan []byte, 1)
+		if captureOverflow {
+			t.rawOverflow = make(chan []byte, 1)
+		}
 
 		t.raw = false
 
@@ -201,6 +203,7 @@ func (t *Terminal) handleWindowSize() {
 				return
 			case req := <-t.session.ShellRequests:
 				if req == nil { // Channel has closed, so therefore end this default handler
+
 					return
 				}
 

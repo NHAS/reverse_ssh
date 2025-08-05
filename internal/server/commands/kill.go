@@ -46,12 +46,12 @@ func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		_, err := tty.Read(b)
 		if err != nil {
 			if term, ok := tty.(*terminal.Terminal); ok {
-				term.DisableRaw()
+				term.DisableRaw(false)
 			}
 			return err
 		}
 		if term, ok := tty.(*terminal.Terminal); ok {
-			term.DisableRaw()
+			term.DisableRaw(false)
 		}
 
 		if !(b[0] == 'y' || b[0] == 'Y') {

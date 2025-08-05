@@ -73,7 +73,7 @@ func (c *connect) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedL
 
 	defer func() {
 		c.log.Info("Disconnected from remote host %s (%s)", target.RemoteAddr(), target.ClientVersion())
-		term.DisableRaw()
+		term.DisableRaw(true)
 	}()
 
 	//Attempt to connect to remote host and send inital pty request and screen size
@@ -184,7 +184,12 @@ func attachSession(newSession ssh.Channel, currentClientSession io.ReadWriter, c
 RequestsProxyPasser:
 	for {
 		select {
-		case r := <-currentClientRequests:
+		case r, ok := <-currentClientRequests:
+			if !ok || r == nil {
+				// user has disconnected
+				return nil
+			}
+
 			response, err := internal.SendRequest(*r, newSession)
 			if err != nil {
 				break RequestsProxyPasser
