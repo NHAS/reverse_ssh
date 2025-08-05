@@ -258,8 +258,8 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 	l.Info("TUN NIC %d ended", uint32(NICID))
 }
 
-func forwardUDP(tunstats *stat) func(request *udp.ForwarderRequest) {
-	return func(request *udp.ForwarderRequest) {
+func forwardUDP(tunstats *stat) func(request *udp.ForwarderRequest) bool {
+	return func(request *udp.ForwarderRequest) bool {
 		id := request.ID()
 
 		var wq waiter.Queue
@@ -268,13 +268,14 @@ func forwardUDP(tunstats *stat) func(request *udp.ForwarderRequest) {
 			tunstats.udp.failures.Add(1)
 
 			log.Println("[+] failed to create endpoint for udp: ", iperr)
-			return
+			return true
 		}
 
 		p, _ := NewUDPProxy(&autoStoppingListener{underlying: gonet.NewUDPConn(&wq, ep)}, func() (net.Conn, error) {
 
 			return net.Dial("udp", net.JoinHostPort(id.LocalAddress.String(), fmt.Sprintf("%d", id.LocalPort)))
 		})
+
 		go func() {
 
 			tunstats.udp.active.Add(1)
@@ -288,6 +289,7 @@ func forwardUDP(tunstats *stat) func(request *udp.ForwarderRequest) {
 			ep.Close()
 			p.Close()
 		}()
+		return true
 	}
 
 }
