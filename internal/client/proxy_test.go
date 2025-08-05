@@ -83,7 +83,7 @@ func createType2Message() []byte {
 	return challengeMessage
 }
 
-func setupTestServer(t *testing.T) *httptest.Server {
+func setupTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Connected to target"))
@@ -140,7 +140,7 @@ func TestNTLMProxyAuth(t *testing.T) {
 		},
 	}
 
-	target := setupTestServer(t)
+	target := setupTestServer()
 	defer target.Close()
 
 	for _, tt := range tests {

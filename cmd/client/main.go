@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/NHAS/reverse_ssh/internal/client"
+	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
@@ -64,6 +65,8 @@ func printHelp() {
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
 	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
 	fmt.Println("\t\t--version-string\tSSH version string to use, i.e SSH-VERSION, defaults to internal.Version-runtime.GOOS_runtime.GOARCH")
+	fmt.Println("\t\t--private-key-path\tOptional path to unencrypted SSH key to use for connecting")
+
 	if runtime.GOOS == "windows" {
 		fmt.Println("\t\t--host-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
 	}
@@ -144,6 +147,25 @@ func main() {
 
 			settings.Fingerprint = string(fingerPrint)
 		}
+	}
+
+	privateKeyPath, err := line.GetArgString("private-key-path")
+	if err == nil {
+		keyBytes, err := os.ReadFile(privateKeyPath)
+		if err != nil {
+			log.Fatalf("private key path was specified %q, but could not read: %s", privateKeyPath, err)
+		}
+
+		if err = keys.SetPrivateKey(string(keyBytes)); err != nil {
+			log.Fatalf("invalid private key %q: %s", privateKeyPath, err)
+		}
+
+		authKeyLine, err := keys.AuthorisedKeysLine()
+		if err != nil {
+			log.Fatalf("failed to generate authorised key line from private key %q, %s", privateKeyPath, err)
+		}
+
+		log.Printf("authorized_controllee_key line: %q", strings.TrimSpace(authKeyLine))
 	}
 
 	userSpecifiedSNI, err := line.GetArgString("sni")
