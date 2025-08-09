@@ -175,6 +175,17 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 		lck         sync.Mutex
 	)
 
+	cleanupConnection := func(id string, conn *fragmentedConnection) {
+		lck.Lock()
+		defer lck.Unlock()
+		if _, exists := connections[id]; exists {
+			delete(connections, id)
+			if conn != nil {
+				conn.Close()
+			}
+		}
+	}
+
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodHead && req.Method != http.MethodGet && req.Method != http.MethodPost {
 			http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -191,6 +202,7 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 			defer lck.Unlock()
 
 			if req.Method == http.MethodHead {
+				// Check to make sure the public key is within the authorised keys file and if so create an ID for the client connection
 
 				if len(connections) > 2000 {
 					log.Println("server has too many polling connections (", len(connections), " limit is 2k")
@@ -216,7 +228,7 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				}
 
 				c, id, err = NewFragmentCollector(localAddr, realConn.RemoteAddr(), func() {
-					delete(connections, id)
+					cleanupConnection(id, nil)
 				})
 				if err != nil {
 					log.Println("error generating new fragment collector: ", err)
@@ -269,7 +281,9 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				if err == io.EOF {
 					return
 				}
-				c.Close()
+				// If there is an error rather than just us reaching the end of the current request, clear
+				// the connection as it would otherwise cause an ssh protocol desync and closure anyway
+				cleanupConnection(id, c)
 			}
 
 		// Add data
@@ -279,7 +293,7 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				if err == io.EOF {
 					return
 				}
-				c.Close()
+				cleanupConnection(id, c)
 			}
 		}
 

@@ -96,7 +96,9 @@ func (fc *fragmentedConnection) Close() error {
 	case <-fc.done:
 	default:
 		close(fc.done)
-		fc.onClose()
+		if fc.onClose != nil {
+			fc.onClose()
+		}
 	}
 
 	return nil
