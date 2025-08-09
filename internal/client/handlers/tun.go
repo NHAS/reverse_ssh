@@ -268,6 +268,7 @@ func forwardUDP(tunstats *stat) func(request *udp.ForwarderRequest) bool {
 			tunstats.udp.failures.Add(1)
 
 			log.Println("[+] failed to create endpoint for udp: ", iperr)
+			// always return true as we "handled" the request
 			return true
 		}
 
