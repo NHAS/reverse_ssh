@@ -88,15 +88,23 @@ func (fc *fragmentedConnection) Write(b []byte) (n int, err error) {
 }
 
 func (fc *fragmentedConnection) Close() error {
+	// Stop the timer to prevent timer leak
+	if fc.isDead != nil {
+		fc.isDead.Stop()
+	}
 
 	fc.writeBuffer.Close()
 	fc.readBuffer.Close()
 
 	select {
 	case <-fc.done:
+		// Already closed, return early
+		return nil
 	default:
 		close(fc.done)
-		fc.onClose()
+		if fc.onClose != nil {
+			fc.onClose()
+		}
 	}
 
 	return nil

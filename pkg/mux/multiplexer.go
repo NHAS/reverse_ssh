@@ -175,6 +175,56 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 		lck         sync.Mutex
 	)
 
+	// Helper function to safely clean up a connection from the map
+	cleanupConnection := func(id string, conn *fragmentedConnection) {
+		lck.Lock()
+		defer lck.Unlock()
+		if _, exists := connections[id]; exists {
+			delete(connections, id)
+			if conn != nil {
+				conn.Close()
+			}
+		}
+	}
+
+	// Periodic cleanup of stale connections to prevent leaks
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				lck.Lock()
+				staleConnections := []string{}
+
+				// Find connections that might be stale (this is a safety net)
+				for id, conn := range connections {
+					select {
+					case <-conn.done:
+						// Connection is closed but still in map
+						staleConnections = append(staleConnections, id)
+					default:
+						// Connection appears active
+					}
+				}
+
+				// Clean up stale connections
+				for _, id := range staleConnections {
+					log.Printf("Cleaning up stale HTTP polling connection: %s", id)
+					delete(connections, id)
+				}
+
+				if len(staleConnections) > 0 {
+					log.Printf("Cleaned up %d stale HTTP polling connections, %d active connections remaining",
+						len(staleConnections), len(connections))
+				}
+
+				lck.Unlock()
+			}
+		}
+	}()
+
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodHead && req.Method != http.MethodGet && req.Method != http.MethodPost {
 			http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -216,7 +266,8 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				}
 
 				c, id, err = NewFragmentCollector(localAddr, realConn.RemoteAddr(), func() {
-					delete(connections, id)
+					// Use the cleanup function to ensure thread-safe removal
+					cleanupConnection(id, nil)
 				})
 				if err != nil {
 					log.Println("error generating new fragment collector: ", err)
@@ -238,8 +289,9 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				case <-time.After(2 * time.Second):
 
 					log.Println(l.protocol, "Failed to accept new http connection within 2 seconds, closing connection (may indicate high resource usage)")
+					// Use cleanup function to ensure atomic cleanup
+					delete(connections, id) // Remove from map first since we already hold the lock
 					c.Close()
-					delete(connections, id)
 					http.Error(w, "Server Error", http.StatusInternalServerError)
 					return
 				}
@@ -269,7 +321,8 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				if err == io.EOF {
 					return
 				}
-				c.Close()
+				// Clean up connection safely on error
+				cleanupConnection(id, c)
 			}
 
 		// Add data
@@ -279,7 +332,8 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 				if err == io.EOF {
 					return
 				}
-				c.Close()
+				// Clean up connection safely on error
+				cleanupConnection(id, c)
 			}
 		}
 
