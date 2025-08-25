@@ -70,7 +70,7 @@ https://github.com/user-attachments/assets/11dc8d14-59f1-4bdd-9503-b70f8a0d2db1
 - [Help](#help)
   - [Windows](#windows-help)
     - [SFTP](#windows-and-sftp)
-    - [Error ]()
+    - [Session spawn errors (0xc0000142)](#session-spawn-errors-0xc0000142)
   - [Server started with `--insecure` still has `Failed to handshake`](#server-started-with---insecure-still-has-failed-to-handshake)
   - [Foreground vs Background](#foreground-vs-background)
 - [Donations, Support, or Giving Back](#donations-support-or-giving-back)
