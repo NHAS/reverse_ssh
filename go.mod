@@ -12,12 +12,12 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-ping/ping v1.2.0
 	github.com/inetaf/tcpproxy v0.0.0-20250222171855-c4b9df066048
-	github.com/pkg/sftp v1.13.9
-	golang.org/x/crypto v0.42.0
-	golang.org/x/net v0.44.0
-	golang.org/x/sys v0.36.0
-	gorm.io/gorm v1.31.0
-	gvisor.dev/gvisor v0.0.0-20250918025647-08f1b5df84e2
+	github.com/pkg/sftp v1.13.10
+	golang.org/x/crypto v0.43.0
+	golang.org/x/net v0.46.0
+	golang.org/x/sys v0.38.0
+	gorm.io/gorm v1.31.1
+	gvisor.dev/gvisor v0.0.0-20251107011313-9e7aeb4484ae
 )
 
 require (
@@ -32,14 +32,14 @@ require (
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/ncruces/go-strftime v0.1.9 // indirect
+	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	golang.org/x/exp v0.0.0-20250911091902-df9299821621 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
-	golang.org/x/time v0.13.0 // indirect
-	modernc.org/libc v1.66.9 // indirect
+	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
+	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
+	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.39.0 // indirect
+	modernc.org/sqlite v1.40.0 // indirect
 )
