@@ -139,12 +139,18 @@ func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLin
 	}
 
 	go func() {
-
 		b := make([]byte, 1)
-		tty.Read(b)
-
+		for {
+			_, err := tty.Read(b)
+			if err != nil {
+				break
+			}
+			if b[0] == 3 { // Ctrl-C
+				break
+			}
+			// Ignore all other keys
+		}
 		observers.ConnectionState.Deregister(observerId)
-
 		close(messages)
 	}()
 
