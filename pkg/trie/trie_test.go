@@ -66,7 +66,7 @@ func TestSimpleRemove(t *testing.T) {
 		}
 
 		if !found && n != "apple" {
-			t.Logf("Removed wrong item...? '%s'\n", n)
+			t.Logf("Removed wrong item...? %q\n", n)
 			t.FailNow()
 		}
 

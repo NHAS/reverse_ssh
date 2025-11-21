@@ -215,7 +215,7 @@ func (u *User) GetClient(identifier string) (*ssh.ServerConn, error) {
 	if len(matchingHosts) > 0 {
 		matchingHosts = matchingHosts[:len(matchingHosts)-1]
 	}
-	return nil, fmt.Errorf("%d connections match alias '%s'\n%s", matches, identifier, matchingHosts)
+	return nil, fmt.Errorf("%d connections match alias %q\n%s", matches, identifier, matchingHosts)
 
 }
 

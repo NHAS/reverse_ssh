@@ -31,7 +31,7 @@ func (k *kill) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	if len(connections) == 0 {
-		return fmt.Errorf("No clients matched '%s'", line.Arguments[0].Value())
+		return fmt.Errorf("No clients matched %q", line.Arguments[0].Value())
 	}
 
 	if !line.IsSet("y") {

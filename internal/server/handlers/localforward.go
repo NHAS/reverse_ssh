@@ -42,12 +42,12 @@ func LocalForward(_ string, user *users.User, newChannel ssh.NewChannel, log log
 	}
 
 	if len(foundClients) == 0 {
-		newChannel.Reject(ssh.ConnectionFailed, fmt.Sprintf("\n\nNo clients matched '%s'\n", drtMsg.Raddr))
+		newChannel.Reject(ssh.ConnectionFailed, fmt.Sprintf("\n\nNo clients matched %q\n", drtMsg.Raddr))
 		return
 	}
 
 	if len(foundClients) > 1 {
-		newChannel.Reject(ssh.ConnectionFailed, fmt.Sprintf("\n\n'%s' matches multiple clients please choose a more specific identifier\n", drtMsg.Raddr))
+		newChannel.Reject(ssh.ConnectionFailed, fmt.Sprintf("\n\n%q matches multiple clients please choose a more specific identifier\n", drtMsg.Raddr))
 		return
 	}
 

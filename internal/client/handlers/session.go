@@ -57,7 +57,7 @@ func Session(session *connection.Session) func(newChannel ssh.NewChannel, log lo
 				err := subsystems.RunSubsystems(connection, req)
 				if err != nil {
 					log.Error("subsystem encountered an error: %s", err.Error())
-					fmt.Fprintf(connection, "subsystem error: '%s'", err.Error())
+					fmt.Fprintf(connection, "subsystem error: %q", err.Error())
 				}
 
 				return

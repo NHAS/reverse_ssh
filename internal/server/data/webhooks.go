@@ -27,11 +27,11 @@ func CreateWebhook(newUrl string, checktls bool) (string, error) {
 
 	addresses, err := net.LookupIP(u.Hostname())
 	if err != nil {
-		return "", fmt.Errorf("unable to lookup hostname '%s': %s", u.Hostname(), err)
+		return "", fmt.Errorf("unable to lookup hostname %q: %s", u.Hostname(), err)
 	}
 
 	if len(addresses) == 0 {
-		return "", fmt.Errorf("no addresses found for '%s': %s", u.Hostname(), err)
+		return "", fmt.Errorf("no addresses found for %q: %s", u.Hostname(), err)
 	}
 
 	// Create a new Webhook instance

@@ -126,7 +126,7 @@ func DiscardChannels(sshConn ssh.Conn, chans <-chan ssh.NewChannel) {
 		t := newChannel.ChannelType()
 
 		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unsupported channel type: %s", t))
-		log.Printf("Client %s (%s) sent invalid channel type '%s'\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
+		log.Printf("Client %s (%s) sent invalid channel type %q\n", sshConn.RemoteAddr(), sshConn.ClientVersion(), t)
 	}
 
 }

@@ -86,7 +86,7 @@ func (l *listen) client(user *users.User, tty io.ReadWriter, line terminal.Parse
 	}
 
 	if len(foundClients) == 0 && !auto {
-		return fmt.Errorf("No clients matched '%s'", specifier)
+		return fmt.Errorf("No clients matched %q", specifier)
 	}
 
 	if line.IsSet("l") {

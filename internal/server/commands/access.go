@@ -59,7 +59,7 @@ func (s *access) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLi
 	}
 
 	if len(connections) == 0 {
-		return fmt.Errorf("No clients matched '%s'", pattern)
+		return fmt.Errorf("No clients matched %q", pattern)
 	}
 
 	if !line.IsSet("y") {

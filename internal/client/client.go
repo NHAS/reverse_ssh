@@ -401,10 +401,10 @@ func Run(settings *Settings) {
 			if err != nil {
 
 				if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
-					log.Fatalf("Unable to connect to TCP invalid address: '%s', %s", settings.Addr, errMsg)
+					log.Fatalf("Unable to connect to TCP invalid address: %q, %s", settings.Addr, errMsg)
 				}
 
-				log.Printf("Unable to connect directly TCP: %s\n", err)
+				log.Printf("Unable to connect directly TCP: %v\n", err)
 
 				if len(potentialProxies) > 0 {
 					if len(potentialProxies) <= triedProxyIndex {

@@ -132,7 +132,7 @@ func main() {
 	if timeoutString, err := options.GetArgString("timeout"); err == nil {
 		timeout, err = strconv.Atoi(timeoutString)
 		if err != nil {
-			fmt.Printf("Unable to convert '%s' to int\n", timeoutString)
+			fmt.Printf("Unable to convert %q to int\n", timeoutString)
 			printHelp()
 			return
 		}

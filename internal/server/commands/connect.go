@@ -57,11 +57,11 @@ func (c *connect) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedL
 	}
 
 	if len(foundClients) == 0 {
-		return fmt.Errorf("No clients matched '%s'", client)
+		return fmt.Errorf("No clients matched %q", client)
 	}
 
 	if len(foundClients) > 1 {
-		return fmt.Errorf("'%s' matches multiple clients please choose a more specific identifier", client)
+		return fmt.Errorf("%q matches multiple clients please choose a more specific identifier", client)
 	}
 
 	var target ssh.Conn

@@ -262,7 +262,7 @@ func ParseLineValidFlags(line string, cursorPosition int, validFlags map[string]
 	for flag := range pl.Flags {
 		_, ok := validFlags[flag]
 		if !ok {
-			return ParsedLine{}, fmt.Errorf("flag provided but not defined: '%s'", flag)
+			return ParsedLine{}, fmt.Errorf("flag provided but not defined: %q", flag)
 		}
 	}
 

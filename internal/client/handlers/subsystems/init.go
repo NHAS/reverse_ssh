@@ -30,5 +30,5 @@ func RunSubsystems(connection ssh.Channel, req *ssh.Request) error {
 	}
 
 	req.Reply(false, []byte("Unknown subsystem"))
-	return fmt.Errorf("Unknown subsystem '%s'", req.Payload)
+	return fmt.Errorf("Unknown subsystem %q", req.Payload)
 }

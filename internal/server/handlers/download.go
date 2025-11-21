@@ -17,7 +17,7 @@ func Download(dataDir string) func(_ string, _ *users.User, newChannel ssh.NewCh
 		downloadPath = path.Join(dataDir, "downloads", downloadPath)
 
 		if stats, err := os.Stat(downloadPath); err != nil && (os.IsNotExist(err) || !stats.IsDir()) {
-			log.Warning("remote client requested non-existant path: '%s'", downloadPath)
+			log.Warning("remote client requested non-existant path: %q", downloadPath)
 			newChannel.Reject(ssh.Prohibited, "file not found")
 			return
 		}
@@ -26,7 +26,7 @@ func Download(dataDir string) func(_ string, _ *users.User, newChannel ssh.NewCh
 
 		f, err := os.Open(downloadPath)
 		if err != nil {
-			log.Warning("unable to open requested path: '%s': %s", downloadPath, err)
+			log.Warning("unable to open requested path: %q: %s", downloadPath, err)
 
 			newChannel.Reject(ssh.Prohibited, "cannot open file")
 			return

@@ -62,7 +62,7 @@ func StartWebhooks() {
 					buff := bytes.NewBuffer(webhookMessage)
 					_, err := client.Post(webhook.URL, "application/json", buff)
 					if err != nil {
-						log.Printf("Error sending webhook '%s': %s\n", webhook.URL, err)
+						log.Printf("Error sending webhook %q: %s\n", webhook.URL, err)
 					}
 				}
 			}(msg)
