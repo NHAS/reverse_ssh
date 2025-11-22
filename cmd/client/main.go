@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/NHAS/reverse_ssh/internal/client"
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
@@ -66,6 +67,7 @@ func printHelp() {
 	fmt.Println("\t\t--log-level\tChange logging output levels, [INFO,WARNING,ERROR,FATAL,DISABLED]")
 	fmt.Println("\t\t--version-string\tSSH version string to use, i.e SSH-VERSION, defaults to internal.Version-runtime.GOOS_runtime.GOARCH")
 	fmt.Println("\t\t--private-key-path\tOptional path to unencrypted SSH key to use for connecting")
+	fmt.Println("\t\t--connect-timeout\tDuration to wait for initial connection seconds, default 180, set to 0 to wait indefinitely")
 
 	if runtime.GOOS == "windows" {
 		fmt.Println("\t\t--host-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
@@ -172,6 +174,18 @@ func main() {
 	if err == nil {
 		settings.SNI = userSpecifiedSNI
 	}
+
+	timeoutInt := 180
+	timeout, err := line.GetArgString("connect-timeout")
+	if err == nil {
+		timeoutInt, err = strconv.Atoi(timeout)
+		if err != nil {
+			log.Printf("could not parse --connect-timeout as number %v, setting default to 180", err)
+			timeoutInt = 180
+		}
+	}
+
+	settings.ConnectTimeout = time.Duration(timeoutInt) * time.Second
 
 	userSpecifiedNTLMCreds, err := line.GetArgString("ntlm-proxy-creds")
 	if err == nil {

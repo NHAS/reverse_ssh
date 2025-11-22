@@ -310,6 +310,8 @@ type Settings struct {
 
 	VersionString string
 
+	ConnectTimeout time.Duration
+
 	ntlm *ntlmssp.Client
 }
 
@@ -363,7 +365,8 @@ func Run(settings *Settings) {
 	}
 
 	config := &ssh.ClientConfig{
-		User: fmt.Sprintf("%s.%s", username, hostname),
+		Timeout: settings.ConnectTimeout,
+		User:    fmt.Sprintf("%s.%s", username, hostname),
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(sshPriv),
 		},
@@ -396,8 +399,9 @@ func Run(settings *Settings) {
 		var conn net.Conn
 		if scheme != "stdio" {
 			log.Println("Connecting to", settings.Addr)
+
 			// First create raw TCP connection
-			conn, err = Connect(realAddr, settings.ProxyAddr, config.Timeout, settings.ProxyUseHostKerberos, settings.ntlm)
+			conn, err = Connect(realAddr, settings.ProxyAddr, settings.ConnectTimeout, settings.ProxyUseHostKerberos, settings.ntlm)
 			if err != nil {
 
 				if errMsg := err.Error(); strings.Contains(errMsg, "missing port in address") {
@@ -426,7 +430,7 @@ func Run(settings *Settings) {
 					continue
 				}
 
-				<-time.After(10 * time.Second)
+				time.Sleep(10 * time.Second)
 				continue
 			}
 
@@ -480,7 +484,7 @@ func Run(settings *Settings) {
 			case "http", "https":
 
 				conn, err = NewHTTPConn(scheme+"://"+realAddr, func() (net.Conn, error) {
-					return Connect(realAddr, settings.ProxyAddr, config.Timeout, settings.ProxyUseHostKerberos, settings.ntlm)
+					return Connect(realAddr, settings.ProxyAddr, settings.ConnectTimeout, settings.ProxyUseHostKerberos, settings.ntlm)
 				})
 
 				if err != nil {
