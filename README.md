@@ -400,7 +400,11 @@ As an additional note, please use the `/slack` endpoint if connecting this to di
 
 ### Tun (VPN)
 
-RSSH and SSH support creating tuntap interfaces that allow you to route traffic and create pseudo-VPN. It does take a bit more setup than just a local or remote forward (`-L`, `-R`), but in this mode you can send UDP and ICMP.
+RSSH and SSH support creating tuntap interfaces that allow you to route traffic and create pseudo-VPN. It does take a bit more setup than just a local or remote forward (`-L`, `-R`), but in this mode you can send `UDP` and `ICMP`.
+
+#### Important Notice
+
+If you connect to a malicious RSSH client, it will be able to connect back to your tunnel device. As such it is important not to have forwarding enabled, and to either have firewall rules to stop any connections to the local machine, or run this from within a container/netns.
 
 Install a client on a remote machine, this will not work if you have your RSSH client on the same host as your tun device.
 ```sh
