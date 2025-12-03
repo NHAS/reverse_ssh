@@ -70,7 +70,7 @@ func printHelp() {
 	fmt.Println("\t\t--connect-timeout\tDuration to wait for initial connection seconds, default 180, set to 0 to wait indefinitely")
 
 	if runtime.GOOS == "windows" {
-		fmt.Println("\t\t--host-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
+		fmt.Println("\t\t--use-kerberos\tUse kerberos authentication on proxy server (if proxy server specified)")
 	}
 }
 
@@ -189,8 +189,8 @@ func main() {
 
 	userSpecifiedNTLMCreds, err := line.GetArgString("ntlm-proxy-creds")
 	if err == nil {
-		if line.IsSet("host-kerberos") {
-			log.Fatal("You cannot use both the host kerberos credentials and static ntlm proxy credentials at once. --host-kerberos and --ntlm-proxy-creds")
+		if line.IsSet("use-kerberos") {
+			log.Fatal("You cannot use both the use kerberos credentials and static ntlm proxy credentials at once. --use-kerberos and --ntlm-proxy-creds")
 		}
 
 		err = settings.SetNTLMProxyCreds(userSpecifiedNTLMCreds)
@@ -199,7 +199,7 @@ func main() {
 		}
 	}
 
-	if line.IsSet("host-kerberos") {
+	if line.IsSet("use-kerberos") {
 		settings.ProxyUseHostKerberos = true
 	}
 
