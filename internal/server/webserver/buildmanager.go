@@ -28,6 +28,16 @@ var (
 	validArchs     = make(map[string]bool)
 )
 
+func findUPXBinary() (string, error) {
+	if p, err := exec.LookPath("upx"); err == nil {
+		return p, nil
+	}
+	if p, err := exec.LookPath("upx-ucl"); err == nil {
+		return p, nil
+	}
+	return "", errors.New("upx could not be found in PATH (tried: upx, upx-ucl)")
+}
+
 type BuildConfig struct {
 	Name, Comment, Owners string
 
@@ -71,10 +81,12 @@ func Build(config BuildConfig) (string, error) {
 		config.Fingerprint = defaultFingerPrint
 	}
 
+	var upxBinary string
 	if config.UPX {
-		_, err := exec.LookPath("upx")
+		var err error
+		upxBinary, err = findUPXBinary()
 		if err != nil {
-			return "", errors.New("upx could not be found in PATH")
+			return "", err
 		}
 	}
 
@@ -235,7 +247,7 @@ func Build(config BuildConfig) (string, error) {
 			upxArgs = append([]string{"--lzma"}, upxArgs...)
 		}
 
-		output, err := exec.Command("upx", upxArgs...).CombinedOutput()
+		output, err := exec.Command(upxBinary, upxArgs...).CombinedOutput()
 		if err != nil {
 			return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
 		}
