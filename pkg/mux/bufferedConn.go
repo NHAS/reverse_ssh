@@ -13,18 +13,8 @@ type bufferedConn struct {
 func (bc *bufferedConn) Read(b []byte) (n int, err error) {
 	if len(bc.prefix) > 0 {
 		n = copy(b, bc.prefix)
-
 		bc.prefix = bc.prefix[n:]
-
-		var err error
-		if len(b)-n > 0 {
-			// If we havent exhausted the size of b, read some more
-			var actualRead int
-			actualRead, err = bc.conn.Read(b[n:])
-			n += actualRead
-		}
-
-		return n, err
+		return n, nil
 	}
 
 	return bc.conn.Read(b)
