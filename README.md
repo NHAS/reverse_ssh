@@ -73,6 +73,7 @@ https://github.com/user-attachments/assets/11dc8d14-59f1-4bdd-9503-b70f8a0d2db1
     - [Session spawn errors (0xc0000142)](#session-spawn-errors-0xc0000142)
   - [Server started with `--insecure` still has `Failed to handshake`](#server-started-with---insecure-still-has-failed-to-handshake)
   - [Foreground vs Background](#foreground-vs-background)
+  - [Auto-Proxy Detection (Windows)](#auto-proxy-detection-windows)
 - [Donations, Support, or Giving Back](#donations-support-or-giving-back)
 
 ## TL;DR
@@ -221,6 +222,7 @@ This requires the web server component has been enabled.
         --ntlm-proxy-creds      Set NTLM proxy credentials in format DOMAIN\\USER:PASS
         --owners        Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
         --proxy Set connect proxy address to bake it
+        --auto-proxy    Instruct client to auto-detect proxy from system settings (Windows: HKCU WinINET)
         --raw-download  Download over raw TCP, outputs bash downloader rather than http
         --shared-object Generate shared object file
         --sni   When TLS is in use, set a custom SNI for the client to connect with
@@ -493,6 +495,10 @@ You can also generate clients with `link --fingerprint <fingerprint here>` to sp
 ## Foreground vs Background
 
 By default, clients will run in the background then the parent process will exit, the child process will be given the parent processes stdout/stderr so you will be able to see output. If you need to debug your client, use the `--foreground` flag.
+
+## Auto-Proxy Detection (Windows)
+
+Standalone clients support `--auto-proxy` to auto-detect proxy settings from the Windows registry (HKCU WinINET `ProxyServer`). This can also be baked in at build time via `link --auto-proxy`. When multiple WinINET entries are configured, the client prefers the entry matching the target transport (`http`/`ws` use the HTTP proxy first; `https`/`tls`/`wss` use the Secure/HTTPS proxy first; raw SSH uses generic entries first) and then falls back through the remaining detected proxies before standard `*_PROXY` environment variables. If WinINET proxying is disabled (`ProxyEnable=0`) but `ProxyServer` still contains entries, those entries are not used as the primary proxy; they are only tried as fallbacks after the direct or explicitly configured connection fails. Only manual proxy settings are supported (no PAC/WPAD).
 
 # Donations, Support, or Giving Back
 
