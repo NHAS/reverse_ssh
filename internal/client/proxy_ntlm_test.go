@@ -74,3 +74,61 @@ func TestParseNTLMCreds(t *testing.T) {
 		})
 	}
 }
+
+func TestClassifyProxyAuth(t *testing.T) {
+	tests := []struct {
+		name          string
+		response      string
+		wantNTLM      bool
+		wantNegotiate bool
+	}{
+		{
+			name: "Negotiate only",
+			response: "HTTP/1.1 407 Proxy Authentication Required\r\n" +
+				"Proxy-Authenticate: Negotiate\r\n",
+			wantNegotiate: true,
+		},
+		{
+			name: "NTLM only",
+			response: "HTTP/1.1 407 Proxy Authentication Required\r\n" +
+				"Proxy-Authenticate: NTLM\r\n",
+			wantNTLM: true,
+		},
+		{
+			name: "Negotiate and NTLM",
+			response: "HTTP/1.1 407 Proxy Authentication Required\r\n" +
+				"Proxy-Authenticate: Negotiate\r\n" +
+				"Proxy-Authenticate: NTLM\r\n" +
+				"Proxy-Authenticate: Basic realm=\"corp\"\r\n",
+			wantNTLM:      true,
+			wantNegotiate: true,
+		},
+		{
+			name: "lowercase header",
+			response: "HTTP/1.1 407 Proxy Authentication Required\r\n" +
+				"proxy-authenticate: Negotiate\r\n",
+			wantNegotiate: true,
+		},
+		{
+			name: "Basic only",
+			response: "HTTP/1.1 407 Proxy Authentication Required\r\n" +
+				"Proxy-Authenticate: Basic realm=\"corp\"\r\n",
+		},
+		{
+			name:     "empty response",
+			response: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ClassifyProxyAuth([]byte(tt.response))
+			if got.NTLM != tt.wantNTLM {
+				t.Errorf("NTLM = %v, want %v", got.NTLM, tt.wantNTLM)
+			}
+			if got.Negotiate != tt.wantNegotiate {
+				t.Errorf("Negotiate = %v, want %v", got.Negotiate, tt.wantNegotiate)
+			}
+		})
+	}
+}
