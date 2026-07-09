@@ -1,7 +1,6 @@
 package tcp
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -54,18 +53,37 @@ func readRawDownloadName(conn net.Conn) (string, error) {
 	_ = conn.SetReadDeadline(time.Now().Add(rawDownloadReadTimeout))
 	defer conn.SetReadDeadline(time.Time{})
 
-	reader := bufio.NewReaderSize(conn, len(rawDownloadPrefix)+rawDownloadMaxNameLength+1)
-	request, err := readRawDownloadRequest(reader)
-	if err != nil {
-		return "", err
+	limit := len(rawDownloadPrefix) + rawDownloadMaxNameLength + 1
+	request := make([]byte, 0, limit)
+	var b [1]byte
+
+	for len(request) < limit {
+		n, err := conn.Read(b[:])
+		if n > 0 {
+			if b[0] == '\n' {
+				break
+			}
+			request = append(request, b[0])
+		}
+
+		if err != nil {
+			if errors.Is(err, io.EOF) && len(request) > 0 {
+				break
+			}
+			return "", err
+		}
 	}
 
-	request = strings.TrimSpace(request)
-	if !strings.HasPrefix(request, rawDownloadPrefix) {
+	if len(request) >= limit {
+		return "", fmt.Errorf("raw download request exceeds %d bytes", limit)
+	}
+
+	requestString := strings.TrimSpace(string(request))
+	if !strings.HasPrefix(requestString, rawDownloadPrefix) {
 		return "", fmt.Errorf("malformed raw download request")
 	}
 
-	filename := strings.TrimSpace(strings.TrimPrefix(request, rawDownloadPrefix))
+	filename := strings.TrimSpace(strings.TrimPrefix(requestString, rawDownloadPrefix))
 	if filename == "" {
 		return "", fmt.Errorf("empty raw download filename")
 	}
@@ -74,30 +92,6 @@ func readRawDownloadName(conn net.Conn) (string, error) {
 	}
 
 	return filename, nil
-}
-
-func readRawDownloadRequest(reader *bufio.Reader) (string, error) {
-	var request []byte
-	limit := len(rawDownloadPrefix) + rawDownloadMaxNameLength + 1
-
-	for {
-		fragment, err := reader.ReadSlice('\n')
-		request = append(request, fragment...)
-		if len(request) > limit {
-			return "", fmt.Errorf("raw download request exceeds %d bytes", limit)
-		}
-
-		switch {
-		case err == nil:
-			return string(request), nil
-		case errors.Is(err, bufio.ErrBufferFull):
-			continue
-		case errors.Is(err, io.EOF) && len(request) > 0:
-			return string(request), nil
-		default:
-			return "", err
-		}
-	}
 }
 
 func Start(listener net.Listener) {
