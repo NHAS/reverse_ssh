@@ -16,6 +16,7 @@ import (
 
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/mux"
+	"github.com/NHAS/reverse_ssh/pkg/transport"
 )
 
 type HTTPConn struct {
@@ -29,16 +30,22 @@ type HTTPConn struct {
 	// Cache buster for middleware proxies
 	start int
 
-	client *http.Client
+	pushPath string
+	client   *http.Client
 }
 
 func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn, error) {
+	return NewHTTPConnWithPushPath(address, transport.DefaultPushPath, connector)
+}
+
+func NewHTTPConnWithPushPath(address, pushPath string, connector func() (net.Conn, error)) (*HTTPConn, error) {
 
 	result := &HTTPConn{
 		done:       make(chan interface{}),
 		readBuffer: mux.NewSyncBuffer(8096),
 		address:    address,
 		start:      mathrand.Int(),
+		pushPath:   transport.NormalizePath(pushPath, transport.DefaultPushPath),
 	}
 
 	result.client = &http.Client{
@@ -62,9 +69,9 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 
 	publicKeyBytes := s.PublicKey().Marshal()
 
-	resp, err := result.client.Head(address + "/push?key=" + hex.EncodeToString(publicKeyBytes))
+	resp, err := result.client.Head(result.initURL(hex.EncodeToString(publicKeyBytes)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to %s/push?key=%s, err: %s", address, hex.EncodeToString(publicKeyBytes), err)
+		return nil, fmt.Errorf("failed to connect to %s, err: %s", result.initURL(hex.EncodeToString(publicKeyBytes)), err)
 	}
 	resp.Body.Close()
 
@@ -90,6 +97,18 @@ func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn,
 	return result, nil
 }
 
+func (c *HTTPConn) initURL(publicKeyHex string) string {
+	return c.address + c.pushPath + "?key=" + publicKeyHex
+}
+
+func (c *HTTPConn) readURL() string {
+	return c.address + transport.JoinPushPath(c.pushPath, strconv.Itoa(c.start)) + "?id=" + c.ID
+}
+
+func (c *HTTPConn) writeURL() string {
+	return c.address + c.pushPath + "?id=" + c.ID
+}
+
 func (c *HTTPConn) startReadLoop() {
 	for {
 		select {
@@ -99,7 +118,7 @@ func (c *HTTPConn) startReadLoop() {
 		default:
 		}
 
-		resp, err := c.client.Get(c.address + "/push/" + strconv.Itoa(c.start) + "?id=" + c.ID)
+		resp, err := c.client.Get(c.readURL())
 		if err != nil {
 			log.Println("error getting data: ", err)
 			c.Close()
@@ -142,7 +161,7 @@ func (c *HTTPConn) Write(b []byte) (n int, err error) {
 	default:
 	}
 
-	resp, err := c.client.Post(c.address+"/push?id="+c.ID, "application/octet-stream", bytes.NewBuffer(b))
+	resp, err := c.client.Post(c.writeURL(), "application/octet-stream", bytes.NewBuffer(b))
 	if err != nil {
 		c.Close()
 		return 0, err

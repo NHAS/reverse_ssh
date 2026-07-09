@@ -41,6 +41,8 @@ func (l *link) ValidArgs() map[string]string {
 		"stdio":             "Use stdin and stdout as transport, will disable logging, destination after stdio:// is ignored",
 		"http":              "Use http polling as the underlying transport",
 		"https":             "Use https polling as the underlying transport",
+		"ws-path":           "Set WebSocket transport path to bake into the client",
+		"push-path":         "Set HTTP(S) polling base path to bake into the client",
 		"use-host-header":   "Use HTTP Host header as callback address when generating download template (add .sh to your download urls and find out)",
 		"shared-object":     "Generate shared object file",
 		"fingerprint":       "Set RSSH server fingerprint will default to server public key",
@@ -208,6 +210,16 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	buildConfig.SNI, err = line.GetArgString("sni")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.WSPath, err = line.GetArgString("ws-path")
+	if err != nil && err != terminal.ErrFlagNotSet {
+		return err
+	}
+
+	buildConfig.PushPath, err = line.GetArgString("push-path")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
