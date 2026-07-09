@@ -9,12 +9,15 @@ import (
 )
 
 type ClientState struct {
-	Status    string
-	ID        string
-	IP        string
-	HostName  string
-	Version   string
-	Timestamp time.Time
+	Status               string
+	ID                   string
+	IP                   string
+	HostName             string
+	Version              string
+	Timestamp            time.Time
+	Transport            string `json:",omitempty"`
+	PublicKeyFingerprint string `json:",omitempty"`
+	ProxySourceIP        string `json:",omitempty"`
 }
 
 func (cs ClientState) Summary() string {

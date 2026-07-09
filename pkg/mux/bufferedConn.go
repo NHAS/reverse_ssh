@@ -46,6 +46,10 @@ func (bc *bufferedConn) RemoteAddr() net.Addr {
 	return bc.conn.RemoteAddr()
 }
 
+func (bc *bufferedConn) Metadata() ConnectionMetadata {
+	return Metadata(bc.conn)
+}
+
 func (bc *bufferedConn) SetDeadline(t time.Time) error {
 	return bc.conn.SetDeadline(t)
 }

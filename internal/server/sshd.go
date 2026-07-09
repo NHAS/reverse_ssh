@@ -18,6 +18,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/NHAS/reverse_ssh/pkg/mux"
 	"github.com/fatih/color"
 	"golang.org/x/crypto/ssh"
 )
@@ -389,6 +390,8 @@ func getIP(ip string) net.IP {
 
 func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir string) {
 
+	connMetadata := mux.Metadata(c)
+
 	//Initially set the timeout high, so people who type in their ssh key password can actually use rssh
 	realConn := &internal.TimeoutConn{Conn: c, Timeout: time.Duration(timeout) * time.Minute}
 
@@ -470,24 +473,30 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 			users.DisassociateClient(id, sshConn)
 
 			observers.ConnectionState.Notify(observers.ClientState{
-				Status:    "disconnected",
-				ID:        id,
-				IP:        sshConn.RemoteAddr().String(),
-				HostName:  username,
-				Version:   string(sshConn.ClientVersion()),
-				Timestamp: time.Now(),
+				Status:               "disconnected",
+				ID:                   id,
+				IP:                   sshConn.RemoteAddr().String(),
+				HostName:             username,
+				Version:              string(sshConn.ClientVersion()),
+				Timestamp:            time.Now(),
+				Transport:            connMetadata.Transport,
+				PublicKeyFingerprint: sshConn.Permissions.Extensions["pubkey-fp"],
+				ProxySourceIP:        connMetadata.ProxySourceIP,
 			})
 		}()
 
 		clientLog.Info("New controllable connection from %s with id %s", color.BlueString(username), color.YellowString(id))
 
 		observers.ConnectionState.Notify(observers.ClientState{
-			Status:    "connected",
-			ID:        id,
-			IP:        sshConn.RemoteAddr().String(),
-			HostName:  username,
-			Version:   string(sshConn.ClientVersion()),
-			Timestamp: time.Now(),
+			Status:               "connected",
+			ID:                   id,
+			IP:                   sshConn.RemoteAddr().String(),
+			HostName:             username,
+			Version:              string(sshConn.ClientVersion()),
+			Timestamp:            time.Now(),
+			Transport:            connMetadata.Transport,
+			PublicKeyFingerprint: sshConn.Permissions.Extensions["pubkey-fp"],
+			ProxySourceIP:        connMetadata.ProxySourceIP,
 		})
 
 	case "proxy":
