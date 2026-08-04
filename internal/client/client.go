@@ -23,7 +23,6 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/client/handlers"
 	"github.com/NHAS/reverse_ssh/internal/client/keys"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
-	"github.com/NHAS/reverse_ssh/pkg/transport"
 	"github.com/bodgit/ntlmssp"
 	"golang.org/x/crypto/ssh"
 	socks "golang.org/x/net/proxy"
@@ -306,8 +305,6 @@ type Settings struct {
 	Fingerprint string
 	ProxyAddr   string
 	SNI         string
-	WSPath      string
-	PushPath    string
 
 	ProxyUseHostKerberos bool
 
@@ -347,9 +344,6 @@ func Run(settings *Settings) {
 	l := logger.NewLog("client")
 
 	var err error
-	settings.WSPath = transport.NormalizePath(settings.WSPath, transport.DefaultWSPath)
-	settings.PushPath = transport.NormalizePath(settings.PushPath, transport.DefaultPushPath)
-
 	settings.ProxyAddr, err = GetProxyDetails(settings.ProxyAddr)
 	if err != nil {
 		log.Fatal("Invalid proxy details", settings.ProxyAddr, ":", err)
@@ -468,7 +462,7 @@ func Run(settings *Settings) {
 
 			switch scheme {
 			case "wss", "ws":
-				c, err := websocket.NewConfig("ws://"+realAddr+settings.WSPath, "ws://"+realAddr)
+				c, err := websocket.NewConfig("ws://"+realAddr+"/ws", "ws://"+realAddr)
 				if err != nil {
 					log.Println("Could not create websockets configuration: ", err)
 					<-time.After(10 * time.Second)
@@ -489,7 +483,7 @@ func Run(settings *Settings) {
 				conn = wsConn
 			case "http", "https":
 
-				conn, err = NewHTTPConnWithPushPath(scheme+"://"+realAddr, settings.PushPath, func() (net.Conn, error) {
+				conn, err = NewHTTPConn(scheme+"://"+realAddr, func() (net.Conn, error) {
 					return Connect(realAddr, settings.ProxyAddr, settings.ConnectTimeout, settings.ProxyUseHostKerberos, settings.ntlm)
 				})
 

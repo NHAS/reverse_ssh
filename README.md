@@ -97,8 +97,6 @@ services:
       - EXTERNAL_ADDRESS=<your.rssh.server.internal>:3232
       - RSSH_CONSOLE_LABEL=c2.label
       - RSSH_LOG_LEVEL=INFO # DISABLED, INFO, WARNING, ERROR, FATAL
-      - RSSH_WS_PATH=/ws
-      - RSSH_PUSH_PATH=/push
       - SEED_AUTHORIZED_KEYS=${SSH_PUBLIC_KEY}
     volumes:
       - ./data:/data
@@ -223,7 +221,6 @@ This requires the web server component has been enabled.
         --ntlm-proxy-creds      Set NTLM proxy credentials in format DOMAIN\\USER:PASS
         --owners        Set owners of client, if unset client is public all users. E.g --owners jsmith,ldavidson
         --proxy Set connect proxy address to bake it
-        --push-path     Set HTTP(S) polling base path to bake into the client
         --raw-download  Download over raw TCP, outputs bash downloader rather than http
         --shared-object Generate shared object file
         --sni   When TLS is in use, set a custom SNI for the client to connect with
@@ -233,7 +230,6 @@ This requires the web server component has been enabled.
         --use-kerberos  Instruct client to try and use kerberos ticket when using a proxy
         --working-directory     Set download/working directory for automatic script (i.e doing curl https://<url>.sh)
         --ws    Use plain http websockets as the underlying transport
-        --ws-path       Set WebSocket transport path to bake into the client
         --wss   Use TLS websockets as the underlying transport
         -C      Comment to add as the public key (acts as the name)
         -l      List currently active download links
@@ -278,21 +274,6 @@ Or by baking it in with the `link` command.
 ```sh
 ssh your.rssh.server -p 3232 link --ws --name test
 ```
-
-WebSocket and HTTP(S) polling transports default to `/ws` and `/push`. If a
-reverse proxy needs different paths, configure the same paths on the server and
-client:
-
-```sh
-reverse_ssh --ws-path /socket --push-path /api/push :3232
-./client -d ws://your.rssh.server:3232 --ws-path /socket
-./client -d http://your.rssh.server:3232 --push-path /api/push
-catcher$ link --ws --ws-path /socket --name test
-catcher$ link --http --push-path /api/push --name test-http
-```
-
-The Docker entrypoint accepts these server options through `RSSH_WS_PATH` and
-`RSSH_PUSH_PATH`.
 
 ### Bash autocomplete
 

@@ -24,22 +24,4 @@ if [ ! -z "$SEED_AUTHORIZED_KEYS" ]; then
 fi
 
 cd /app/bin
-
-server_args=(
-    --datadir /data
-    --enable-client-downloads
-    --tls
-    --external_address "$EXTERNAL_ADDRESS"
-)
-
-if [ -n "$RSSH_WS_PATH" ]; then
-    server_args+=(--ws-path "$RSSH_WS_PATH")
-fi
-
-if [ -n "$RSSH_PUSH_PATH" ]; then
-    server_args+=(--push-path "$RSSH_PUSH_PATH")
-fi
-
-server_args+=(:2222)
-
-exec ./server "${server_args[@]}"
+exec ./server --datadir /data --enable-client-downloads --tls --external_address $EXTERNAL_ADDRESS :2222

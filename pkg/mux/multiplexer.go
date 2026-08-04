@@ -15,7 +15,6 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -23,15 +22,12 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/pkg/mux/protocols"
-	"github.com/NHAS/reverse_ssh/pkg/transport"
 	"golang.org/x/net/websocket"
 )
 
 type MultiplexerConfig struct {
 	Control   bool
 	Downloads bool
-	WSPath    string
-	PushPath  string
 
 	TLS               bool
 	AutoTLSCommonName string
@@ -346,8 +342,6 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 	m.newConnections = make(chan net.Conn)
 	m.listeners = make(map[string]net.Listener)
 	m.result = map[protocols.Type]*multiplexerListener{}
-	_c.WSPath = transport.NormalizePath(_c.WSPath, transport.DefaultWSPath)
-	_c.PushPath = transport.NormalizePath(_c.PushPath, transport.DefaultPushPath)
 	m.config = _c
 
 	if _c.PollingAuthChecker == nil {
@@ -462,7 +456,7 @@ func isHttp(b []byte) bool {
 
 func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type, error) {
 
-	header := make([]byte, 1024)
+	header := make([]byte, 14)
 	n, err := conn.Read(header)
 	if err != nil {
 		conn.Close()
@@ -485,12 +479,11 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 
 	if isHttp(header) {
 
-		requestType := classifyHTTPRequest(header[:n], m.config.WSPath, m.config.PushPath)
-		if requestType == protocols.Websockets {
+		if bytes.HasPrefix(header, []byte("GET /ws")) {
 			return c, protocols.Websockets, nil
 		}
 
-		if requestType == protocols.HTTP {
+		if bytes.HasPrefix(header, []byte("HEAD /push")) || bytes.HasPrefix(header, []byte("GET /push")) || bytes.HasPrefix(header, []byte("POST /push")) {
 			return c, protocols.HTTP, nil
 		}
 
@@ -499,56 +492,6 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 
 	conn.Close()
 	return nil, "", errors.New("unknown protocol: " + string(header[:n]))
-}
-
-func classifyHTTPRequest(header []byte, wsPath, pushPath string) protocols.Type {
-	method, requestPath, ok := parseHTTPRequestLine(header)
-	if !ok {
-		return protocols.Invalid
-	}
-
-	wsPath = transport.NormalizePath(wsPath, transport.DefaultWSPath)
-	pushPath = transport.NormalizePath(pushPath, transport.DefaultPushPath)
-
-	switch {
-	case method == http.MethodGet && requestPath == wsPath:
-		return protocols.Websockets
-	case isPollingRequest(method, requestPath, pushPath):
-		return protocols.HTTP
-	default:
-		return protocols.HTTPDownload
-	}
-}
-
-func parseHTTPRequestLine(header []byte) (method string, requestPath string, ok bool) {
-	line := string(header)
-	if idx := strings.Index(line, "\r\n"); idx >= 0 {
-		line = line[:idx]
-	}
-
-	fields := strings.Fields(line)
-	if len(fields) < 2 {
-		return "", "", false
-	}
-
-	parsed, err := url.ParseRequestURI(fields[1])
-	if err != nil {
-		return "", "", false
-	}
-
-	return fields[0], transport.NormalizePath(parsed.Path, "/"), true
-}
-
-func isPollingRequest(method, requestPath, pushPath string) bool {
-	pushPath = transport.NormalizePath(pushPath, transport.DefaultPushPath)
-	switch method {
-	case http.MethodHead, http.MethodPost:
-		return requestPath == pushPath
-	case http.MethodGet:
-		return strings.HasPrefix(requestPath, pushPath+"/")
-	default:
-		return false
-	}
 }
 
 func (m *Multiplexer) getProtoListener(proto protocols.Type) net.Listener {
@@ -661,7 +604,7 @@ func (m *Multiplexer) unwrapWebsockets(conn net.Conn) (net.Conn, protocols.Type,
 		},
 	}
 
-	wsHttp.Handle(transport.NormalizePath(m.config.WSPath, transport.DefaultWSPath), wsServer)
+	wsHttp.Handle("/ws", wsServer)
 
 	go http.Serve(&singleConnListener{conn: conn}, wsHttp)
 
