@@ -307,6 +307,7 @@ type Settings struct {
 	SNI         string
 
 	ProxyUseHostKerberos bool
+	ProxyAutoDetect      bool
 
 	VersionString string
 
@@ -344,6 +345,33 @@ func Run(settings *Settings) {
 	l := logger.NewLog("client")
 
 	var err error
+	realAddr, scheme := determineConnectionType(settings.Addr)
+
+	var autoDetectedProxies []string
+	if settings.ProxyAutoDetect {
+		proxyConfig, derr := detectSystemProxyConfig()
+		selection := selectAutoDetectedProxies(proxyConfig, scheme, settings.ProxyAddr)
+		switch {
+		case derr != nil:
+			log.Printf("auto-proxy: detection failed: %v", derr)
+		case len(selection.orderedProxies) == 0:
+			log.Println("auto-proxy: no system proxy configured")
+		case proxyConfig.enabled && settings.ProxyAddr == "":
+			settings.ProxyAddr = selection.proxyAddr
+			autoDetectedProxies = selection.fallbackProxies
+			log.Printf("auto-proxy: using detected proxy %s for %s transport", settings.ProxyAddr, scheme)
+		case proxyConfig.enabled:
+			autoDetectedProxies = selection.fallbackProxies
+			log.Printf("auto-proxy: detected %v for %s transport; --proxy %s takes precedence, detected proxies will be used as fallback", autoDetectedProxies, scheme, settings.ProxyAddr)
+		case settings.ProxyAddr == "":
+			autoDetectedProxies = selection.fallbackProxies
+			log.Printf("auto-proxy: WinINET proxy is disabled; detected %v for %s transport will be used as fallback after direct connection fails", autoDetectedProxies, scheme)
+		default:
+			autoDetectedProxies = selection.fallbackProxies
+			log.Printf("auto-proxy: WinINET proxy is disabled; detected %v for %s transport will be used as fallback after --proxy %s", autoDetectedProxies, scheme, settings.ProxyAddr)
+		}
+	}
+
 	settings.ProxyAddr, err = GetProxyDetails(settings.ProxyAddr)
 	if err != nil {
 		log.Fatal("Invalid proxy details", settings.ProxyAddr, ":", err)
@@ -389,10 +417,8 @@ func Run(settings *Settings) {
 		config.ClientVersion = "SSH-" + settings.VersionString
 	}
 
-	realAddr, scheme := determineConnectionType(settings.Addr)
-
-	// fetch the environment variables, but the first proxy is done from the supplied proxyAddr arg
-	potentialProxies := getCaseInsensitiveEnv("http_proxy", "https_proxy")
+	// fetch fallback proxies, but the first proxy is done from the supplied proxyAddr arg
+	potentialProxies := dedupeProxyFallbacks(settings.ProxyAddr, append(autoDetectedProxies, getCaseInsensitiveEnv("http_proxy", "https_proxy")...))
 	triedProxyIndex := 0
 	initialProxyAddr := settings.ProxyAddr
 	for {
@@ -412,7 +438,7 @@ func Run(settings *Settings) {
 
 				if len(potentialProxies) > 0 {
 					if len(potentialProxies) <= triedProxyIndex {
-						log.Printf("Unable to connect via proxies (from env), retrying with proxy as %q: %v", potentialProxies, initialProxyAddr)
+						log.Printf("Unable to connect via fallback proxies, retrying with proxy as %q: %v", initialProxyAddr, err)
 						triedProxyIndex = 0
 						settings.ProxyAddr = initialProxyAddr
 						continue
@@ -420,7 +446,7 @@ func Run(settings *Settings) {
 					proxy := potentialProxies[triedProxyIndex]
 					triedProxyIndex++
 
-					log.Println("Trying to proxy via env variable (", proxy, ")")
+					log.Println("Trying fallback proxy (", proxy, ")")
 
 					settings.ProxyAddr, err = GetProxyDetails(proxy)
 					if err != nil {

@@ -52,6 +52,7 @@ func (l *link) ValidArgs() map[string]string {
 		"working-directory": "Set download/working directory for automatic script (i.e doing curl https://<url>.sh)",
 		"raw-download":      "Download over raw TCP, outputs bash downloader rather than http",
 		"use-kerberos":      "Instruct client to try and use kerberos ticket when using a proxy",
+		"auto-proxy":        "Instruct client to auto-detect proxy from system settings (Windows: HKCU WinINET)",
 		"log-level":         "Set default output logging levels, [INFO,WARNING,ERROR,FATAL,DISABLED]",
 		"ntlm-proxy-creds":  "Set NTLM proxy credentials in format DOMAIN\\USER:PASS",
 		"version-string":    "Set the SSH version string the client uses, will always be prefixed with SSH-",
@@ -128,6 +129,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		Garble:          line.IsSet("garble"),
 		DisableLibC:     line.IsSet("no-lib-c"),
 		UseKerberosAuth: line.IsSet("use-kerberos"),
+		AutoProxy:       line.IsSet("auto-proxy"),
 		RawDownload:     line.IsSet("raw-download"),
 	}
 
