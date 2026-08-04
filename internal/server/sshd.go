@@ -18,6 +18,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/NHAS/reverse_ssh/pkg/mux"
 	"github.com/fatih/color"
 	"golang.org/x/crypto/ssh"
 )
@@ -405,6 +406,9 @@ func getIP(ip string) net.IP {
 
 func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir string) {
 
+	// Capture pivot parent before any wrapping obscures the annotation.
+	pivotParent := mux.GetPivotParent(c)
+
 	//Initially set the timeout high, so people who type in their ssh key password can actually use rssh
 	realConn := &internal.TimeoutConn{Conn: c, Timeout: time.Duration(timeout) * time.Minute}
 
@@ -413,6 +417,11 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 	if err != nil {
 		log.Printf("Failed to handshake (%s)", err.Error())
 		return
+	}
+
+	// Record pivot parent (if any) so commands like 'map' can reconstruct topology.
+	if pivotParent != "" && sshConn.Permissions != nil {
+		sshConn.Permissions.Extensions["pivot-parent"] = pivotParent
 	}
 
 	clientLog := logger.NewLog(sshConn.RemoteAddr().String())

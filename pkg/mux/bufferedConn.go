@@ -5,9 +5,47 @@ import (
 	"time"
 )
 
+// PivotParenter is implemented by conns that were tunnelled through another client.
+type PivotParenter interface {
+	PivotParent() string
+}
+
+// GetPivotParent walks wrapper chains to find a pivot parent ID, if any.
+func GetPivotParent(c net.Conn) string {
+	type unwrapper interface {
+		Unwrap() net.Conn
+	}
+	for c != nil {
+		if p, ok := c.(PivotParenter); ok {
+			return p.PivotParent()
+		}
+		u, ok := c.(unwrapper)
+		if !ok {
+			break
+		}
+		c = u.Unwrap()
+	}
+	return ""
+}
+
+// tlsConnWrapper wraps a *tls.Conn and exposes Unwrap so GetPivotParent
+// can reach through TLS to find a pivot parent.
+type tlsConnWrapper struct {
+	net.Conn
+	inner net.Conn
+}
+
+func (t *tlsConnWrapper) Unwrap() net.Conn {
+	return t.inner
+}
+
 type bufferedConn struct {
 	prefix []byte
 	conn   net.Conn
+}
+
+func (bc *bufferedConn) Unwrap() net.Conn {
+	return bc.conn
 }
 
 func (bc *bufferedConn) Read(b []byte) (n int, err error) {

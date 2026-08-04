@@ -39,6 +39,16 @@ type chanConn struct {
 	remoteAddr chanAddress
 }
 
+// pivotConn wraps a net.Conn and records which client ID pivoted it.
+type pivotConn struct {
+	net.Conn
+	parentID string
+}
+
+func (p *pivotConn) PivotParent() string {
+	return p.parentID
+}
+
 func (c *chanConn) Read(b []byte) (n int, err error) {
 	return c.channel.Read(b)
 }
@@ -122,7 +132,7 @@ func ServerPortForward(clientId string) func(_ string, _ *users.User, newChannel
 		currentRemoteForwards[clientId] = net.JoinHostPort(drtMsg.Raddr, fmt.Sprintf("%d", drtMsg.Rport))
 		currentRemoteForwardsLck.Unlock()
 
-		multiplexer.ServerMultiplexer.QueueConn(channelToConn(connection, drtMsg))
+		multiplexer.ServerMultiplexer.QueueConn(&pivotConn{Conn: channelToConn(connection, drtMsg), parentID: clientId})
 
 	}
 }

@@ -35,6 +35,10 @@ func (ww *websocketWrapper) Close() error {
 	return err
 }
 
+func (ww *websocketWrapper) Unwrap() net.Conn {
+	return ww.tcpConn
+}
+
 func (ww *websocketWrapper) LocalAddr() net.Addr {
 	return ww.tcpConn.LocalAddr()
 }

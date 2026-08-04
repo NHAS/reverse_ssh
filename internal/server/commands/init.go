@@ -26,6 +26,7 @@ var allCommands = map[string]terminal.Command{
 	"autocomplete": &shellAutocomplete{},
 	"log":          &logCommand{},
 	"clear":        &clear{},
+	"map":          &mapCommand{},
 }
 
 func CreateCommands(session string, user *users.User, log logger.Logger, datadir string) map[string]terminal.Command {
@@ -48,6 +49,7 @@ func CreateCommands(session string, user *users.User, log logger.Logger, datadir
 		"autocomplete": &shellAutocomplete{},
 		"log":          Log(log),
 		"clear":        &clear{},
+		"map":          &mapCommand{},
 	}
 
 	return o
