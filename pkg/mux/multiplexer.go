@@ -38,6 +38,7 @@ type MultiplexerConfig struct {
 	TcpKeepAlive int
 
 	PollingAuthChecker func(key string, addr net.Addr) bool
+	TrustedProxyCIDRs  []*net.IPNet
 
 	tlsConfig *tls.Config
 }
@@ -221,13 +222,23 @@ func (m *Multiplexer) collector(localAddr net.Addr) http.HandlerFunc {
 					return
 				}
 
-				if !m.config.PollingAuthChecker(key, realConn.RemoteAddr()) {
+				transportName := Metadata(realConn).Transport
+				if transportName == "" {
+					transportName = "http"
+				}
+				metadata := m.metadataFromRequest(req, realConn.RemoteAddr(), transportName)
+				remoteAddr := realConn.RemoteAddr()
+				if metadata.RealClientIP != "" {
+					remoteAddr = tcpAddrForIP(metadata.RealClientIP)
+				}
+
+				if !m.config.PollingAuthChecker(key, remoteAddr) {
 					log.Println("client connected but the key for starting a new polling session was wrong")
 					http.Error(w, "Bad Request", http.StatusBadRequest)
 					return
 				}
 
-				c, id, err = NewFragmentCollector(localAddr, realConn.RemoteAddr(), func() {
+				c, id, err = NewFragmentCollector(localAddr, remoteAddr, metadata, func() {
 					cleanupConnection(id, nil)
 				})
 				if err != nil {
@@ -515,7 +526,9 @@ func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type,
 	conn.SetDeadline(time.Time{})
 
 	// Unwrap any outer tls if required
+	tlsWrapped := false
 	if m.config.TLS && proto == "tls" {
+		tlsWrapped = true
 
 		if m.config.tlsConfig == nil {
 
@@ -564,33 +577,64 @@ func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type,
 
 	switch proto {
 	case protocols.Websockets:
-		return m.unwrapWebsockets(conn)
+		return m.unwrapWebsockets(conn, protocolTransportName(proto, tlsWrapped))
 	case protocols.HTTP:
 		// This will get passed off to a golang stdlib http server to do further unwrapping/feeding to the ssh component.
 		// Unlike the other connections this isnt a single stream, its multiple connections composed into one blob, so it has to be a lil non-standard
-		return conn, protocols.HTTP, nil
+		return withMetadata(conn, ConnectionMetadata{Transport: protocolTransportName(proto, tlsWrapped)}), protocols.HTTP, nil
 	default:
 		// If the initial unwrapping was enough and left us with download or ssh, we can just quit
 		if protocols.FullyUnwrapped(proto) {
-			return conn, proto, nil
+			return withMetadata(conn, ConnectionMetadata{Transport: protocolTransportName(proto, tlsWrapped)}), proto, nil
 		}
 	}
 
 	return nil, protocols.Invalid, fmt.Errorf("after unwrapping transports, nothing useable was found: %s", proto)
 }
 
-func (m *Multiplexer) unwrapWebsockets(conn net.Conn) (net.Conn, protocols.Type, error) {
+func protocolTransportName(proto protocols.Type, tlsWrapped bool) string {
+	switch proto {
+	case protocols.Websockets:
+		if tlsWrapped {
+			return "wss"
+		}
+		return "ws"
+	case protocols.HTTP:
+		if tlsWrapped {
+			return "https"
+		}
+		return "http"
+	case protocols.C2:
+		if tlsWrapped {
+			return "tls"
+		}
+		return "tcp"
+	default:
+		return string(proto)
+	}
+}
+
+func (m *Multiplexer) unwrapWebsockets(conn net.Conn, transportName string) (net.Conn, protocols.Type, error) {
 	wsHttp := http.NewServeMux()
 	wsConnChan := make(chan net.Conn, 1)
+	var request *http.Request
 
 	wsServer := websocket.Server{
 		Config: websocket.Config{},
 
 		// Disable origin validation because.... its ssh we dont need it
-		Handshake: nil,
+		Handshake: func(_ *websocket.Config, req *http.Request) error {
+			request = req
+			return nil
+		},
 		Handler: func(c *websocket.Conn) {
 			// Pain and suffering https://github.com/golang/go/issues/7350
 			c.PayloadType = websocket.BinaryFrame
+
+			metadata := ConnectionMetadata{Transport: transportName}
+			if request != nil {
+				metadata = m.metadataFromRequest(request, conn.RemoteAddr(), transportName)
+			}
 
 			wsW := websocketWrapper{
 				wsConn:  c,
@@ -598,7 +642,7 @@ func (m *Multiplexer) unwrapWebsockets(conn net.Conn) (net.Conn, protocols.Type,
 				done:    make(chan interface{}),
 			}
 
-			wsConnChan <- &wsW
+			wsConnChan <- withMetadata(&wsW, metadata)
 
 			<-wsW.done
 		},

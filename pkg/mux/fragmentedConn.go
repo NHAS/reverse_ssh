@@ -21,13 +21,14 @@ type fragmentedConnection struct {
 
 	localAddr  net.Addr
 	remoteAddr net.Addr
+	metadata   ConnectionMetadata
 
 	isDead *time.Timer
 
 	onClose func()
 }
 
-func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr, onClosed func()) (*fragmentedConnection, string, error) {
+func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr, metadata ConnectionMetadata, onClosed func()) (*fragmentedConnection, string, error) {
 
 	fc := &fragmentedConnection{
 		done: make(chan interface{}),
@@ -36,6 +37,7 @@ func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr, onClosed func
 		writeBuffer: NewSyncBuffer(maxBuffer),
 		localAddr:   localAddr,
 		remoteAddr:  remoteAddr,
+		metadata:    metadata,
 		onClose:     onClosed,
 	}
 
@@ -110,6 +112,10 @@ func (fc *fragmentedConnection) LocalAddr() net.Addr {
 
 func (fc *fragmentedConnection) RemoteAddr() net.Addr {
 	return fc.remoteAddr
+}
+
+func (fc *fragmentedConnection) Metadata() ConnectionMetadata {
+	return fc.metadata
 }
 
 func (fc *fragmentedConnection) SetDeadline(t time.Time) error {
