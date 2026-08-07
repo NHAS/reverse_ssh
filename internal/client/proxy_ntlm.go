@@ -9,9 +9,23 @@ import (
 )
 
 const (
-	NTLM               = "NTLM "
-	AskingForNTLMProxy = "proxy-authenticate: ntlm"
+	NTLM                    = "NTLM "
+	AskingForNTLMProxy      = "proxy-authenticate: ntlm"
+	AskingForNegotiateProxy = "proxy-authenticate: negotiate"
 )
+
+type ProxyAuthSchemes struct {
+	NTLM      bool
+	Negotiate bool
+}
+
+func ClassifyProxyAuth(response []byte) ProxyAuthSchemes {
+	lower := strings.ToLower(string(response))
+	return ProxyAuthSchemes{
+		NTLM:      strings.Contains(lower, AskingForNTLMProxy),
+		Negotiate: strings.Contains(lower, AskingForNegotiateProxy),
+	}
+}
 
 func parseNTLMCreds(creds string) (domain, user, pass string, err error) {
 	if creds == "" {
