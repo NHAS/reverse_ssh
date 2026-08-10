@@ -10,6 +10,17 @@ type TimeoutConn struct {
 	Timeout time.Duration
 }
 
+func NewTimeoutConn(conn net.Conn, timeout time.Duration) *TimeoutConn {
+	if timeout != 0 {
+		conn.SetDeadline(time.Now().Add(timeout))
+	}
+
+	return &TimeoutConn{
+		Conn:    conn,
+		Timeout: timeout,
+	}
+}
+
 func (c *TimeoutConn) Read(b []byte) (int, error) {
 
 	if c.Timeout != 0 {

@@ -408,7 +408,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 	pivotParent := mux.GetPivotParent(c)
 
 	//Initially set the timeout high, so people who type in their ssh key password can actually use rssh
-	realConn := &internal.TimeoutConn{Conn: c, Timeout: time.Duration(timeout) * time.Minute}
+	realConn := internal.NewTimeoutConn(c, time.Duration(timeout)*time.Minute)
 
 	// Before use, a handshake must be performed on the incoming net.Conn.
 	sshConn, chans, reqs, err := ssh.NewServerConn(realConn, config)
