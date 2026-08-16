@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/data"
@@ -41,6 +43,14 @@ func findUPXBinary() (string, error) {
 
 var (
 	validLinkerField = regexp.MustCompile(`^[A-Za-z0-9_.:/@-]*$`)
+
+	// buildLock serialises the part of Build that writes the freshly generated
+	// client key to the fixed path internal/client/keys/private_key and then
+	// depends on go:embed picking that exact file up. Two concurrent builds
+	// would race on it, and the loser would ship a binary embedding the other
+	// build's key - authenticating as that client and inheriting its owner= and
+	// single_session options rather than its own.
+	buildLock sync.Mutex
 )
 
 type BuildConfig struct {
@@ -70,7 +80,7 @@ type BuildConfig struct {
 	VersionString string
 }
 
-func Build(config BuildConfig) (string, error) {
+func Build(config BuildConfig, progress io.Writer) (string, error) {
 	if !webserverOn {
 		return "", errors.New("web server is not enabled")
 	}
@@ -161,6 +171,17 @@ func Build(config BuildConfig) (string, error) {
 		}
 
 	}
+
+	// Held for the remainder of Build: the key written below is picked up by
+	// go:embed during the compile, so the lock cannot be released until the
+	// build that consumes it has finished. A build takes several seconds, so
+	// tell the operator when their request is queued behind one already running
+	// rather than leaving them staring at a silent prompt.
+	if !buildLock.TryLock() {
+		fmt.Fprintln(progress, "Waiting for an in-progress client build to finish...")
+		buildLock.Lock()
+	}
+	defer buildLock.Unlock()
 
 	newPrivateKey, err := internal.GeneratePrivateKey()
 	if err != nil {

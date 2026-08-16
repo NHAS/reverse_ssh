@@ -255,7 +255,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		return errors.New("owners flag cannot contain any whitespace")
 	}
 
-	url, err := webserver.Build(buildConfig)
+	url, err := webserver.Build(buildConfig, tty)
 	if err != nil {
 		return err
 	}
