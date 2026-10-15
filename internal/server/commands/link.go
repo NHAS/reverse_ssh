@@ -149,13 +149,13 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		return err
 	}
 
-	buildConfig.ConnectBackAdress, err = line.GetArgString("s")
+	buildConfig.ConnectBackAddress, err = line.GetArgString("s")
 	if err != nil && err != terminal.ErrFlagNotSet {
 		return err
 	}
 
-	if buildConfig.ConnectBackAdress == "" {
-		buildConfig.ConnectBackAdress = webserver.DefaultConnectBack
+	if buildConfig.ConnectBackAddress == "" {
+		buildConfig.ConnectBackAddress = webserver.DefaultConnectBack
 	}
 
 	buildConfig.UseHostHeader = line.IsSet("use-host-header")
@@ -182,7 +182,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		return errors.New("cant use tls/wss/ws/std/http/https flags together (only supports one per client)")
 	}
 
-	buildConfig.ConnectBackAdress = scheme + buildConfig.ConnectBackAdress
+	buildConfig.ConnectBackAddress = scheme + buildConfig.ConnectBackAddress
 
 	buildConfig.Name, err = line.GetArgString("name")
 	if err != nil && err != terminal.ErrFlagNotSet {
