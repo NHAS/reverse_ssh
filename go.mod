@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/ActiveState/termtest/conpty v0.5.0
+	github.com/BurntSushi/toml v1.6.0
 	github.com/bodgit/ntlmssp v0.0.0-20240506230425-31973bb52d9b
 	github.com/creack/pty v1.1.24
 	github.com/fatih/color v1.19.0

@@ -1,0 +1,23 @@
+# Security Settings
+insecure = false
+openproxy = false
+
+# Network Settings
+listen_address = ":2222"
+external_address = "your.server.com:2222"
+timeout = 50
+
+# TLS Settings
+tls = true
+tlscert = "server.crt"
+tlskey = "server.key"
+
+# Features
+enable_client_downloads = true
+
+# Logging
+log_level = "info"
+console_label = "catcher"
+
+# Paths
+datadir = "./data"
