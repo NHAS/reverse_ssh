@@ -37,12 +37,6 @@ var (
 		0x00090313: "SEC_I_COMPLETE_NEEDED"}
 )
 
-func orPanic(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 func AcquireCredentialsHandle(principal *uint16, pckge *uint16, credentialuse uint32, logonid *uint64, authdata *byte, getkeyfn *byte, getkeyargument *byte, credential *CredHandle, expiry *TimeStamp) (status SECURITY_STATUS) {
 	r0, _, _ := syscall.Syscall9(procAcquireCredentialsHandleW.Addr(), 9, uintptr(unsafe.Pointer(principal)), uintptr(unsafe.Pointer(pckge)), uintptr(credentialuse), uintptr(unsafe.Pointer(logonid)), uintptr(unsafe.Pointer(authdata)), uintptr(unsafe.Pointer(getkeyfn)), uintptr(unsafe.Pointer(getkeyargument)), uintptr(unsafe.Pointer(credential)), uintptr(unsafe.Pointer(expiry)))
 	status = SECURITY_STATUS(r0)
@@ -173,6 +167,7 @@ func GetAuthorizationHeader(proxyURL string) string {
 	cred, status, err := AcquireCredentials("")
 	if err != nil {
 		log.Printf("AcquireCredentials failed: %v %s", err, errors[int64(status)])
+		return ""
 	}
 	defer cred.Close()
 	log.Printf("AcquireCredentials success: status=0x%x", status)
@@ -184,6 +179,7 @@ func GetAuthorizationHeader(proxyURL string) string {
 
 	if err != nil {
 		log.Printf("NewContext failed: %v", err)
+		return ""
 	}
 	log.Printf("NewContext success: status=0x%x errorcode=%s", status, errors[int64(status)])
 
