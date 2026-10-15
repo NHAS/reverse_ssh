@@ -48,7 +48,7 @@ type BuildConfig struct {
 
 	GOOS, GOARCH, GOARM string
 
-	ConnectBackAdress, Fingerprint string
+	ConnectBackAddress, Fingerprint string
 
 	Proxy, SNI, LogLevel string
 
@@ -107,7 +107,7 @@ func Build(config BuildConfig) (string, error) {
 
 	var f data.Download
 	f.WorkingDirectory = config.WorkingDirectory
-	f.CallbackAddress = config.ConnectBackAdress
+	f.CallbackAddress = config.ConnectBackAddress
 	f.UseHostHeader = config.UseHostHeader
 
 	filename, err := internal.RandomString(16)
@@ -191,7 +191,7 @@ func Build(config BuildConfig) (string, error) {
 
 	customLinkerFlags := map[string]string{
 		"main.logLevel":        config.LogLevel,
-		"main.destination":     config.ConnectBackAdress,
+		"main.destination":     config.ConnectBackAddress,
 		"main.fingerprint":     config.Fingerprint,
 		"main.proxy":           config.Proxy,
 		"main.customSNI":       config.SNI,
