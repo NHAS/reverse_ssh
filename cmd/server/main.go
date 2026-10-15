@@ -82,6 +82,9 @@ func main() {
 		}
 
 		cfg, err = config.Load(configFile)
+		if err != nil {
+			log.Fatalf("unable to load specified config file: %q, %v", configFile, err)
+		}
 	}
 
 	dataDir := cfg.DataDir
