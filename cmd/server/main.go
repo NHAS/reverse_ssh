@@ -178,10 +178,14 @@ func main() {
 	}
 
 	insecure := cfg.Insecure
-	insecure = options.IsSet("insecure")
+	if options.IsSet("insecure") {
+		insecure = true
+	}
 
 	openproxy := cfg.OpenProxy
-	openproxy = options.IsSet("openproxy")
+	if options.IsSet("openproxy") {
+		openproxy = true
+	}
 
 	potentialConsoleLabel := cfg.Console_Label
 	potentialConsoleLabel, err = options.GetArgString("console-label")
@@ -193,8 +197,11 @@ func main() {
 			internal.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
 		}
 	}
+
 	tls := cfg.TLS
-	tls = options.IsSet("tls")
+	if options.IsSet("tls") {
+		tls = true
+	}
 
 	tlscert := cfg.TLSCert
 	tlscert, _ = options.GetArgString("tlscert")
@@ -202,7 +209,10 @@ func main() {
 	tlskey := cfg.TLSKey
 	tlskey, _ = options.GetArgString("tlskey")
 
-	enabledDownloads := options.IsSet("webserver") || options.IsSet("enable-client-downloads") || cfg.EnableClientDownloads
+	enabledDownloads := cfg.EnableClientDownloads
+	if options.IsSet("webserver") || options.IsSet("enable-client-downloads") {
+		enabledDownloads = true
+	}
 
 	if options.IsSet("webserver") {
 		log.Println("[WARNING] --webserver is deprecated, use --enable-client-downloads")
