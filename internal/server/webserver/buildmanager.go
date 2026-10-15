@@ -63,6 +63,7 @@ type BuildConfig struct {
 	Proxy, SNI, LogLevel string
 
 	UseKerberosAuth bool
+	AutoProxy       bool
 
 	SharedLibrary bool
 	UPX           bool
