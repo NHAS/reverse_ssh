@@ -154,92 +154,90 @@ func Connect(addr, proxy string, timeout time.Duration, hostKerberos bool, stati
 
 			// If we get a 407 Proxy Authentication Required
 			if bytes.Contains(bytes.ToLower(responseStatus), []byte("407")) {
-				// Check if NTLM is supported
-				if bytes.Contains(bytes.ToLower(responseStatus), []byte(AskingForNTLMProxy)) {
-					//if we have specific credentials supplied by our user, attempt to use those for our NTLM negotiation with the proxy
+				schemes := ClassifyProxyAuth(responseStatus)
+				log.Printf("Proxy returned 407; advertised schemes: NTLM=%v Negotiate=%v", schemes.NTLM, schemes.Negotiate)
 
-					if staticNTLMCreds != nil {
-
-						// Start NTLM negotiation
-						ntlmHeader, err := getNTLMAuthHeader(staticNTLMCreds, nil)
-						if err != nil {
-							return nil, fmt.Errorf("NTLM negotiation failed: %v", err)
-						}
-
-						// Send Type 1 message
-						req = []string{
-							fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
-							fmt.Sprintf("Host: %s", addr),
-							fmt.Sprintf("Proxy-Authorization: %s", ntlmHeader),
-						}
-
-						err = WriteHTTPReq(req, proxyCon)
-						if err != nil {
-							return nil, fmt.Errorf("unable to send NTLM negotiate message: %s", err)
-						}
-
-						// Read challenge response
-
-						challengeResponseOk := scanner.Scan()
-						if !challengeResponseOk {
-							return conn, fmt.Errorf("reading NTLM challenge failed")
-						}
-
-						challengeResponse := scanner.Text()
-
-						// Extract Type 2 message
-						ntlmParts := strings.SplitN(challengeResponse, NTLM, 2)
-						if len(ntlmParts) != 2 {
-							return nil, fmt.Errorf("no NTLM challenge received")
-						}
-
-						challengeStr := strings.SplitN(ntlmParts[1], "\r\n", 2)[0]
-						challenge, err := base64.StdEncoding.DecodeString(challengeStr)
-						if err != nil {
-							return nil, fmt.Errorf("invalid NTLM challenge: %v", err)
-						}
-
-						// Generate Type 3 message
-						ntlmHeader, err = getNTLMAuthHeader(staticNTLMCreds, challenge)
-						if err != nil {
-							return nil, fmt.Errorf("NTLM authentication failed: %v", err)
-						}
-
-						// Send Type 3 message
-						req = []string{
-							fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
-							fmt.Sprintf("Host: %s", addr),
-							fmt.Sprintf("Proxy-Authorization: %s", ntlmHeader),
-						}
-
-						err = WriteHTTPReq(req, proxyCon)
-						if err != nil {
-							return nil, fmt.Errorf("unable to send NTLM authenticate message: %v", err)
-						}
-
-						// Read final response
-						finalResponseOk := scanner.Scan()
-						if !finalResponseOk {
-							return conn, fmt.Errorf("failed to read final NTLM response")
-						}
-
-						responseStatus = scanner.Bytes()
-
-					} else if hostKerberos {
-						// otherwise, (if the user has allowed us to) use the host/user kerberos to auth with the proxy
-						req = addHostKerberosHeaders(proxy, req)
-						err = WriteHTTPReq(req, proxyCon)
-						if err != nil {
-							return nil, fmt.Errorf("unable to connect proxy %s", proxy)
-						}
-
-						proxyResponseOK := scanner.Scan()
-						if !proxyResponseOK {
-							return conn, fmt.Errorf("failed reading proxy after offering it host kerberos")
-						}
-
-						responseStatus = scanner.Bytes()
+				switch {
+				case schemes.NTLM && staticNTLMCreds != nil:
+					// Start NTLM negotiation
+					ntlmHeader, err := getNTLMAuthHeader(staticNTLMCreds, nil)
+					if err != nil {
+						return nil, fmt.Errorf("NTLM negotiation failed: %v", err)
 					}
+
+					// Send Type 1 message
+					req = []string{
+						fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
+						fmt.Sprintf("Host: %s", addr),
+						fmt.Sprintf("Proxy-Authorization: %s", ntlmHeader),
+					}
+
+					err = WriteHTTPReq(req, proxyCon)
+					if err != nil {
+						return nil, fmt.Errorf("unable to send NTLM negotiate message: %s", err)
+					}
+
+					// Read challenge response
+
+					challengeResponseOk := scanner.Scan()
+					if !challengeResponseOk {
+						return conn, fmt.Errorf("reading NTLM challenge failed")
+					}
+
+					challengeResponse := scanner.Text()
+
+					// Extract Type 2 message
+					ntlmParts := strings.SplitN(challengeResponse, NTLM, 2)
+					if len(ntlmParts) != 2 {
+						return nil, fmt.Errorf("no NTLM challenge received")
+					}
+
+					challengeStr := strings.SplitN(ntlmParts[1], "\r\n", 2)[0]
+					challenge, err := base64.StdEncoding.DecodeString(challengeStr)
+					if err != nil {
+						return nil, fmt.Errorf("invalid NTLM challenge: %v", err)
+					}
+
+					// Generate Type 3 message
+					ntlmHeader, err = getNTLMAuthHeader(staticNTLMCreds, challenge)
+					if err != nil {
+						return nil, fmt.Errorf("NTLM authentication failed: %v", err)
+					}
+
+					// Send Type 3 message
+					req = []string{
+						fmt.Sprintf("CONNECT %s HTTP/1.1", addr),
+						fmt.Sprintf("Host: %s", addr),
+						fmt.Sprintf("Proxy-Authorization: %s", ntlmHeader),
+					}
+
+					err = WriteHTTPReq(req, proxyCon)
+					if err != nil {
+						return nil, fmt.Errorf("unable to send NTLM authenticate message: %v", err)
+					}
+
+					// Read final response
+					finalResponseOk := scanner.Scan()
+					if !finalResponseOk {
+						return conn, fmt.Errorf("failed to read final NTLM response")
+					}
+
+					responseStatus = scanner.Bytes()
+
+				case (schemes.Negotiate || schemes.NTLM) && hostKerberos:
+					// otherwise, (if the user has allowed us to) use the host/user kerberos to auth with the proxy
+					req = addHostKerberosHeaders(proxy, req)
+					err = WriteHTTPReq(req, proxyCon)
+					if err != nil {
+						return nil, fmt.Errorf("unable to connect proxy %s", proxy)
+					}
+
+					proxyResponseOK := scanner.Scan()
+					if !proxyResponseOK {
+						return conn, fmt.Errorf("failed reading proxy after offering it host kerberos")
+					}
+
+					responseStatus = scanner.Bytes()
 				}
 			}
 
