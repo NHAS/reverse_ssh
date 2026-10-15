@@ -75,6 +75,7 @@ func main() {
 
 	var cfg = config.Config{
 		DataDir: ".",
+		Timeout: 5,
 	}
 	if options.IsSet("config") {
 		configFile, err := options.GetArgString("config")
@@ -109,24 +110,22 @@ func main() {
 		cfg.DataDir = dataDir
 	}
 
-	var (
-		logLevel string
-		ok       bool
-	)
-
-	logLevel = cfg.LogLevel
-	logLevel, err = options.GetArgString("log-level")
-	ok = err == nil
+	logLevel, err := options.GetArgString("log-level")
 	if err != nil {
+		var ok bool
 		logLevel, ok = os.LookupEnv("RSSH_LOG_LEVEL")
+		if !ok && cfg.LogLevel != "" {
+			logLevel = cfg.LogLevel
+		}
 	}
 
-	if ok {
+	if logLevel != "" {
 		urg, err := logger.StrToUrgency(logLevel)
 		if err != nil {
 			log.Fatal(err)
 		}
 		logger.SetLogLevel(urg)
+		cfg.LogLevel = logLevel
 	}
 
 	if options.IsSet("fingerprint") {
@@ -158,10 +157,8 @@ func main() {
 		listenAddress = cfg.ListenAddress
 	}
 
-	var timeout int = 5
-	timeout = cfg.Timeout
 	if timeoutString, err := options.GetArgString("timeout"); err == nil {
-		timeout, err = strconv.Atoi(timeoutString)
+		timeout, err := strconv.Atoi(timeoutString)
 		if err != nil {
 			fmt.Printf("Unable to convert %q to int\n", timeoutString)
 			printHelp()
@@ -169,7 +166,7 @@ func main() {
 		}
 
 		if timeout < 0 {
-			fmt.Printf("Timeout cannot be below 0 (I cant believe I have to say that)\n")
+			fmt.Printf("Timeout cannot be below 0\n")
 			printHelp()
 			return
 		}
@@ -177,6 +174,8 @@ func main() {
 		if timeout == 0 {
 			log.Println("Timeout/keepalives disabled, this may cause issues if you are connected to a client and it disconnects")
 		}
+
+		cfg.Timeout = timeout
 	}
 
 	if options.IsSet("insecure") {
@@ -187,15 +186,16 @@ func main() {
 		cfg.OpenProxy = true
 	}
 
-	potentialConsoleLabel := cfg.ConsoleLabel
-	potentialConsoleLabel, err = options.GetArgString("console-label")
-	if err == nil {
-		internal.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
-	} else {
+	cfg.ConsoleLabel, err = options.GetArgString("console-label")
+	if err != nil {
 		potentialConsoleLabel, ok := os.LookupEnv("RSSH_CONSOLE_LABEL")
 		if ok {
-			internal.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
+			cfg.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
 		}
+	}
+
+	if cfg.ConsoleLabel != "" {
+		internal.ConsoleLabel = strings.TrimSpace(cfg.ConsoleLabel)
 	}
 
 	if options.IsSet("tls") {

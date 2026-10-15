@@ -24,4 +24,10 @@ if [ ! -z "$SEED_AUTHORIZED_KEYS" ]; then
 fi
 
 cd /app/bin
-exec ./server --datadir /data --enable-client-downloads --tls --external_address $EXTERNAL_ADDRESS :2222
+
+if [[ -f "/data/config.toml" ]]; then
+    exec ./server --config /data/config.toml
+else
+    exec ./server --datadir /data --enable-client-downloads --tls --external_address $EXTERNAL_ADDRESS :2222
+fi
+
