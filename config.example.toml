@@ -1,6 +1,6 @@
 # Security Settings
 insecure = false
-openproxy = false
+open_proxy = false
 
 # Network Settings
 listen_address = ":2222"
@@ -9,8 +9,8 @@ timeout = 50
 
 # TLS Settings
 tls = true
-tlscert = "server.crt"
-tlskey = "server.key"
+tls_cert = "server.crt"
+tls_key = "server.key"
 
 # Features
 enable_client_downloads = true
@@ -20,4 +20,4 @@ log_level = "info"
 console_label = "catcher"
 
 # Paths
-datadir = "./data"
+data_dir = "./data"

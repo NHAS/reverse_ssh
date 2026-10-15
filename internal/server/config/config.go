@@ -10,37 +10,35 @@ import (
 
 type Config struct {
 	Insecure              bool
-	OpenProxy             bool
+	OpenProxy             bool `toml:"open_proxy"`
 	TLS                   bool
-	TLSCert               string
-	TLSKey                string
-	ListenAddress         string
-	ExternalAddress       string
+	TLSCert               string `toml:"tls_cert"`
+	TLSKey                string `toml:"tls_key"`
+	ListenAddress         string `toml:"listen_address"`
+	ExternalAddress       string `toml:"external_address"`
 	Timeout               int
-	EnableClientDownloads bool
-	DataDir               string
-	Log_Level             string
-	Console_Label         string
-	WebServer             bool // deprecated, kept for backwards compatability
+	EnableClientDownloads bool   `toml:"enable_client_downloads"`
+	DataDir               string `toml:"data_dir"`
+	LogLevel              string `toml:"log_level"`
+	ConsoleLabel          string `toml:"console_label"`
 }
 
-func Load(filePath string) (*Config, error) {
-	cfg := &Config{}
+func Load(filePath string) (cfg Config, err error) {
 
 	configPath := filepath.Join(filePath)
-	_, err := os.Stat(configPath)
+	_, err = os.Stat(configPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to check config file: %q err: %v", filePath, err)
 	}
 
 	f, err := os.Open(configPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to open config file: %q err: %v", filePath, err)
 	}
 
 	_, err = toml.NewDecoder(f).Decode(&cfg)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to decode config file: %q err: %v", filePath, err)
 	}
 
 	defer f.Close()
