@@ -42,7 +42,7 @@ func (e *exec) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 	}
 
 	if len(matchingClients) == 0 {
-		return fmt.Errorf("Unable to find match for '" + filter + "'\n")
+		return fmt.Errorf("Unable to find match for %q\n", filter)
 	}
 
 	if !(line.IsSet("q") || line.IsSet("raw")) {

@@ -14,7 +14,7 @@ var ErrClosed = errors.New("fragment collector has been closed")
 const maxBuffer = 8096
 
 type fragmentedConnection struct {
-	done chan interface{}
+	done chan any
 
 	readBuffer  *SyncBuffer
 	writeBuffer *SyncBuffer
@@ -30,7 +30,7 @@ type fragmentedConnection struct {
 func NewFragmentCollector(localAddr net.Addr, remoteAddr net.Addr, onClosed func()) (*fragmentedConnection, string, error) {
 
 	fc := &fragmentedConnection{
-		done: make(chan interface{}),
+		done: make(chan any),
 
 		readBuffer:  NewSyncBuffer(maxBuffer),
 		writeBuffer: NewSyncBuffer(maxBuffer),

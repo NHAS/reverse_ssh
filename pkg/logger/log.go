@@ -29,19 +29,19 @@ func GetLogLevel() Urgency {
 	return globalLevel
 }
 
-func (l *Logger) Info(format string, v ...interface{}) {
+func (l *Logger) Info(format string, v ...any) {
 	l.Ulogf(2, INFO, format, v...)
 }
 
-func (l *Logger) Warning(format string, v ...interface{}) {
+func (l *Logger) Warning(format string, v ...any) {
 	l.Ulogf(2, WARN, format, v...)
 }
 
-func (l *Logger) Error(format string, v ...interface{}) {
+func (l *Logger) Error(format string, v ...any) {
 	l.Ulogf(2, ERROR, format, v...)
 }
 
-func (l *Logger) Fatal(format string, v ...interface{}) {
+func (l *Logger) Fatal(format string, v ...any) {
 	l.Ulogf(2, FATAL, format, v...)
 }
 

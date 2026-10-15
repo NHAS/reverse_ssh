@@ -1,5 +1,4 @@
 //go:build !nologging
-// +build !nologging
 
 package logger
 
@@ -11,7 +10,7 @@ import (
 	"strings"
 )
 
-func (l *Logger) Ulogf(callerStackDepth int, u Urgency, format string, v ...interface{}) {
+func (l *Logger) Ulogf(callerStackDepth int, u Urgency, format string, v ...any) {
 
 	if u < globalLevel || globalLevel == DISABLE {
 		return

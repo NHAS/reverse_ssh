@@ -18,6 +18,7 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/pkg/logger"
+	"github.com/NHAS/reverse_ssh/pkg/mux"
 	"github.com/fatih/color"
 	"golang.org/x/crypto/ssh"
 )
@@ -28,12 +29,15 @@ type Options struct {
 	Comment   string
 
 	Owners []string
+
+	// Only allow one rssh client with this public key to connect at a given time
+	SingleSession bool
 }
 
 func readPubKeys(path string) (m map[string]Options, err error) {
 	authorizedKeysBytes, err := os.ReadFile(path)
 	if err != nil {
-		return m, fmt.Errorf("failed to load file %s, err: %v", path, err)
+		return m, fmt.Errorf("failed to load file %s, err: %w", path, err)
 	}
 
 	keys := bytes.Split(authorizedKeysBytes, []byte("\n"))
@@ -47,26 +51,21 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 
 		pubKey, comment, options, _, err := ssh.ParseAuthorizedKey(key)
 		if err != nil {
-			return m, fmt.Errorf("unable to parse public key. %s line %d. Reason: %s", path, i+1, err)
+			// Skip only the offending line. Rejecting the whole file would let a
+			// single typo lock out every other key in it.
+			log.Printf("skipping unparsable public key, %q line %d: %s", path, i+1, err)
+			continue
 		}
 
-		var opts Options
+		opts, err := parseOptions(options)
+		if err != nil {
+			// Fail closed. The key does not load at all, whether the problem is a
+			// malformed from=/owner= or an option this server cannot honour.
+			log.Printf("ignoring key, %q line %d: %s", path, i+1, err)
+			continue
+		}
+
 		opts.Comment = comment
-
-		for _, o := range options {
-			parts := strings.Split(o, "=")
-			if len(parts) >= 2 {
-				switch parts[0] {
-				case "from":
-					deny, allow := ParseFromDirective(parts[1])
-					opts.AllowList = append(opts.AllowList, allow...)
-					opts.DenyList = append(opts.DenyList, deny...)
-				case "owner":
-					opts.Owners = ParseOwnerDirective(parts[1])
-				}
-
-			}
-		}
 
 		m[string(ssh.MarshalAuthorizedKey(pubKey))] = opts
 	}
@@ -74,73 +73,144 @@ func readPubKeys(path string) (m map[string]Options, err error) {
 	return
 }
 
-func ParseOwnerDirective(owners string) []string {
+// parseOptions converts the options of a single authorized_keys line into
+// Options. Only the options this server implements are accepted: from=, owner=
+// and single_session. Every other option - a malformed value, or a standard
+// OpenSSH option this server does not honour - rejects the key.
+//
+// Rejecting unsupported options is deliberate. rssh cannot enforce arbitrary
+// authorized_keys options, so silently ignoring one (command= or no-pty, say)
+// would hand back a key that behaves differently from what the operator wrote.
+// A half-parsed from= or owner= is worse still, dropping the restriction they
+// were relying on. Failing closed forces the mistake to surface instead.
+func parseOptions(options []string) (opts Options, err error) {
+	for _, o := range options {
+		rawName, value, hasValue := strings.Cut(o, "=")
 
-	unquoted, err := strconv.Unquote(owners)
-	if err != nil {
-		return nil
-	}
+		// OpenSSH treats option names as case insensitive. Normalise so that a
+		// From= is handled as from= rather than rejected as unknown.
+		name := strings.ToLower(strings.TrimSpace(rawName))
 
-	return strings.Split(unquoted, ",")
-}
-
-func ParseFromDirective(addresses string) (deny, allow []*net.IPNet) {
-	list := strings.Trim(addresses, "\"")
-
-	directives := strings.Split(list, ",")
-	for _, directive := range directives {
-		if len(directive) > 0 {
-			switch directive[0] {
-			case '!':
-				directive = directive[1:]
-				newDenys, err := ParseAddress(directive)
-				if err != nil {
-					log.Println("Unable to add !", directive, " to denylist: ", err)
-					continue
-				}
-				deny = append(deny, newDenys...)
-			default:
-				newAllowOnlys, err := ParseAddress(directive)
-				if err != nil {
-					log.Println("Unable to add ", directive, " to allowlist: ", err)
-					continue
-				}
-
-				allow = append(allow, newAllowOnlys...)
-
+		switch name {
+		case "single_session":
+			if hasValue {
+				return opts, fmt.Errorf("option %q does not take a value", rawName)
 			}
+
+			opts.SingleSession = true
+
+		case "from":
+			if !hasValue {
+				return opts, fmt.Errorf("option %q requires a value", rawName)
+			}
+
+			deny, allow, err := ParseFromDirective(value)
+			if err != nil {
+				return opts, fmt.Errorf("invalid from directive %q: %w", value, err)
+			}
+
+			opts.AllowList = append(opts.AllowList, allow...)
+			opts.DenyList = append(opts.DenyList, deny...)
+
+		case "owner":
+			if !hasValue {
+				return opts, fmt.Errorf("option %q requires a value", rawName)
+			}
+
+			owners, err := ParseOwnerDirective(value)
+			if err != nil {
+				return opts, fmt.Errorf("invalid owner directive %q: %w", value, err)
+			}
+
+			opts.Owners = owners
+
+		default:
+			return opts, fmt.Errorf("unsupported option %q", rawName)
 		}
 	}
 
-	return
+	return opts, nil
 }
 
+// ParseOwnerDirective parses the value of an owner= directive, which must be
+// quoted exactly as the link command writes it. A malformed value is an error
+// rather than an empty owner list, because an empty list means "public to every
+// user" - the most permissive result available and the wrong default for input
+// we failed to understand.
+func ParseOwnerDirective(owners string) ([]string, error) {
+
+	unquoted, err := strconv.Unquote(owners)
+	if err != nil {
+		return nil, fmt.Errorf("owner value must be quoted: %w", err)
+	}
+
+	unquoted = strings.TrimSpace(unquoted)
+	if unquoted == "" {
+		// An explicitly empty owner list is a deliberate "this client is public".
+		return nil, nil
+	}
+
+	parts := strings.Split(unquoted, ",")
+	result := make([]string, 0, len(parts))
+	for _, owner := range parts {
+		if owner = strings.TrimSpace(owner); owner != "" {
+			result = append(result, owner)
+		}
+	}
+
+	return result, nil
+}
+
+// ParseFromDirective parses the value of a from= directive into deny and allow
+// lists. A directive that cannot be parsed is an error rather than something to
+// skip, because dropping the only allow entry leaves an empty allow list, and
+// CheckAuth reads an empty allow list as "no restriction at all".
+func ParseFromDirective(addresses string) (deny, allow []*net.IPNet, err error) {
+	list := strings.Trim(addresses, "\"")
+
+	for directive := range strings.SplitSeq(list, ",") {
+		directive = strings.TrimSpace(directive)
+		if len(directive) == 0 {
+			continue
+		}
+
+		if directive[0] == '!' {
+			denied, err := ParseAddress(directive[1:])
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to add %q to denylist: %w", directive[1:], err)
+			}
+
+			deny = append(deny, denied...)
+			continue
+		}
+
+		allowed, err := ParseAddress(directive)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to add %q to allowlist: %w", directive, err)
+		}
+
+		allow = append(allow, allowed...)
+	}
+
+	return deny, allow, nil
+}
+
+// ParseAddress resolves a single from= directive entry into the networks it
+// covers. Entries are tried as a wildcard, then CIDR, then a bare IP literal,
+// and finally as a hostname to resolve.
 func ParseAddress(address string) (cidr []*net.IPNet, err error) {
 	if len(address) > 0 && address[0] == '*' {
 		_, all, _ := net.ParseCIDR("0.0.0.0/0")
 		_, allv6, _ := net.ParseCIDR("::/0")
-		cidr = append(cidr, all, allv6)
-		return
+		return []*net.IPNet{all, allv6}, nil
 	}
 
-	_, mask, err := net.ParseCIDR(address)
-	if err == nil {
-		cidr = append(cidr, mask)
-		return
+	if _, mask, cidrErr := net.ParseCIDR(address); cidrErr == nil {
+		return []*net.IPNet{mask}, nil
 	}
 
-	ip := net.ParseIP(address)
-	if ip == nil {
-		var newcidr net.IPNet
-		newcidr.IP = ip
-		newcidr.Mask = net.CIDRMask(32, 32)
-
-		if ip.To4() == nil {
-			newcidr.Mask = net.CIDRMask(128, 128)
-		}
-
-		cidr = append(cidr, &newcidr)
-		return
+	if ip := net.ParseIP(address); ip != nil {
+		return []*net.IPNet{singleHostCIDR(ip)}, nil
 	}
 
 	addresses, err := net.LookupIP(address)
@@ -148,23 +218,26 @@ func ParseAddress(address string) (cidr []*net.IPNet, err error) {
 		return nil, err
 	}
 
-	for _, address := range addresses {
-		var newcidr net.IPNet
-		newcidr.IP = address
-		newcidr.Mask = net.CIDRMask(32, 32)
-
-		if address.To4() == nil {
-			newcidr.Mask = net.CIDRMask(128, 128)
-		}
-
-		cidr = append(cidr, &newcidr)
-	}
-
 	if len(addresses) == 0 {
-		return nil, errors.New("Unable to find domains for " + address)
+		return nil, errors.New("unable to find addresses for " + address)
 	}
 
-	return
+	for _, resolved := range addresses {
+		cidr = append(cidr, singleHostCIDR(resolved))
+	}
+
+	return cidr, nil
+}
+
+// singleHostCIDR returns the network containing only ip: a /32 for IPv4 and a
+// /128 for IPv6. The address is normalised to its 4 byte form where possible so
+// that the mask and address widths agree, which net.IPNet.Contains requires.
+func singleHostCIDR(ip net.IP) *net.IPNet {
+	if v4 := ip.To4(); v4 != nil {
+		return &net.IPNet{IP: v4, Mask: net.CIDRMask(32, 32)}
+	}
+
+	return &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)}
 }
 
 var ErrKeyNotInList = errors.New("key not found")
@@ -173,13 +246,24 @@ func CheckAuth(keysPath string, publicKey ssh.PublicKey, src net.IP, insecure bo
 
 	keys, err := readPubKeys(keysPath)
 	if err != nil {
-		return nil, ErrKeyNotInList
+		// A missing file simply means no keys of this class are registered yet.
+		// Anything else is a misconfiguration the operator needs to see, rather
+		// than a silent "key not found".
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Printf("could not load authorized keys file %q: %s", keysPath, err)
+		}
+
+		if !insecure {
+			return nil, ErrKeyNotInList
+		}
+
+		// Insecure mode ignores the file's contents, so being unable to read it
+		// must not stop a client from connecting.
+		keys = map[string]Options{}
 	}
 
-	var opt Options
+	opt, ok := keys[string(ssh.MarshalAuthorizedKey(publicKey))]
 	if !insecure {
-		var ok bool
-		opt, ok = keys[string(ssh.MarshalAuthorizedKey(publicKey))]
 		if !ok {
 			return nil, ErrKeyNotInList
 		}
@@ -190,6 +274,9 @@ func CheckAuth(keysPath string, publicKey ssh.PublicKey, src net.IP, insecure bo
 			}
 		}
 
+		// An empty allow list means the key carried no from= allow entry, so no
+		// restriction was requested. A from= that failed to parse never reaches
+		// here: readPubKeys drops the whole key line instead.
 		safe := len(opt.AllowList) == 0
 		for _, allow := range opt.AllowList {
 			if allow.Contains(src) {
@@ -203,14 +290,20 @@ func CheckAuth(keysPath string, publicKey ssh.PublicKey, src net.IP, insecure bo
 		}
 	}
 
-	return &ssh.Permissions{
+	perms := &ssh.Permissions{
 		// Record the public key used for authentication.
 		Extensions: map[string]string{
 			"comment":   opt.Comment,
 			"pubkey-fp": internal.FingerprintSHA1Hex(publicKey),
 			"owners":    strings.Join(opt.Owners, ","),
 		},
-	}, nil
+	}
+
+	if opt.SingleSession {
+		perms.Extensions["single_session"] = "true"
+	}
+
+	return perms, nil
 
 }
 
@@ -389,14 +482,22 @@ func getIP(ip string) net.IP {
 
 func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir string) {
 
+	// Capture pivot parent before any wrapping obscures the annotation.
+	pivotParent := mux.GetPivotParent(c)
+
 	//Initially set the timeout high, so people who type in their ssh key password can actually use rssh
-	realConn := &internal.TimeoutConn{Conn: c, Timeout: time.Duration(timeout) * time.Minute}
+	realConn := internal.NewTimeoutConn(c, time.Duration(timeout)*time.Minute)
 
 	// Before use, a handshake must be performed on the incoming net.Conn.
 	sshConn, chans, reqs, err := ssh.NewServerConn(realConn, config)
 	if err != nil {
 		log.Printf("Failed to handshake (%s)", err.Error())
 		return
+	}
+
+	// Record pivot parent (if any) so commands like 'map' can reconstruct topology.
+	if pivotParent != "" && sshConn.Permissions != nil {
+		sshConn.Permissions.Extensions["pivot-parent"] = pivotParent
 	}
 
 	clientLog := logger.NewLog(sshConn.RemoteAddr().String())
@@ -408,7 +509,7 @@ func acceptConn(c net.Conn, config *ssh.ServerConfig, timeout int, dataDir strin
 
 		go func() {
 			for {
-				_, _, err = sshConn.SendRequest("keepalive-rssh@golang.org", true, []byte(fmt.Sprintf("%d", timeout)))
+				_, _, err = sshConn.SendRequest("keepalive-rssh@golang.org", true, fmt.Appendf(nil, "%d", timeout))
 				if err != nil {
 					clientLog.Info("Failed to send keepalive, assuming client has disconnected")
 					sshConn.Close()

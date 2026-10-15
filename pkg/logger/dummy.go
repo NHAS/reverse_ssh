@@ -1,5 +1,4 @@
 //go:build nologging
-// +build nologging
 
 package logger
 

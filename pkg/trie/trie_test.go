@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -57,13 +58,7 @@ func TestSimpleRemove(t *testing.T) {
 	after := nt.getAll()
 
 	for _, n := range before {
-		found := false
-		for _, nn := range after {
-			if nn == n {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(after, n)
 
 		if !found && n != "apple" {
 			t.Logf("Removed wrong item...? %q\n", n)

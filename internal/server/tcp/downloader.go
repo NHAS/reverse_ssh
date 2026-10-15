@@ -1,6 +1,8 @@
 package tcp
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -12,29 +14,22 @@ import (
 	"github.com/NHAS/reverse_ssh/pkg/logger"
 )
 
+const (
+	rawDownloadPrefix        = "RAW"
+	rawDownloadMaxNameLength = 64
+	rawDownloadReadTimeout   = 3 * time.Second
+)
+
 func handleBashConn(conn net.Conn) {
 	defer conn.Close()
 
 	downloadLog := logger.NewLog(conn.RemoteAddr().String())
 
-	conn.SetDeadline(time.Now().Add(3 * time.Second))
-	// RAW header prefix + 64 bytes for file ID
-	fileID := make([]byte, 67)
-
-	n, err := conn.Read(fileID)
+	filename, err := readRawDownloadName(conn)
 	if err != nil {
 		downloadLog.Warning("failed to download file using raw tcp: %s", err)
 		return
 	}
-
-	conn.SetDeadline(time.Time{})
-
-	if n == 0 || n < 3 {
-		downloadLog.Warning("recieved malformed raw download request")
-		return
-	}
-
-	filename := strings.TrimSpace(string(fileID[3:n]))
 
 	f, err := data.GetDownload(filename)
 	if err != nil {
@@ -52,6 +47,51 @@ func handleBashConn(conn net.Conn) {
 	downloadLog.Info("downloaded %q using RAW tcp method", filename)
 
 	io.Copy(conn, file)
+}
+
+func readRawDownloadName(conn net.Conn) (string, error) {
+	_ = conn.SetReadDeadline(time.Now().Add(rawDownloadReadTimeout))
+	defer conn.SetReadDeadline(time.Time{})
+
+	limit := len(rawDownloadPrefix) + rawDownloadMaxNameLength + 1
+	request := make([]byte, 0, limit)
+	var b [1]byte
+
+	for len(request) < limit {
+		n, err := conn.Read(b[:])
+		if n > 0 {
+			if b[0] == '\n' {
+				break
+			}
+			request = append(request, b[0])
+		}
+
+		if err != nil {
+			if errors.Is(err, io.EOF) && len(request) > 0 {
+				break
+			}
+			return "", err
+		}
+	}
+
+	if len(request) >= limit {
+		return "", fmt.Errorf("raw download request exceeds %d bytes", limit)
+	}
+
+	requestString := strings.TrimSpace(string(request))
+	if !strings.HasPrefix(requestString, rawDownloadPrefix) {
+		return "", fmt.Errorf("malformed raw download request")
+	}
+
+	filename := strings.TrimSpace(strings.TrimPrefix(requestString, rawDownloadPrefix))
+	if filename == "" {
+		return "", fmt.Errorf("empty raw download filename")
+	}
+	if len(filename) > rawDownloadMaxNameLength {
+		return "", fmt.Errorf("raw download filename exceeds %d bytes", rawDownloadMaxNameLength)
+	}
+
+	return filename, nil
 }
 
 func Start(listener net.Listener) {

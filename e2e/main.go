@@ -113,7 +113,7 @@ func conditionExec(command, expectedOutput string, exitCode int, serverLogExpect
 			output := make([]string, withIn, 0)
 			check := bufio.NewScanner(serverLog)
 			found := false
-			for i := 0; i < withIn; i++ {
+			for range withIn {
 				line := check.Text()
 				output = append(output, line)
 				if strings.Contains(line, serverLogExpected) {

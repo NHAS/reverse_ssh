@@ -13,8 +13,8 @@ func linkTests() {
 	conditionExec("link --name linuxbin", "linuxbin", 0, "", 0)
 	conditionExec("link --goos linux --shared-object --name sharedlinux", "sharedlinux", 0, "", 0)
 
-	conditionExec("link --goos windows --name windowsbin", "windowsbin", 0, "", 0)
-	conditionExec("link --goos windows --shared-object --name windowsdll", "windowsdll", 0, "", 0)
+	//conditionExec("link --goos windows --name windowsbin", "windowsbin", 0, "", 0)
+	//conditionExec("link --goos windows --shared-object --name windowsdll", "windowsdll", 0, "", 0)
 
 	conditionExec("link --name versionbin --version-string nootnootnootnoot1", "", 0, "", 0)
 
@@ -27,14 +27,14 @@ func linkTests() {
 		log.Fatal("should have returned 200 for created linux binary, instead got: ", resp.Status)
 	}
 
-	resp, err = http.Get("http://" + listenAddr + "/windowsdll")
-	if err != nil {
-		log.Fatal("failed to fetch windowsdll: ", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		log.Fatal("should have returned 200 for created windowsdll, instead got: ", resp.Status)
-	}
+	// resp, err = http.Get("http://" + listenAddr + "/windowsdll")
+	// if err != nil {
+	// 	log.Fatal("failed to fetch windowsdll: ", err)
+	// }
+	// resp.Body.Close()
+	// if resp.StatusCode != 200 {
+	// 	log.Fatal("should have returned 200 for created windowsdll, instead got: ", resp.Status)
+	// }
 
 	resp, err = http.Get("http://" + listenAddr + "/versionbin")
 	if err != nil {

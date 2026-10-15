@@ -22,7 +22,7 @@ type HTTPConn struct {
 	ID      string
 	address string
 
-	done chan interface{}
+	done chan any
 
 	readBuffer *mux.SyncBuffer
 
@@ -35,7 +35,7 @@ type HTTPConn struct {
 func NewHTTPConn(address string, connector func() (net.Conn, error)) (*HTTPConn, error) {
 
 	result := &HTTPConn{
-		done:       make(chan interface{}),
+		done:       make(chan any),
 		readBuffer: mux.NewSyncBuffer(8096),
 		address:    address,
 		start:      mathrand.Int(),

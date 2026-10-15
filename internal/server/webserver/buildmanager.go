@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/data"
@@ -38,6 +41,18 @@ func findUPXBinary() (string, error) {
 	return "", errors.New("upx could not be found in PATH (tried: upx, upx-ucl)")
 }
 
+var (
+	validLinkerField = regexp.MustCompile(`^[A-Za-z0-9_.:/@-]*$`)
+
+	// buildLock serialises the part of Build that writes the freshly generated
+	// client key to the fixed path internal/client/keys/private_key and then
+	// depends on go:embed picking that exact file up. Two concurrent builds
+	// would race on it, and the loser would ship a binary embedding the other
+	// build's key - authenticating as that client and inheriting its owner= and
+	// single_session options rather than its own.
+	buildLock sync.Mutex
+)
+
 type BuildConfig struct {
 	Name, Comment, Owners string
 
@@ -57,6 +72,7 @@ type BuildConfig struct {
 	DisableLibC   bool
 	RawDownload   bool
 	UseHostHeader bool
+	SingleSession bool
 
 	WorkingDirectory string
 
@@ -65,17 +81,17 @@ type BuildConfig struct {
 	VersionString string
 }
 
-func Build(config BuildConfig) (string, error) {
+func Build(config BuildConfig, progress io.Writer) (string, error) {
 	if !webserverOn {
 		return "", errors.New("web server is not enabled")
 	}
 
 	if len(config.GOARCH) != 0 && !validArchs[config.GOARCH] {
-		return "", fmt.Errorf("GOARCH supplied is not valid: " + config.GOARCH)
+		return "", fmt.Errorf("GOARCH supplied is not valid: %s", config.GOARCH)
 	}
 
 	if len(config.GOOS) != 0 && !validPlatforms[config.GOOS] {
-		return "", fmt.Errorf("GOOS supplied is not valid: " + config.GOOS)
+		return "", fmt.Errorf("GOOS supplied is not valid: %s", config.GOOS)
 	}
 
 	if len(config.Fingerprint) == 0 {
@@ -157,6 +173,17 @@ func Build(config BuildConfig) (string, error) {
 
 	}
 
+	// Held for the remainder of Build: the key written below is picked up by
+	// go:embed during the compile, so the lock cannot be released until the
+	// build that consumes it has finished. A build takes several seconds, so
+	// tell the operator when their request is queued behind one already running
+	// rather than leaving them staring at a silent prompt.
+	if !buildLock.TryLock() {
+		fmt.Fprintln(progress, "Waiting for an in-progress client build to finish...")
+		buildLock.Lock()
+	}
+	defer buildLock.Unlock()
+
 	newPrivateKey, err := internal.GeneratePrivateKey()
 	if err != nil {
 		return "", err
@@ -184,7 +211,27 @@ func Build(config BuildConfig) (string, error) {
 		return "", err
 	}
 
-	buildArguments = append(buildArguments, fmt.Sprintf("-ldflags=-s -w -X main.logLevel=%s -X main.destination=%s -X main.fingerprint=%s -X main.proxy=%s -X main.customSNI=%s -X main.useHostKerberos=%t -X main.autoProxy=%t -X main.ntlmProxyCreds=%s -X main.versionString=%s -X github.com/NHAS/reverse_ssh/internal.Version=%s", config.LogLevel, config.ConnectBackAdress, config.Fingerprint, config.Proxy, config.SNI, config.UseKerberosAuth, config.AutoProxy, config.NTLMProxyCreds, strings.TrimSpace(config.VersionString), strings.TrimSpace(f.Version)))
+	customLinkerFlags := map[string]string{
+		"main.logLevel":        config.LogLevel,
+		"main.destination":     config.ConnectBackAdress,
+		"main.fingerprint":     config.Fingerprint,
+		"main.proxy":           config.Proxy,
+		"main.customSNI":       config.SNI,
+		"main.useHostKerberos": fmt.Sprintf("%t", config.UseKerberosAuth),
+		"main.ntlmProxyCreds":  config.NTLMProxyCreds,
+		"main.versionString":   strings.TrimSpace(config.VersionString),
+		"github.com/NHAS/reverse_ssh/internal.Version": strings.TrimSpace(f.Version),
+	}
+
+	ldflags := []string{"-s", "-w"}
+	for ldFlag, value := range customLinkerFlags {
+		if !validLinkerField.MatchString(value) {
+			return "", fmt.Errorf("invalid characters in linker field: %q: %q", ldFlag, value)
+		}
+		ldflags = append(ldflags, fmt.Sprintf("-X '%s=%s'", ldFlag, value))
+	}
+
+	buildArguments = append(buildArguments, "-ldflags="+strings.Join(ldflags, " "))
 	buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
 
 	cmd := exec.Command(buildTool, buildArguments...)
@@ -224,14 +271,14 @@ func Build(config BuildConfig) (string, error) {
 			strings.Contains(err.Error(), "undefined reference to") {
 			// Try to recover if the linking fails by clearing the cache
 			if cleanErr := exec.Command("go", "clean", "-cache").Run(); cleanErr != nil {
-				return "", fmt.Errorf("Error (was unable to automatically clean cache): " + err.Error() + "\n" + string(output))
+				return "", fmt.Errorf("Error (was unable to automatically clean cache): %s\n%s", err.Error(), string(output))
 			}
 			output, err = cmd.CombinedOutput()
 			if err != nil {
-				return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
+				return "", fmt.Errorf("Error: %s\n%s", err.Error(), string(output))
 			}
 		} else {
-			return "", fmt.Errorf("Error: " + err.Error() + "\n" + string(output))
+			return "", fmt.Errorf("Error: %s\n%s", err.Error(), string(output))
 		}
 	}
 
@@ -277,7 +324,18 @@ func Build(config BuildConfig) (string, error) {
 	}
 	defer authorizedControlleeKeys.Close()
 
-	if _, err = authorizedControlleeKeys.WriteString(fmt.Sprintf("%s %s %s\n", "owner="+strconv.Quote(config.Owners), publicKeyBytes[:len(publicKeyBytes)-1], config.Comment)); err != nil {
+	opts := []string{
+		"owner=" + strconv.Quote(config.Owners),
+	}
+
+	if config.SingleSession {
+		opts = append(opts, "single_session")
+	}
+
+	if _, err = fmt.Fprintf(authorizedControlleeKeys, "%s %s %s\n",
+		strings.Join(opts, ","),
+		publicKeyBytes[:len(publicKeyBytes)-1],
+		strings.NewReplacer("\n", "", "\r", "").Replace(config.Comment)); err != nil {
 		return "", errors.New("cant write newly generated key to authorized controllee keys file: " + err.Error())
 	}
 
@@ -308,9 +366,9 @@ func startBuildManager(_cachePath string) error {
 		return fmt.Errorf("unable to run the go compiler to get a list of compilation targets: %s", err)
 	}
 
-	platformAndArch := bytes.Split(output, []byte("\n"))
+	platformAndArch := bytes.SplitSeq(output, []byte("\n"))
 
-	for _, line := range platformAndArch {
+	for line := range platformAndArch {
 		parts := bytes.Split(line, []byte("/"))
 		if len(parts) == 2 {
 			validPlatforms[string(parts[0])] = true

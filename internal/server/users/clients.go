@@ -1,6 +1,7 @@
 package users
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -37,6 +38,13 @@ func NormaliseHostname(hostname string) string {
 func AssociateClient(conn *ssh.ServerConn) (string, string, error) {
 	lck.Lock()
 	defer lck.Unlock()
+
+	if _, ok := conn.Permissions.Extensions["single_session"]; ok {
+		_, found := aliases[conn.Permissions.Extensions["pubkey-fp"]]
+		if found {
+			return "", "", fmt.Errorf("Client is marked as 'single session' only one RSSH client with this public key may be connected at a given time")
+		}
+	}
 
 	idString, err := internal.RandomString(20)
 	if err != nil {

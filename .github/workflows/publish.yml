@@ -19,7 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.23.1"
+          go-version: "1.26.3"
 
       - name: Update repos
         run: sudo apt update

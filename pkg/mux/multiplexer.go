@@ -547,12 +547,15 @@ func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type,
 		}
 
 		// this is TLS so replace the connection
-		c := tls.Server(conn, m.config.tlsConfig)
-		err := c.Handshake()
+		tlsConn := tls.Server(conn, m.config.tlsConfig)
+		err := tlsConn.Handshake()
 		if err != nil {
 			conn.Close()
 			return nil, protocols.Invalid, fmt.Errorf("multiplexing failed (tls handshake): err: %s", err)
 		}
+
+		// Wrap so that GetPivotParent can reach through TLS to the underlying conn.
+		c := &tlsConnWrapper{Conn: tlsConn, inner: conn}
 
 		// If we did unwrap tls, we now peek into the inner protocol to see whats there
 		conn, proto, err = m.determineProtocol(c)
@@ -595,7 +598,7 @@ func (m *Multiplexer) unwrapWebsockets(conn net.Conn) (net.Conn, protocols.Type,
 			wsW := websocketWrapper{
 				wsConn:  c,
 				tcpConn: conn,
-				done:    make(chan interface{}),
+				done:    make(chan any),
 			}
 
 			wsConnChan <- &wsW

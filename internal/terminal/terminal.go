@@ -997,10 +997,7 @@ func (t *Terminal) addKeyToLine(key rune) {
 func (t *Terminal) writeLine(line []rune) {
 	for len(line) != 0 {
 		remainingOnLine := t.termWidth - t.cursorX
-		todo := len(line)
-		if todo > remainingOnLine {
-			todo = remainingOnLine
-		}
+		todo := min(len(line), remainingOnLine)
 		t.queue(line[:todo])
 		t.advanceCursor(visualLength(line[:todo]))
 		line = line[todo:]

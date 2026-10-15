@@ -64,7 +64,7 @@ func JumpHandler(sshPriv ssh.Signer, serverConn ssh.Conn) func(newChannel ssh.Ne
 
 					err := ssh.Unmarshal(r.Payload, &rf)
 					if err != nil {
-						r.Reply(false, []byte(fmt.Sprintf("Unable to unmarshal remote forward request in order to stop it: %s", err.Error())))
+						r.Reply(false, fmt.Appendf(nil, "Unable to unmarshal remote forward request in order to stop it: %s", err.Error()))
 						return
 					}
 

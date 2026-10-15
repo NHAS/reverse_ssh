@@ -79,7 +79,7 @@ func (l *list) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 			return fmt.Errorf("No RSSH clients connected")
 		}
 
-		return fmt.Errorf("Unable to find match for '" + filter + "'")
+		return fmt.Errorf("Unable to find match for  %q", filter)
 	}
 
 	ids := []string{}

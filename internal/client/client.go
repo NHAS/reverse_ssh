@@ -527,7 +527,7 @@ func Run(settings *Settings) {
 
 		// Make initial timeout quite long so folks who type their ssh public key can actually do it
 		// After this the timeout gets updated by the server
-		realConn := &internal.TimeoutConn{Conn: conn, Timeout: 4 * time.Minute}
+		realConn := internal.NewTimeoutConn(conn, 4*time.Minute)
 
 		sshConn, chans, reqs, err := ssh.NewClientConn(realConn, settings.Addr, config)
 		if err != nil {
@@ -609,7 +609,7 @@ func Run(settings *Settings) {
 
 					err := ssh.Unmarshal(req.Payload, &rf)
 					if err != nil {
-						req.Reply(false, []byte(fmt.Sprintf("Unable to unmarshal remote forward request in order to stop it: %s", err.Error())))
+						req.Reply(false, fmt.Appendf(nil, "Unable to unmarshal remote forward request in order to stop it: %s", err.Error()))
 						return
 					}
 

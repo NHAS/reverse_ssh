@@ -56,6 +56,7 @@ func (l *link) ValidArgs() map[string]string {
 		"log-level":         "Set default output logging levels, [INFO,WARNING,ERROR,FATAL,DISABLED]",
 		"ntlm-proxy-creds":  "Set NTLM proxy credentials in format DOMAIN\\USER:PASS",
 		"version-string":    "Set the SSH version string the client uses, will always be prefixed with SSH-",
+		"single-session":    "Only allow one RSSH client with this public key to connect at a time",
 	}
 
 	// Add duplicate flags for owners
@@ -131,6 +132,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		UseKerberosAuth: line.IsSet("use-kerberos"),
 		AutoProxy:       line.IsSet("auto-proxy"),
 		RawDownload:     line.IsSet("raw-download"),
+		SingleSession:   line.IsSet("single-session"),
 	}
 
 	var err error
@@ -255,7 +257,7 @@ func (l *link) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLine
 		return errors.New("owners flag cannot contain any whitespace")
 	}
 
-	url, err := webserver.Build(buildConfig)
+	url, err := webserver.Build(buildConfig, tty)
 	if err != nil {
 		return err
 	}

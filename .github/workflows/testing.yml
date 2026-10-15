@@ -6,7 +6,7 @@ on:
 
 jobs:
   e2e_tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: true
     steps:
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.23.1"
+          go-version: "1.26.5"
 
       - name: Update repos
         run: sudo apt update

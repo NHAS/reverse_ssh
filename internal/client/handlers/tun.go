@@ -123,7 +123,7 @@ func Tun(newChannel ssh.NewChannel, l logger.Logger) {
 	var NICID tcpip.NICID
 
 	allocatedNicId := false
-	for i := 0; i < 3; i++ {
+	for range 3 {
 
 		buff := make([]byte, 4)
 		_, err := rand.Read(buff)

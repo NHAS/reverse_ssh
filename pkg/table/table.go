@@ -124,16 +124,17 @@ func (t *Table) OutputStrings() (output []string) {
 
 		for y := 0; y < t.lineMaxHeight[n]; y++ {
 
-			m := "|"
-			for x := 0; x < len(line); x++ {
+			var m strings.Builder
+			m.WriteString("|")
+			for x := range line {
 				val := ""
 				if len(values[x]) > y {
 					val = values[x][y]
 				}
-				m += fmt.Sprintf(" %-"+fmt.Sprintf("%d", t.cellMaxWidth[x])+"s |", val)
+				m.WriteString(fmt.Sprintf(" %-"+fmt.Sprintf("%d", t.cellMaxWidth[x])+"s |", val))
 			}
 
-			output = append(output, m)
+			output = append(output, m.String())
 
 		}
 

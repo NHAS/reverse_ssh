@@ -26,7 +26,7 @@ func scp(commandParts []string, connection ssh.Channel, log logger.Logger) error
 	//Find what the target file path is, essentially ignore anything that is a flag '-t'
 	loc := -1
 	mode := ""
-	for i := 0; i < len(commandParts); i++ {
+	for i := range commandParts {
 		if mode == "" && (commandParts[i] == "-t" || commandParts[i] == "-f") {
 			mode = commandParts[i]
 			continue
@@ -252,7 +252,7 @@ func from(todownload string, connection ssh.Channel) {
 }
 
 func scpTransferDirectory(path string, mode fs.FileInfo, connection ssh.Channel) error {
-	_, err := connection.Write([]byte(fmt.Sprintf("D%#o 1 %s\n", mode.Mode().Perm(), filepath.Base(path))))
+	_, err := connection.Write(fmt.Appendf(nil, "D%#o 1 %s\n", mode.Mode().Perm(), filepath.Base(path)))
 	if err != nil {
 		return err
 	}
