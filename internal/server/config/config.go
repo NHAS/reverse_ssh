@@ -14,8 +14,8 @@ type Config struct {
 	TLS                   bool
 	TLSCert               string
 	TLSKey                string
-	Listen_Address        string
-	External_Address      string
+	ListenAddress         string
+	ExternalAddress       string
 	Timeout               int
 	EnableClientDownloads bool
 	DataDir               string
