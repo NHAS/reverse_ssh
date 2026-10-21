@@ -2,6 +2,7 @@ package webserver
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/NHAS/reverse_ssh/internal"
 	"github.com/NHAS/reverse_ssh/internal/server/data"
@@ -51,6 +53,18 @@ var (
 	// build's key - authenticating as that client and inheriting its owner= and
 	// single_session options rather than its own.
 	buildLock sync.Mutex
+)
+
+const (
+	// buildTimeout bounds everything Build runs while holding buildLock, so a
+	// hung compile cannot block every later build forever. Garble builds on a
+	// cold cache can take a few minutes.
+	buildTimeout = 10 * time.Minute
+
+	// buildWaitDelay is how long a killed build gets to close its output pipes.
+	// Child processes (garble runs go build as one) inherit those pipes, so
+	// killing the parent alone can leave CombinedOutput blocked.
+	buildWaitDelay = 10 * time.Second
 )
 
 type BuildConfig struct {
@@ -91,6 +105,10 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 
 	if len(config.GOOS) != 0 && !validPlatforms[config.GOOS] {
 		return "", fmt.Errorf("GOOS supplied is not valid: %s", config.GOOS)
+	}
+
+	if config.Lzma && !config.UPX {
+		return "", errors.New("Cannot use --lzma without --upx")
 	}
 
 	if len(config.Fingerprint) == 0 {
@@ -183,6 +201,9 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 	}
 	defer buildLock.Unlock()
 
+	ctx, cancel := context.WithTimeout(context.Background(), buildTimeout)
+	defer cancel()
+
 	newPrivateKey, err := internal.GeneratePrivateKey()
 	if err != nil {
 		return "", err
@@ -233,7 +254,8 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 	buildArguments = append(buildArguments, "-ldflags="+strings.Join(ldflags, " "))
 	buildArguments = append(buildArguments, "-o", f.FilePath, filepath.Join(projectRoot, "/cmd/client"))
 
-	cmd := exec.Command(buildTool, buildArguments...)
+	cmd := exec.CommandContext(ctx, buildTool, buildArguments...)
+	cmd.WaitDelay = buildWaitDelay
 
 	if config.DisableLibC {
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
@@ -266,6 +288,10 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", fmt.Errorf("client build did not finish within %s: %w", buildTimeout, ctxErr)
+		}
+
 		if strings.Contains(err.Error(), "garble") && (strings.Contains(err.Error(), "i686-w64-mingw32-ld") || strings.Contains(err.Error(), "x86_64-w64-mingw32-ld")) &&
 			strings.Contains(err.Error(), "undefined reference to") {
 			// Try to recover if the linking fails by clearing the cache
@@ -283,10 +309,6 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 
 	f.UrlPath = config.Name
 
-	if config.Lzma && !config.UPX {
-		return "", errors.New("Cannot use --lzma without --upx")
-	}
-
 	if config.UPX {
 		upxArgs := []string{"-qq", "-f", f.FilePath}
 
@@ -294,7 +316,7 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 			upxArgs = append([]string{"--lzma"}, upxArgs...)
 		}
 
-		output, err := exec.Command(upxBinary, upxArgs...).CombinedOutput()
+		output, err := exec.CommandContext(ctx, upxBinary, upxArgs...).CombinedOutput()
 		if err != nil {
 			return "", errors.New("unable to run upx: " + err.Error() + ": " + string(output))
 		}
@@ -302,7 +324,7 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 
 	fi, err := os.Stat(f.FilePath)
 	if err != nil {
-		fmt.Println("Error: ", err)
+		return "", fmt.Errorf("unable to stat built client: %w", err)
 	}
 	f.FileSize = float64(fi.Size()) / 1024 / 1024
 
