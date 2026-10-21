@@ -219,8 +219,9 @@ func parseSingleArg(line string, startPos int) (arg Argument, endPos int) {
 
 		// Add character to argument
 		if escaped {
-			// Only escape special characters
-			if c != '\\' && c != '"' && c != '\'' && c != ' ' {
+			// Only escape special characters. An escaped space is special only
+			// outside quotes; inside double quotes sh keeps the backslash.
+			if c != '\\' && c != '"' && c != '\'' && (c != ' ' || inDoubleQuote) {
 				sb.WriteByte('\\')
 			}
 			escaped = false
