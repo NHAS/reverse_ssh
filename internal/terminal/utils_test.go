@@ -187,20 +187,22 @@ func TestQuoteHandling(t *testing.T) {
 	}{
 		// Single quotes
 		{`echo 'hello world'`, []string{"echo", "hello world"}},
-		{`echo 'don\'t escape'`, []string{"echo", "don\\'t escape"}},
+		// A backslash is literal inside single quotes, as in sh, so it cannot
+		// escape a quote either.
+		{`echo 'no \escapes here'`, []string{"echo", `no \escapes here`}},
 		{`echo 'preserve "double" quotes'`, []string{"echo", `preserve "double" quotes`}},
-		
+
 		// Double quotes
 		{`echo "hello world"`, []string{"echo", "hello world"}},
 		{`echo "escape \"quotes\""`, []string{"echo", `escape "quotes"`}},
 		{`echo "allow 'single' quotes"`, []string{"echo", `allow 'single' quotes`}},
-		
+
 		// Escaping
 		{`echo hello\ world`, []string{"echo", "hello world"}},
 		{`echo "hello\ world"`, []string{"echo", "hello\\ world"}},
 		{`echo \$PATH`, []string{"echo", "\\$PATH"}},
 		{`echo "\"quoted\""`, []string{"echo", `"quoted"`}},
-		
+
 		// Mixed quotes
 		{`echo "mixed 'quotes'"`, []string{"echo", `mixed 'quotes'`}},
 		{`echo 'mixed "quotes"'`, []string{"echo", `mixed "quotes"`}},
@@ -209,7 +211,7 @@ func TestQuoteHandling(t *testing.T) {
 
 	for i, test := range tests {
 		line := ParseLine(test.input, 0)
-		
+
 		// Convert parsed line to string slice for comparison
 		var got []string
 		if line.Command != nil {

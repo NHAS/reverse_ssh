@@ -2,7 +2,7 @@
 
 package subsystems
 
-//Enable service install
+// Enable service install
 func init() {
 	subsystems["service"] = new(service)
 }
