@@ -46,6 +46,7 @@ var (
 	customSNI   string
 	// golang can only embed strings using the compile time linker
 	useHostKerberos string
+	autoProxy       string
 	logLevel        string
 
 	ntlmProxyCreds string
@@ -61,6 +62,7 @@ func printHelp() {
 	fmt.Println("\t\t--fingerprint\tServer public key SHA256 hex fingerprint for auth")
 	fmt.Println("\t\t--fingerprint-file\tRead server public key SHA256 hex fingerprint from file path")
 	fmt.Println("\t\t--proxy\tLocation of HTTP connect proxy to use")
+	fmt.Println("\t\t--auto-proxy\tAuto-detect proxy from system settings (Windows: HKCU WinINET)")
 	fmt.Println("\t\t--ntlm-proxy-creds\tNTLM proxy credentials in format DOMAIN\\USER:PASS")
 	fmt.Println("\t\t--process_name\tProcess name shown in tasklist/process list")
 	fmt.Println("\t\t--sni\tWhen using TLS set the clients requested SNI to this value")
@@ -81,6 +83,7 @@ func makeInitialSettings() (*client.Settings, error) {
 		ProxyAddr:            proxy,
 		Addr:                 destination,
 		ProxyUseHostKerberos: useHostKerberos == "true",
+		ProxyAutoDetect:      autoProxy == "true",
 		SNI:                  customSNI,
 		VersionString:        versionString,
 	}
@@ -128,6 +131,10 @@ func main() {
 	proxyaddress, _ := line.GetArgString("proxy")
 	if len(proxyaddress) > 0 {
 		settings.ProxyAddr = proxyaddress
+	}
+
+	if line.IsSet("auto-proxy") {
+		settings.ProxyAutoDetect = true
 	}
 
 	userSpecifiedFingerprint, err := line.GetArgString("fingerprint")
