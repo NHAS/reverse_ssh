@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -41,9 +42,13 @@ func printHelp() {
 
 }
 
-func main() {
+var (
+	ErrHelp        = errors.New("help error")
+	ErrFingerPrint = errors.New("fingerprint")
+)
 
-	options, err := terminal.ParseLineValidFlags(strings.Join(os.Args, " "), 0, map[string]bool{
+func parse(args []string) (config.Config, bool, error) {
+	options, err := terminal.ParseLineValidFlags(strings.Join(args, " "), 0, map[string]bool{
 		"insecure":                true,
 		"tls":                     true,
 		"tlscert":                 true,
@@ -63,29 +68,28 @@ func main() {
 	})
 
 	if err != nil {
-		fmt.Println(err)
-		printHelp()
-		return
+		return config.Config{}, false, err
 	}
 
 	if options.IsSet("h") || options.IsSet("help") {
-		printHelp()
-		return
+		return config.Config{}, false, ErrHelp
 	}
 
 	var cfg = config.Config{
 		DataDir: ".",
 		Timeout: 5,
+		// set as default internal label
+		ConsoleLabel: internal.ConsoleLabel,
 	}
 	if options.IsSet("config") {
 		configFile, err := options.GetArgString("config")
 		if err != nil {
-			log.Fatal(err)
+			return config.Config{}, false, err
 		}
 
 		cfg, err = config.Load(configFile)
 		if err != nil {
-			log.Fatalf("unable to load specified config file: %q, %v", configFile, err)
+			return config.Config{}, false, fmt.Errorf("unable to load specified config file: %q, %w", configFile, err)
 		}
 	}
 
@@ -93,19 +97,17 @@ func main() {
 	if err == nil {
 		dataDir, err = filepath.Abs(dataDir)
 		if err != nil {
-			log.Fatalf("couldn't resolve supplied datadir path: %v", err)
+			return config.Config{}, false, fmt.Errorf("couldn't resolve supplied datadir path: %v", err)
 		}
 
 		dataDirStat, err := os.Stat(dataDir)
 		if err != nil {
-			log.Fatalf("Could not stat datadir %s - does it exist and have correct permissions?", dataDir)
+			return config.Config{}, false, fmt.Errorf("Could not stat datadir %s - does it exist and have correct permissions?", dataDir)
 		}
 
 		if !dataDirStat.IsDir() {
-			log.Fatalf("Specified datadir %s is not a directory", dataDir)
+			return config.Config{}, false, fmt.Errorf("Specified datadir %s is not a directory", dataDir)
 		}
-
-		log.Printf("Loading files from %s\n", dataDir)
 
 		cfg.DataDir = dataDir
 	}
@@ -122,7 +124,7 @@ func main() {
 	if logLevel != "" {
 		urg, err := logger.StrToUrgency(logLevel)
 		if err != nil {
-			log.Fatal(err)
+			return config.Config{}, false, err
 		}
 		logger.SetLogLevel(urg)
 		cfg.LogLevel = logLevel
@@ -131,17 +133,15 @@ func main() {
 	if options.IsSet("fingerprint") {
 		private, err := server.CreateOrLoadServerKeys(filepath.Join(cfg.DataDir, "id_ed25519"))
 		if err != nil {
-			log.Fatal(err)
+			return config.Config{}, false, fmt.Errorf("failed to create or load server keys: %w", err)
 		}
 
 		fmt.Println(internal.FingerprintSHA256Hex(private.PublicKey()))
-		return
+		return config.Config{}, false, ErrFingerPrint
 	}
 
 	if len(options.Arguments) < 1 {
-		printHelp()
-		fmt.Println("\nMissing listening address")
-		return
+		return config.Config{}, false, errors.New("no server listen address")
 	}
 
 	potentialListenAddress := options.Arguments[len(options.Arguments)-1].Value()
@@ -150,21 +150,17 @@ func main() {
 	}
 
 	if _, _, err = net.SplitHostPort(cfg.ListenAddress); err != nil {
-		log.Fatalf("No valid listening addresses specified: cli: %q cfg: %q", potentialListenAddress, cfg.ListenAddress)
+		return config.Config{}, false, fmt.Errorf("No valid listening addresses specified: cli: %q cfg: %q, err: %w", potentialListenAddress, cfg.ListenAddress, err)
 	}
 
 	if timeoutString, err := options.GetArgString("timeout"); err == nil {
 		timeout, err := strconv.Atoi(timeoutString)
 		if err != nil {
-			fmt.Printf("Unable to convert %q to int\n", timeoutString)
-			printHelp()
-			return
+			return config.Config{}, false, fmt.Errorf("Unable to convert %q to int", timeoutString)
 		}
 
 		if timeout < 0 {
-			fmt.Printf("Timeout cannot be below 0\n")
-			printHelp()
-			return
+			return config.Config{}, false, errors.New("Timeout cannot be below 0")
 		}
 
 		if timeout == 0 {
@@ -192,8 +188,10 @@ func main() {
 	}
 
 	if potentialConsoleLabel != "" {
-		internal.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
+		cfg.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
 	}
+
+	internal.ConsoleLabel = cfg.ConsoleLabel
 
 	if options.IsSet("tls") {
 		cfg.TLS = true
@@ -234,7 +232,7 @@ func main() {
 		//However we need to have a valid address for the link command, so we get the first interface
 		host, port, err := net.SplitHostPort(cfg.ListenAddress)
 		if err != nil {
-			log.Fatalf("unable to determine host and port parts from listen address: %q, %v", cfg.ListenAddress, err)
+			return config.Config{}, false, fmt.Errorf("unable to determine host and port parts from listen address: %q, %w", cfg.ListenAddress, err)
 		}
 
 		if len(host) == 0 {
@@ -261,8 +259,19 @@ func main() {
 		}
 
 	}
+	return cfg, autogeneratedConnectBack, nil
+}
 
-	log.Println("Connect back: ", cfg.ExternalAddress)
+func main() {
+
+	cfg, autogeneratedConnectBack, err := parse(os.Args)
+	if err != nil {
+		if err != ErrHelp && err != ErrFingerPrint {
+			log.Println(err)
+		}
+		printHelp()
+		return
+	}
 
 	server.Run(cfg, autogeneratedConnectBack)
 }

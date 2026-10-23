@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -28,17 +28,17 @@ func Load(filePath string) (cfg Config, err error) {
 	configPath := filepath.Join(filePath)
 	_, err = os.Stat(configPath)
 	if err != nil {
-		log.Fatalf("failed to check config file: %q err: %v", filePath, err)
+		return cfg, fmt.Errorf("failed to check config file: %q err: %w", filePath, err)
 	}
 
 	f, err := os.Open(configPath)
 	if err != nil {
-		log.Fatalf("failed to open config file: %q err: %v", filePath, err)
+		return cfg, fmt.Errorf("failed to open config file: %q err: %w", filePath, err)
 	}
 
 	_, err = toml.NewDecoder(f).Decode(&cfg)
 	if err != nil {
-		log.Fatalf("failed to decode config file: %q err: %v", filePath, err)
+		return cfg, fmt.Errorf("failed to decode config file: %q err: %w", filePath, err)
 	}
 
 	defer f.Close()
