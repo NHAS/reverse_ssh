@@ -182,16 +182,17 @@ func main() {
 		cfg.OpenProxy = true
 	}
 
-	cfg.ConsoleLabel, err = options.GetArgString("console-label")
-	if err != nil {
-		potentialConsoleLabel, ok := os.LookupEnv("RSSH_CONSOLE_LABEL")
-		if ok {
-			cfg.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
+	potentialConsoleLabel, err := options.GetArgString("console-label")
+	if err != nil || potentialConsoleLabel == "" {
+		var ok bool
+		envLabel, ok := os.LookupEnv("RSSH_CONSOLE_LABEL")
+		if ok && envLabel != "" {
+			potentialConsoleLabel = strings.TrimSpace(envLabel)
 		}
 	}
 
-	if cfg.ConsoleLabel != "" {
-		internal.ConsoleLabel = strings.TrimSpace(cfg.ConsoleLabel)
+	if potentialConsoleLabel != "" {
+		internal.ConsoleLabel = strings.TrimSpace(potentialConsoleLabel)
 	}
 
 	if options.IsSet("tls") {
