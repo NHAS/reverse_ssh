@@ -1,6 +1,6 @@
 module github.com/NHAS/reverse_ssh
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/ActiveState/termtest/conpty v0.5.0
@@ -11,12 +11,12 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-ping/ping v1.2.0
 	github.com/inetaf/tcpproxy v0.0.0-20260515195445-c159a6051109
-	github.com/pkg/sftp v1.13.11
+	github.com/pkg/sftp v1.13.12
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.61.0
 	golang.org/x/sys v0.49.0
 	gorm.io/gorm v1.31.2
-	gvisor.dev/gvisor v0.0.0-20261015194529-db32b3e52da1
+	gvisor.dev/gvisor v0.0.0-20261023195330-50be576547ac
 )
 
 require (
@@ -37,8 +37,8 @@ require (
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
-	modernc.org/libc v1.78.0 // indirect
+	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
-	modernc.org/sqlite v1.60.1 // indirect
+	modernc.org/sqlite v1.61.0 // indirect
 )
