@@ -554,12 +554,14 @@ func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type,
 		}
 
 		// this is TLS so replace the connection
+		conn.SetDeadline(time.Now().Add(2 * time.Second))
 		tlsConn := tls.Server(conn, m.config.tlsConfig)
 		err := tlsConn.Handshake()
 		if err != nil {
 			conn.Close()
 			return nil, protocols.Invalid, fmt.Errorf("multiplexing failed (tls handshake): err: %s", err)
 		}
+		conn.SetDeadline(time.Time{})
 
 		// Wrap so that GetPivotParent can reach through TLS to the underlying conn.
 		c := &tlsConnWrapper{Conn: tlsConn, inner: conn}
