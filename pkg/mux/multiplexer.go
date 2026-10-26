@@ -462,6 +462,7 @@ func isHttp(b []byte) bool {
 }
 
 func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type, error) {
+	conn.SetDeadline(time.Now().Add(2 * time.Second))
 
 	header := make([]byte, 14)
 	n, err := conn.Read(header)
@@ -469,6 +470,8 @@ func (m *Multiplexer) determineProtocol(conn net.Conn) (net.Conn, protocols.Type
 		conn.Close()
 		return nil, "", fmt.Errorf("failed to read header: %s", err)
 	}
+
+	conn.SetDeadline(time.Time{})
 
 	c := &bufferedConn{prefix: header[:n], conn: conn}
 
@@ -511,15 +514,12 @@ func (m *Multiplexer) getProtoListener(proto protocols.Type) net.Listener {
 }
 
 func (m *Multiplexer) unwrapTransports(conn net.Conn) (net.Conn, protocols.Type, error) {
-	conn.SetDeadline(time.Now().Add(2 * time.Second))
 
 	var proto protocols.Type
 	conn, proto, err := m.determineProtocol(conn)
 	if err != nil {
 		return nil, protocols.Invalid, fmt.Errorf("initial determination: %s", err)
 	}
-
-	conn.SetDeadline(time.Time{})
 
 	// Unwrap any outer tls if required
 	if m.config.TLS && proto == "tls" {
