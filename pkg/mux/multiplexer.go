@@ -348,6 +348,13 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 		return nil, errors.New("no authentication method supplied for polling muxing, this may lead to extreme dos if not set. Must set it")
 	}
 
+	if m.config.TLS {
+		_, err := tls.LoadX509KeyPair(m.config.TLSCertPath, m.config.TLSKeyPath)
+		if err != nil {
+			log.Printf("TLS is enabled but loading certs/key failed: cert %q, key: %q, err: %v", m.config.TLSCertPath, m.config.TLSKeyPath, err)
+		}
+	}
+
 	err := m.StartListener(network, address)
 	if err != nil {
 		return nil, err
@@ -367,20 +374,20 @@ func ListenWithConfig(network, address string, _c MultiplexerConfig) (*Multiplex
 	// Starts the composer http server turns a bunch of posts/gets into a coherent connection
 	m.startHttpServer()
 
-	var waitingConnections int32
+	var waitingConnections atomic.Int32
 	go func() {
 		for conn := range m.newConnections {
 
-			if atomic.LoadInt32(&waitingConnections) > 1000 {
+			if waitingConnections.Load() > 1000 {
 				conn.Close()
 				continue
 			}
 
 			//Atomic as other threads may be writing and reading while we do this
-			atomic.AddInt32(&waitingConnections, 1)
+			waitingConnections.Add(1)
 			go func(conn net.Conn) {
 
-				defer atomic.AddInt32(&waitingConnections, -1)
+				defer waitingConnections.Add(-1)
 
 				newConnection, proto, err := m.unwrapTransports(conn)
 				if err != nil {
