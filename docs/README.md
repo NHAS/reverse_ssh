@@ -160,34 +160,6 @@ This project uses `conpty` on current versions of windows, and `winpty` library 
 
 It is still quite challenging to capture all output for some Powershell applets. If you start a command that doesnt seem to end, it may be that it is asking for input in a way that you cannot see. 
 
-### Webhooks
-
-The RSSH server can send out raw HTTP requests set using the `webhook` command from the terminal interface.
-
-First enable a webhook:
-```bash
-$ ssh your.rssh.server.internal -p 3232
-catcher$ webhook --on http://localhost:8080/
-```
-
-Then disconnect, or connect a client, this will when issue a `POST` request with the following format.
-
-
-```bash
-$ nc -l -p 8080
-POST /rssh_webhook HTTP/1.1
-Host: localhost:8080
-User-Agent: Go-http-client/1.1
-Content-Length: 165
-Content-Type: application/json
-Accept-Encoding: gzip
-
-{"Status":"connected","ID":"ae92b6535a30566cbae122ebb2a5e754dd58f0ca","IP":"[::1]:52608","HostName":"user.computer","Timestamp":"2022-06-12T12:23:40.626775318+12:00"}%
-```
-
-
-As an additional note, please use the `/slack` endpoint if connecting this to discord.
-
 ### Tun (VPN)
 
 RSSH and SSH support creating tuntap interfaces that allow you to route traffic and create pseudo-VPN. It does take a bit more setup than just a local or remote forward (`-L`, `-R`), but in this mode you can send `UDP` and `ICMP` traffic.

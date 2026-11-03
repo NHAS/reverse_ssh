@@ -35,7 +35,7 @@
 +--------------+--------------------------------------------------------------------------------+
 | [watch](#watch)        | Watches controllable client connections                                        |
 +--------------+--------------------------------------------------------------------------------+
-| webhook      | Add or remove webhooks                                                         |
+| [webhook](#webhook)      | Add or remove webhooks                                                         |
 +--------------+--------------------------------------------------------------------------------+
 | who          | List users connected to the RSSH server                                        |
 +--------------+--------------------------------------------------------------------------------+
@@ -311,16 +311,63 @@ log -c a0baa1631fe7cfbbfae34eb7a66d46c00d2a161e --log-level INFO --to-file /tmp/
 Streams connection state events of clients.
 
 ```sh
-Defaultly waits for new connection events
-        -a      Lists all previous connection events
-        -l      List previous n number of connection events, e.g watch -l 10 shows last 10 connections
+--json  Print out watch log as json
+-a      Lists all previous connection events
+-l      List previous n number of connection events, e.g watch -l 10 shows last 10 connections
 ```
 
 ### Example output
 
 After running `watch` you will get lines that look like this, which denote clients joining and leaving.
 ```sh
+catcher$ watch
+
 Watching clients...
-2026/11/03 15:33:56 -> nhas.computer.local (127.0.0.1:65048 9608fb845b801c42a07479da6bc14f68f290b248) SSH-v2.8.1-23-g35f2725-darwin_arm64 disconnected
-2026/11/03 15:33:57 <- nhas.computer.local (127.0.0.1:65052 631e19fb343b54ae12d95da2d9f6c00943a9572a) SSH-v2.8.1-23-g35f2725-darwin_arm64 connected
+2026/11/03 15:49:23 <- nhas.computer.local (127.0.0.1:65142 fa7c0e53f1644e52a02f880130d9329eefb4b14f) SSH-v2.8.1-23-g35f2725-darwin_arm64 connected
+2026/11/03 15:49:32 -> nhas.computer.local (127.0.0.1:65142 fa7c0e53f1644e52a02f880130d9329eefb4b14f) SSH-v2.8.1-23-g35f2725-darwin_arm64 disconnected
+2026/11/03 15:49:33 <- nhas.computer.local (127.0.0.1:65145 5352792f15a24481a3890b79c4c555ae91a20f97) SSH-v2.8.1-23-g35f2725-darwin_arm64 connected
+2026/11/03 15:49:36 -> nhas.computer.local (127.0.0.1:65145 5352792f15a24481a3890b79c4c555ae91a20f97) SSH-v2.8.1-23-g35f2725-darwin_arm64 disconnected
 ```
+
+You can also specify `json` which will emit the lines as json objects in the following format:
+```json
+Watching clients...
+{"Status":"connected","ID":"abc92a9a661f3e5a4adba95e286ade52493f7227","IP":"127.0.0.1:65172","HostName":"nhas.computer.local","Version":"SSH-v2.8.1-23-g35f2725-darwin_arm64","Timestamp":"2026-11-03T15:55:16.063253+13:00"}
+```
+
+This also does not emit colors.
+
+
+## webhook
+Set the RSSH server to send an HTTP webhook which shows the joining and leaving of RSSH clients.
+
+```sh
+--insecure      Disable TLS certificate checking
+--off   Turns off existing webhook url
+--on    Turns on webhook/s, must supply output as url
+-l      Lists active webhooks
+```
+
+
+### Examples
+
+```bash
+catcher$ webhook --on http://localhost:8080/test_url
+```
+
+Then disconnect, or connect a client, this will when issue a `POST` request with the following format.
+
+```bash
+$ nc -l -p 8080
+POST /test_url HTTP/1.1
+Host: localhost:8080
+User-Agent: Go-http-client/1.1
+Content-Length: 165
+Content-Type: application/json
+Accept-Encoding: gzip
+
+{"Status":"connected","ID":"ae92b6535a30566cbae122ebb2a5e754dd58f0ca","IP":"[::1]:52608","HostName":"user.computer","Timestamp":"2022-06-12T12:23:40.626775318+12:00"}
+```
+
+
+As an additional note, please use the `/slack` endpoint if connecting this to discord.
