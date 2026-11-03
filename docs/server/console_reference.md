@@ -198,9 +198,11 @@ Stop the execute of the rssh client.
 Link is by far one of the most complex commands that the RSSH server provides. 
 It gives users the ability to generate new RSSH clients and serve them on an HTTP, HTTPS socket.
 
-It supports cross compilation, and the use of UPX (to make binaries smaller) and garble (to make binaries harder for scrape for build details).
+It supports cross compilation using Mingw, and the use of UPX (to make binaries smaller) and garble (to make binaries harder for scrape for build details).
 
 The docker container is recommended when using this command as its mildly annoying to get the various tools in the path correctly.
+
+Otherwise the server must be placed in the project `bin/` folder, as it needs to find the client source and have the relevant tools installed in path.
 
 
 ### Arguments 

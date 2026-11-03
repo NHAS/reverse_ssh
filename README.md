@@ -133,7 +133,7 @@ scp -J your.rssh.server.internal:3232 dummy.machine:/etc/passwd .
 ## Reference Docs 
 
 You can find more complete documentation in the [docs](/docs/) folder. 
-This includes a cheat sheet, troubling shooting and more.
+This includes a cheatsheet, troubleshooting and more.
 
 ## Sponsors 
 

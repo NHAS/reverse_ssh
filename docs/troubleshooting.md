@@ -1,5 +1,13 @@
 # Help
 
+- [Help](#help)
+  - [Windows](#windows)
+    - [SFTP](#sftp)
+  - [Session spawn errors (`0xc0000142`)](#session-spawn-errors-0xc0000142)
+  - [Server started with `--insecure` still has `Failed to handshake`](#server-started-with---insecure-still-has-failed-to-handshake)
+  - [Foreground vs Background](#foreground-vs-background)
+
+
 ## Windows
 
 ### SFTP
