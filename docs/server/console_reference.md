@@ -1,5 +1,8 @@
 # Server Console Commands
 
+To use the server console you must connect to your rssh server instance directly. 
+Some commands may not be avaiable if you are not connected as an administrator (privilege 5).
+
 +--------------+--------------------------------------------------------------------------------+
 | Function     | Purpose                                                                        |
 +--------------+--------------------------------------------------------------------------------+
