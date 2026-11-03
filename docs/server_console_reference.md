@@ -319,3 +319,8 @@ Defaultly waits for new connection events
 ### Example output
 
 After running `watch` you will get lines that look like this, which denote clients joining and leaving.
+```sh
+Watching clients...
+2026/11/03 15:33:56 -> nhas.computer.local (127.0.0.1:65048 9608fb845b801c42a07479da6bc14f68f290b248) SSH-v2.8.1-23-g35f2725-darwin_arm64 disconnected
+2026/11/03 15:33:57 <- nhas.computer.local (127.0.0.1:65052 631e19fb343b54ae12d95da2d9f6c00943a9572a) SSH-v2.8.1-23-g35f2725-darwin_arm64 connected
+```

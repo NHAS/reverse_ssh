@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/NHAS/reverse_ssh/pkg/observer"
+	"github.com/fatih/color"
 )
 
 type ClientState struct {
@@ -15,6 +16,26 @@ type ClientState struct {
 	HostName  string
 	Version   string
 	Timestamp time.Time
+}
+
+func (wd ClientState) String() string {
+
+	var (
+		arrowDirection = "<-"
+		statusColor    = color.GreenString
+	)
+	if wd.Status == "disconnected" {
+		statusColor = color.RedString
+		arrowDirection = "->"
+	}
+
+	return fmt.Sprintf("%s %s %s (%s %s) %s %s",
+		wd.Timestamp.Format("2006/01/02 15:04:05"),
+		arrowDirection,
+		color.BlueString(wd.HostName),
+		wd.IP,
+		color.YellowString(wd.ID),
+		wd.Version, statusColor(wd.Status))
 }
 
 func (cs ClientState) Summary() string {

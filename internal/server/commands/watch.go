@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -12,7 +13,6 @@ import (
 	"github.com/NHAS/reverse_ssh/internal/server/observers"
 	"github.com/NHAS/reverse_ssh/internal/server/users"
 	"github.com/NHAS/reverse_ssh/internal/terminal"
-	"github.com/fatih/color"
 )
 
 type watch struct {
@@ -21,8 +21,9 @@ type watch struct {
 
 func (w *watch) ValidArgs() map[string]string {
 	return map[string]string{
-		"a": "Lists all previous connection events",
-		"l": "List previous n number of connection events, e.g watch -l 10 shows last 10 connections",
+		"a":    "Lists all previous connection events",
+		"l":    "List previous n number of connection events, e.g watch -l 10 shows last 10 connections",
+		"json": "Print out watch log as json",
 	}
 }
 
@@ -38,7 +39,20 @@ func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLin
 
 		sc := bufio.NewScanner(f)
 		for sc.Scan() {
-			fmt.Fprintf(tty, "%s\n\r", sc.Text())
+
+			currentLine := sc.Text()
+			if !line.IsSet("json") {
+				var clientState observers.ClientState
+				err := json.Unmarshal(sc.Bytes(), &clientState)
+				if err != nil {
+					fmt.Fprintf(tty, "%s\n\r", currentLine)
+					continue
+				}
+
+				currentLine = clientState.String()
+			}
+
+			fmt.Fprintf(tty, "%s\n\r", currentLine)
 		}
 
 		return sc.Err()
@@ -123,14 +137,19 @@ func (w *watch) Run(user *users.User, tty io.ReadWriter, line terminal.ParsedLin
 
 	observerId := observers.ConnectionState.Register(func(c observers.ClientState) {
 
-		var arrowDirection = "<-"
-		if c.Status == "disconnected" {
-			arrowDirection = "->"
-			messages <- fmt.Sprintf("%s %s %s (%s %s) %s %s", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, color.BlueString(c.HostName), c.IP, color.YellowString(c.ID), c.Version, color.RedString(c.Status))
-		} else {
-			messages <- fmt.Sprintf("%s %s %s (%s %s) %s %s", c.Timestamp.Format("2006/01/02 15:04:05"), arrowDirection, color.BlueString(c.HostName), c.IP, color.YellowString(c.ID), c.Version, color.GreenString(c.Status))
+		if line.IsSet("json") {
+			result, err := json.Marshal(c)
+			if err != nil {
+				close(messages)
+				log.Println("failed to encode client state: ", err)
+				return
+			}
+
+			messages <- string(result)
+			return
 		}
 
+		messages <- c.String()
 	})
 
 	term, isTerm := tty.(*terminal.Terminal)
