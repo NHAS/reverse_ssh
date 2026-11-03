@@ -22,6 +22,7 @@ If you're looking for **configuration instructions**,  check the [client](client
     - [Watching client connections](#watching-client-connections)
     - [Listing currently connected users](#listing-currently-connected-users)
   - [Client](#client)
+    - [SSH VPN (tun) support](#ssh-vpn-tun-support)
     - [Backgrounding](#backgrounding)
     - [Shared Library Mode](#shared-library-mode)
     - [Load Server Address / Fingerprint from File](#load-server-address--fingerprint-from-file)
@@ -147,6 +148,11 @@ Useful when you need to bring the server down for some reason the `who` command 
 
 
 ## Client
+
+### SSH VPN (tun) support
+
+RSSH is the only golang project on the internet that supports full SSH tun support due to odd quirks in the golang standard library. 
+This means you can transport UDP/ICMP and TCP over a SSH connection without root on the machine.
 
 ### Backgrounding
 
