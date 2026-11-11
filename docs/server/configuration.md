@@ -2,6 +2,7 @@
 # RSSH Server Configuration
 
 - [RSSH Server Configuration](#rssh-server-configuration)
+  - [Container](#container)
   - [Config file](#config-file)
   - [CLI / Environment Variables](#cli--environment-variables)
     - [Data](#data)
@@ -23,6 +24,22 @@
       - [`--console-label` / `RSSH_CONSOLE_LABEL`](#--console-label--rssh_console_label)
       - [`--config`](#--config)
 
+
+## Container
+
+The container deployment requires that `/data` is mounted so that the server can store client keys, download links and other information. 
+
+Additionally, as container deployments often sit behind a TCP proxy `EXTERNAL_ADDRESS` is required when starting up the RSSH server. 
+
+
+In the cases that a config file is being used, you must put the config file in `/data/config.toml` 
+
+Otherwise the server will be started with the following arguments:
+- `--datadir /data`
+- `--enable-client-downloads`
+- `--tls` 
+- `--external_address $EXTERNAL_ADDRESS`
+- Internal container listen address: `:2222`
 
 ## Config file 
 

@@ -57,7 +57,7 @@ https://github.com/user-attachments/assets/11dc8d14-59f1-4bdd-9503-b70f8a0d2db1
 
 ### Setup
 
-The docker release is recommended as it includes the right version of golang, and a cross compiler for windows.
+The container release is recommended as it includes the right version of golang, and a cross compiler for windows.
 ```sh
 # Start the server
 docker run -p3232:2222 -e EXTERNAL_ADDRESS=<your.rssh.server.internal>:3232 -e SEED_AUTHORIZED_KEYS="<ssh_key>" -v ./data:/data reversessh/reverse_ssh
@@ -141,7 +141,7 @@ A huge thanks to the following folk for donating to the RSSH project and making 
 
 ### Individuals
 [chikamobina](https://github.com/chikamobina) for their generous donations!  
-[wrighterase (ctrlzero)](https://github.com/wrighterase) for their pull requests and donation! 
+[wrighterase (ctrlzero)](https://github.com/wrighterase) for their contributions and donations! 
 
 ### Companies
 
