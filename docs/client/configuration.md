@@ -194,7 +194,7 @@ Build the binary without CGO, see [`CGO_ENABLED`](#cgo_enabled).
 
 ### `--ntlm-proxy-creds`
 
-Set static ntlm proxy credentials into the binary. This setting is not compatiable with [`--use-kerberos`](#--use-kerberos) which fetches the current sessions kerberos ticket dynamically.
+Set static ntlm proxy credentials into the binary. This setting is not compatible with [`--use-kerberos`](#--use-kerberos) which fetches the current sessions kerberos ticket dynamically.
 
 ### `--proxy`
 

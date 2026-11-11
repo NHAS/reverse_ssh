@@ -1,7 +1,7 @@
 # Server Console Commands
 
-To use the server console you must connect to your rssh server instance directly. 
-Some commands may not be avaiable if you are not connected as an administrator (privilege 5).
+To use the server console you must connect to your RSSH server instance directly. 
+Some commands may not be available if you are not connected as an administrator (privilege 5).
 
 
 | Function     | Purpose                                                                        |
@@ -10,12 +10,12 @@ Some commands may not be avaiable if you are not connected as an administrator (
 | [autocomplete](#autocomplete) | Generate bash/zsh autocompletion, or match clients and return list of ids      |
 | clear        | Clear server console                                                           |
 | [connect](#connect)      | Start shell on remote controllable host.                                       |
-| [exec](#exec)         | Execute a command on one or more rssh client                                   |
+| [exec](#exec)         | Execute a command on one or more RSSH client                                   |
 | exit         | Close server console                                                           |
 | help         | Get help for commands, or display all commands                                 |
-| [kill](#kill)         | Stop the execute of the rssh client.                                           |
+| [kill](#kill)         | Stop the execute of the RSSH client.                                           |
 | [link](#link)         | Generate client binary and return link to it                                   |
-| [listen](#listen)       | Change, add or stop rssh server port. Open the server port on a client (proxy) |
+| [listen](#listen)       | Change, add or stop RSSH server port. Open the server port on a client (proxy) |
 | [log](#log)          | Collect log output from client                                                 |
 | ls           | List connected controllable hosts.                                             |
 | map          | Display a topology map of connected clients and their pivot chains             |
@@ -28,7 +28,7 @@ Some commands may not be avaiable if you are not connected as an administrator (
 
 ## access
 
-Temporarily changes the ownership of an RSSH client connection, only lasts until restart of rssh server.
+Temporarily changes the ownership of an RSSH client connection, only lasts until restart of RSSH server.
 
 ```sh
 access [OPTIONS] -p <FILTER>
@@ -60,7 +60,7 @@ owner="username" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBE1xzpHj1ohkDnQYF3UTzjgzGJ
 
 ## autocomplete
 
-Generate a `bashrc` or `zshrc` compatiable RSSH completions. So you can use tab completion on your RSSH client IDs even when not using the server console.
+Generate a `bashrc` or `zshrc` compatible RSSH completions. So you can use tab completion on your RSSH client IDs even when not using the server console.
 ```sh
 autocomplete
         --clients       Return a list of client ids
@@ -70,7 +70,7 @@ autocomplete
 ### Installation
 
 Use `>>` to append them to your `bashrc` or `zshrc`. 
-You will need to add the server address as the `--shel-completion` argument.
+You will need to add the server address as the `--shell-completion` argument.
 
 ```sh
 ssh your.rssh.server.internal -p 3232 autocomplete --shell-completion your.rssh.server.internal:3232 >> .bashrc
@@ -142,9 +142,9 @@ connect --shell rssh://binary fe6c52029e37185e4c7d512edd67a6c7694e2995
 
 `http/https`: Pure web downloading
 
-`rssh`: Download via the rssh server
+`rssh`: Download via the RSSH server
 
-The rssh server will serve content over SSH from the `downloads` directory in the executables working directory.
+The RSSH server will serve content over SSH from the `downloads` directory in the executables working directory.
 
 Both of these methods will opportunistically use [memfd](https://man7.org/linux/man-pages/man2/memfd_create.2.html) on linux which does not write to disk.
 
@@ -172,7 +172,7 @@ Stop the execution of a remote RSSH client.
 ```sh
 kill <remote_id>
 kill <glob pattern>
-Stop the execute of the rssh client.
+Stop the execute of the RSSH client.
         -y      Do not prompt for confirmation before killing clients
 ```
 
@@ -244,7 +244,7 @@ link --shared-object
 
 Starts or stops listening server ports.
 
-This command allows you to change the servers listening port, or forward the servers control port onto an rssh client.
+This command allows you to change the servers listening port, or forward the servers control port onto an RSSH client.
 
 What this means is you can effectively forward the server port that accepts RSSH clients onto a currently running RSSH client.
 

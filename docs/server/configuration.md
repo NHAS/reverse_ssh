@@ -151,14 +151,14 @@ Otherwise please reference this table.
 | `stdio` | A connection via STDIN and STDOUT |  N/A  |
 
 #### `--timeout`
-Set rssh client timeout (when a client is considered disconnected) defaults to *5 seconds*, if set to *0 timeout is disabled*.
+Set RSSH client timeout (when a client is considered disconnected) defaults to *5 seconds*, if set to *0 timeout is disabled*.
 
 This sets timeouts on both the server and RSSH client. 
 The RSSH client uses SSH based timeouts by sending pings at half the interval of the provided timeout. 
 
 The server uses SSH based timeouts same as the client, but also sets TCP timeouts at the operating system/socket level. 
 
-There is also some added complexity around some of the more advanced rssh transports, such as HTTP polling mode where these timeouts may only happen via SSH.
+There is also some added complexity around some of the more advanced RSSH transports, such as HTTP polling mode where these timeouts may only happen via SSH.
 
 
 ### Utility

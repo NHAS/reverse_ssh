@@ -156,7 +156,7 @@ This means you can transport UDP/ICMP and TCP over a SSH connection without root
 
 ### Backgrounding
 
-When an RSSH client is started it tries its best to detach itself from the parent process so that if the parent gets killed, or finishes it doesnt end the RSSH client process. 
+When an RSSH client is started it tries its best to detach itself from the parent process so that if the parent gets killed, or finishes it doesn't end the RSSH client process. 
 
 On linux this is done re-executing the binary then creating a new process group and ignoring any hangup signals that could be thrown. 
 
@@ -184,11 +184,11 @@ sfp -J rssh.server:3232 <client_id> /etc/passwd .
 This has some complexities on windows, checkout [troubleshooting.md](./troubleshooting.md) for more.
 
 ### Kerberos / NTLM Auth
-The RSSH client can use either kerberos or NTLM auth material when connecting to a proxy. You can check out the client reference for how to configure this.
+The RSSH client can use either kerberos or NTLM authentication material when connecting to a proxy. You can check out the client reference for how to configure this.
 
 ### Automatic connect-back
 
-The rssh client allows you to bake in a connect back address.
+The RSSH client allows you to bake in a connect back address.
 By default the `link` command will bake in the servers external address.
 
 When manually building the binary, specify the server address in the `RSSH_HOMESERVER` environment variable:
@@ -244,7 +244,7 @@ ssh -J your.rssh.server.internal:3232 test-pc.user.test-pc -s list
 
 #### All
 
-`list`  Lists avaiable subsystem
+`list`  Lists available subsystem
 
 `sftp`: Runs the sftp handler to transfer files
 
@@ -270,4 +270,4 @@ The client RSSH binary supports being run as windows service.
 
 This project uses `conpty` on current versions of windows, and `winpty` library on older versions. This should mean that the RSSH client on almost all versions of windows will net you a nice shell.
 
-It is still quite challenging to capture all output for some Powershell applets. If you start a command that doesnt seem to end, it may be that it is asking for input in a way that you cannot see. 
+It is still quite challenging to capture all output for some Powershell applets. If you start a command that doesn't seem to end, it may be that it is asking for input in a way that you cannot see. 

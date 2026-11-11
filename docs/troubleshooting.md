@@ -57,7 +57,7 @@ This should start an interactive shell.
 ## Server started with `--insecure` still has `Failed to handshake`
 
 If the client binary was generated with the `link` command this client has the server public key fingerprint baked in by default. If you lose your server private key, the clients will no longer be able to connect.
-You can also generate clients with `link --fingerprint <fingerprint here>` to specify a fingerprint, there isnt currently a way to disable this as per version 1.0.13.
+You can also generate clients with `link --fingerprint <fingerprint here>` to specify a fingerprint, there isn't currently a way to disable this as per version 1.0.13.
 
 ## Foreground vs Background
 

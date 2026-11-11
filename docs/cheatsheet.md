@@ -9,12 +9,14 @@ This document is a bunch of common operations that you might want to just copy a
     - [Dynamic](#dynamic)
     - [Tunnel (ICMP/TCP/UDP)](#tunnel-icmptcpudp)
       - [Important Notice](#important-notice)
+      - [VPN Script Example](#vpn-script-example)
   - [Deploying](#deploying)
     - [Via generated link](#via-generated-link)
       - [Generated Script](#generated-script)
       - [HTTP/HTTPS Download](#httphttps-download)
       - [Raw TCP](#raw-tcp)
       - [Server Port Forwarding](#server-port-forwarding)
+  - [Quality of Life Shell Function](#quality-of-life-shell-function)
 
 
 
@@ -59,6 +61,48 @@ sudo ip route add 0.0.0.0/0 dev tun0
 
 This has some limitations, it is only able to send `UDP`/`TCP`/`ICMP`, and not arbitrary layer 3 protocols. `ICMP` is best effort and may make use of the remote hosts `ping` tool, as `ICMP` sockets are privileged on most machines. This also does not support `tap` devices, e.g layer 2 traffic, as this would require administrative access.
 
+#### VPN Script Example
+
+The following bash script is an example helper script to expedite a tunnel set up and automatically clean-up when the client loses connection or is exited on `ctrl-c`.
+
+```bash
+#!/bin/bash
+
+if [[ $# -ne 3 ]]; then
+    echo "Usage: $0 <interface_id> <local_ip/cidr> <rssh_client>"
+    echo "Example: $0 99 10.10.10.1/24 <rssh_client>"
+    exit 1
+fi
+
+tun_id="$1"
+local_ip="$2"
+rssh_client="$3"
+iface="tun${tun_id}"
+
+cleanup() {
+    echo "[*] Cleaning up..."
+    sudo ip link del "$iface" 2>/dev/null || true
+}
+
+trap cleanup EXIT
+
+echo "[*] Creating interface $iface"
+
+if ip link show "$iface" &>/dev/null; then
+    echo "[*] Interface already exists, removing"
+    sudo ip link del "$iface"
+fi
+
+sudo ip tuntap add dev "$iface" mode tun
+sudo ip addr add "$local_ip" dev "$iface"
+sudo ip link set "$iface" up
+
+echo "[*] Starting RSSH VPN tunnel to $rssh_client"
+echo "[*] Will cleanup on ctrl-c"
+
+ssh -J localhost:2222 -w ${tun_id}:any "$rssh_client" -N
+```
+
 ## Deploying
 
 
@@ -69,7 +113,7 @@ The RSSH server can build and host client binaries (`link` command). Which is th
 By default the `docker` release has this all built properly, and is recommended for use
 
 #### Generated Script
-RSSH http erver supports adding `.sh`, `.py` and `.ps1` to the URL path which will generate a script you can pipe into an intepreter:
+RSSH http server supports adding `.sh`, `.py` and `.ps1` to the URL path which will generate a script you can pipe into an interpreter:
 
 You will need to make sure that `--external_address` is correctly configured either server wide or with the `link` flag for this to work properly
 ```sh
@@ -158,4 +202,35 @@ catcher$ listen -c <client1_id> --on :4343
 
 #Then after you can set up sub clients like this:
 ./sub-rssh-client -d client1_address:4343
+```
+
+## Quality of Life Shell Function
+
+These example functions can be placed in your shell profile to help save keystrokes for common commands.
+
+- Generate randomly named links quickly.
+```bash
+:linrssh() {
+        ssh localhost -p2222 "link --upx --lzma"
+}
+
+:winrssh() {
+        ssh localhost -p2222 "link --upx --lzma --goos windows"
+}
+```
+
+- Create SOCKS proxy through a specified client
+```bash
+:socks() {
+        # usage:
+        # socks <client_id>
+        ssh -D 9999 -J localhost:2222 $1
+}
+```
+
+- Establish tunnel through a client.  Will require the [VPN script example](#vpn%20script%20example)
+```bash
+:rsshvpn() {
+        /opt/tools/reverse_ssh/bin/rssh_vpn.sh $1 $2 $3
+}
 ```
