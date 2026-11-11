@@ -44,7 +44,17 @@ The RSSH client can be configured by either embedding values within the binary a
 RSSH server address.
 
 ### `--destination-file`
-Read server address from file
+Read server address from file. 
+
+e.g 
+```sh
+./client --destination-file /tmp/some/path
+```
+
+`/tmp/some/path`:
+```sh
+your.rssh.server
+```
 
 ### `--foreground`
 Causes the client to run without forking to background.
@@ -53,7 +63,8 @@ Causes the client to run without forking to background.
 Print out embedded server public key SHA256 hex fingerprint.
 
 ### `--fingerprint-file`
-Read server public key SHA256 hex fingerprint from file path
+Read server public key SHA256 hex fingerprint from file path. 
+Very similiar to `--destination-file`, effectively lets you specify the fingerprint which the RSSH client uses to validate the RSSH server public key. 
 
 ### `--proxy`
 Address of `HTTP` connect proxy to use

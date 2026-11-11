@@ -121,8 +121,8 @@ Then you can share various clients with the `access` command, and the `--owner` 
 
 ### Deployment Script generation
 
-When using the `link` command, any link created can have `.sh`, `.py` or `.ps1` (pr's welcome to expand this list) appended to them. Which causes the server to generate a script ready to be piped into a welcoming shell.
-
+When using the `link` command, any link created can have `.sh`, `.py` or `.ps1` (pr's welcome to expand this list) appended to them. Which causes the server to generate a script ready to be piped into a welcoming shell.  
+This script will automatically determine where to put the RSSH client binary and attempt to execute it.
 
 ### Server control port forwarding QOL 
 
