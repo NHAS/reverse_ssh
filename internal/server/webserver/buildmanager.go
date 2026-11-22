@@ -85,6 +85,10 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 		return "", errors.New("web server is not enabled")
 	}
 
+	if config.Lzma && !config.UPX {
+		return "", errors.New("Cannot use --lzma without --upx")
+	}
+
 	if len(config.GOARCH) != 0 && !validArchs[config.GOARCH] {
 		return "", fmt.Errorf("GOARCH supplied is not valid: %s", config.GOARCH)
 	}
@@ -283,10 +287,6 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 
 	f.UrlPath = config.Name
 
-	if config.Lzma && !config.UPX {
-		return "", errors.New("Cannot use --lzma without --upx")
-	}
-
 	if config.UPX {
 		upxArgs := []string{"-qq", "-f", f.FilePath}
 
@@ -302,7 +302,7 @@ func Build(config BuildConfig, progress io.Writer) (string, error) {
 
 	fi, err := os.Stat(f.FilePath)
 	if err != nil {
-		fmt.Println("Error: ", err)
+		return "", fmt.Errorf("unable to stat built client: %w", err)
 	}
 	f.FileSize = float64(fi.Size()) / 1024 / 1024
 
